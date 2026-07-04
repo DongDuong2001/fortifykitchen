@@ -9,6 +9,7 @@ build/
 .next/
 .turbo/
 .dfx/
+*.tsbuildinfo
 
 # Environments & secrets
 .env
