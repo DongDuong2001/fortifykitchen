@@ -1,3 +1,11 @@
+import * as dotenv from "dotenv";
+import * as path from "path";
+
+// Load environment variables from root first
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env.local") });
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
+dotenv.config();
+
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
