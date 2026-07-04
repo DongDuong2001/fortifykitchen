@@ -13,7 +13,7 @@ async function main() {
       email: "admin@fortifykitchen.com",
       firstName: "Admin",
       lastName: "User",
-      passwordHash: "$argon2id$v=19$m=65536,t=3,p=4$z8X5...", // placeholder hash
+      passwordHash: "$argon2id$v=19$m=65536,t=3,p=4$sjgNlDJyZwFM+HF6GrsBGw$NIyJFyEz8A809i4+i85C5hG/2sHN4wh1xJV4dnsY4mM",
       role: "ADMIN",
       isActive: true,
     },

@@ -15,6 +15,16 @@ export default [
         ecmaFeatures: {
           jsx: true
         }
+      },
+      globals: {
+        window: "readonly",
+        document: "readonly",
+        fetch: "readonly",
+        localStorage: "readonly",
+        alert: "readonly",
+        confirm: "readonly",
+        navigator: "readonly",
+        location: "readonly"
       }
     },
     rules: {

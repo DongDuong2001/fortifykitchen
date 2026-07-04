@@ -16,48 +16,70 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --primary: #4f46e5; /* Indigo-600 for admin theme */
+  --background: #fdfdfc;
+  --foreground: #0e120f;
+  --primary: #059669; /* Hunter Emerald to match branding */
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
+  --secondary: #f4f5f2; /* Light Sage Tint */
+  --secondary-foreground: #0e120f;
+  --muted: #f8f9f6;
+  --muted-foreground: #5e6b61;
+  --accent: #d97706; /* Amber Gold highlight */
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #4f46e5;
+  --border: #e2e6e3;
+  --input: #cbd2ce;
+  --ring: #059669;
+  --card: #ffffff;
+  --card-foreground: #0e120f;
+  --popover: #ffffff;
+  --popover-foreground: #0e120f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b0f19;
-    --foreground: #f8fafc;
-    --primary: #6366f1;
-    --primary-foreground: #ffffff;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #111827;
-    --muted-foreground: #94a3b8;
-    --accent: #1e293b;
-    --accent-foreground: #f8fafc;
+    --background: #070a08; /* Deep Obsidian Slate */
+    --foreground: #f2f5f3; /* Warm Tinted White */
+    --primary: #10b981; /* Neon/Vibrant Emerald */
+    --primary-foreground: #070a08;
+    --secondary: #111a14;
+    --secondary-foreground: #f2f5f3;
+    --muted: #0d120f;
+    --muted-foreground: #84948a;
+    --accent: #f59e0b;
+    --accent-foreground: #070a08;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: #1e293b;
-    --input: #334155;
-    --ring: #6366f1;
+    --border: #18221c;
+    --input: #233129;
+    --ring: #10b981;
+    --card: #0d120f;
+    --card-foreground: #f2f5f3;
+    --popover: #0d120f;
+    --popover-foreground: #f2f5f3;
   }
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: var(--font-sans);
 }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
