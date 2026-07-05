@@ -54,7 +54,18 @@ export class DeliveryService {
         where: dateFilter ? { scheduledDate: dateFilter } : undefined,
         include: {
           items: true,
-          subscription: { select: { customerId: true, customerName: true, packageName: true } },
+          subscription: {
+            select: {
+              customerId: true,
+              customerName: true,
+              packageName: true,
+              customer: {
+                select: {
+                  address: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { scheduledDate: "asc" },
       }),
@@ -69,6 +80,8 @@ export class DeliveryService {
       customerName: o.customerName,
       items: o.items.map((i) => ({ protein: i.protein as DeliveryItem["protein"], flavor: i.flavor, sizeGrams: i.sizeGrams, qty: i.qty })),
       totalGrams: o.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
+      paymentMethod: o.paymentMethod,
+      deliveryAddress: o.deliveryAddress ?? undefined,
     }));
 
     const fromDeliveries: UnifiedDeliveryEntry[] = deliveries.map((d) => ({
@@ -82,6 +95,8 @@ export class DeliveryService {
       packageName: d.subscription.packageName,
       items: d.items.map((i) => ({ protein: i.protein as DeliveryItem["protein"], flavor: i.flavor, sizeGrams: i.sizeGrams, qty: i.qty })),
       totalGrams: d.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
+      paymentMethod: "CASH_ON_DELIVERY", // Default for subscriptions
+      deliveryAddress: d.subscription.customer?.address ?? undefined,
     }));
 
     // Oldest first — matches the admin Deliveries tab's "Tất cả" view,
