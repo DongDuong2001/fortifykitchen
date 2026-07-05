@@ -18,9 +18,9 @@ import { Subscription } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 
-// Subscriptions are staff-created — there is no customer self-service
-// signup flow in this product yet, so every route here is staff-only.
+// Subscriptions are staff-created or customer viewed.
 @ApiTags("subscriptions")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("ADMIN", "MANAGER", "STAFF")
@@ -34,6 +34,14 @@ export class SubscriptionsController {
   @ApiResponse({ status: 200, description: "Returns list of all subscriptions." })
   async findAll(): Promise<Subscription[]> {
     return this.subscriptionsService.findAll();
+  }
+
+  @Get("me")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({ summary: "Get current customer's subscription history" })
+  @ApiResponse({ status: 200, description: "Returns own subscriptions." })
+  async findMe(@CurrentUser() user: any): Promise<Subscription[]> {
+    return this.subscriptionsService.findForUser(user.id);
   }
 
   @Get(":id")
