@@ -131,6 +131,12 @@ export class SubscriptionsService {
     return this.findForCustomer(customer.id);
   }
 
+  async findForUser(userId: string): Promise<Subscription[]> {
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) return [];
+    return this.findForCustomer(customer.id);
+  }
+
   // Verifies a delivery actually belongs to a subscription owned by the
   // customer with this phone number, before allowing the public postpone
   // action — prevents anyone from postponing an arbitrary delivery id.

@@ -12,7 +12,7 @@ import {
   ArrayMinSize,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { PaymentState } from "@fortifykitchen/database";
+import { PaymentState, PaymentMethod } from "@fortifykitchen/database";
 
 // Orders are created by staff on behalf of a customer — there is no
 // customer self-checkout. Only menuItemId + qty are accepted per line; the
@@ -31,9 +31,10 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098" })
+  @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098", required: false })
   @IsUUID()
-  customerId!: string;
+  @IsOptional()
+  customerId?: string;
 
   @ApiProperty({ type: [OrderItemDto] })
   @IsArray()
@@ -50,6 +51,16 @@ export class CreateOrderDto {
   @IsEnum(PaymentState)
   @IsOptional()
   paymentStatus?: PaymentState;
+
+  @ApiProperty({ enum: PaymentMethod, example: "CASH_ON_DELIVERY", required: false })
+  @IsEnum(PaymentMethod)
+  @IsOptional()
+  paymentMethod?: PaymentMethod;
+
+  @ApiProperty({ example: "123 Main St", required: false })
+  @IsString()
+  @IsOptional()
+  deliveryAddress?: string;
 
   @ApiProperty({ example: "Giao trước 10h sáng", required: false })
   @IsString()

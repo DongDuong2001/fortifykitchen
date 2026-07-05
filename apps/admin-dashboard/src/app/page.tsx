@@ -19,6 +19,7 @@ import {
   PanelLeftOpen,
   ChefHat,
   Package,
+  Info,
 } from "lucide-react";
 import {
   PROTEIN_LABELS,
@@ -164,6 +165,7 @@ export default function AdminDashboard() {
   // interactive controls) opens this instead of requiring the small Edit
   // icon to see the full order.
   const [orderDetailView, setOrderDetailView] = React.useState<any | null>(null);
+  const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
   const [orderCustomerId, setOrderCustomerId] = React.useState("");
   const [orderDeliveryDate, setOrderDeliveryDate] = React.useState(getLocalDateString());
   const [orderPaymentStatus, setOrderPaymentStatus] = React.useState<(typeof PAYMENT_STATE_OPTIONS)[number]>("UNPAID");
@@ -1119,8 +1121,15 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border mt-auto hidden md:block">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
+          <button
+            onClick={() => setShowPrivacyModal(true)}
+            className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
+          >
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            Privacy & Operating Terms
+          </button>
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
             <span className="truncate max-w-[120px] font-semibold">{user?.email}</span>
             <button
               onClick={handleLogout}
@@ -1466,9 +1475,13 @@ export default function AdminDashboard() {
                               <td className="py-4 text-muted-foreground">
                                 {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
                               </td>
-                              <td className="py-4">
-                                <div className="font-bold">{o.customerName}</div>
-                                {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
+                              <td className="py-4 text-xs">
+                                <div className="font-bold text-foreground">{o.customerName}</div>
+                                <div className="text-[10px] text-muted-foreground flex flex-col gap-0.5 mt-1">
+                                  {o.deliveryAddress && <span className="truncate max-w-[200px]" title={o.deliveryAddress}>📍 {o.deliveryAddress}</span>}
+                                  <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                </div>
+                                {o.notes && <div className="text-[10px] text-primary italic truncate mt-1.5">&quot;{o.notes}&quot;</div>}
                               </td>
                               <td className="py-4 text-muted-foreground">
                                 {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
@@ -2761,6 +2774,17 @@ export default function AdminDashboard() {
               </span>
             </div>
 
+            <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-medium">Địa chỉ giao hàng:</span>
+                <span className="font-semibold text-right max-w-[250px]">{orderDetailView.deliveryAddress || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-medium">Phương thức thanh toán:</span>
+                <span className="font-semibold">{orderDetailView.paymentMethod === "BANK_TRANSFER" ? "VietQR Chuyển khoản" : "Ship COD (Tiền mặt)"}</span>
+              </div>
+            </div>
+
             <div className="border border-border rounded-lg divide-y divide-border/50">
               {(orderDetailView.items || []).map((i: any) => (
                 <div key={i.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
@@ -3226,6 +3250,42 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PRIVACY POLICY & OPERATING TERMS MODAL */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowPrivacyModal(false)} />
+          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8 overflow-hidden max-h-[85vh] flex flex-col text-left">
+            <div className="text-center pb-2 border-b border-border">
+              <h3 className="text-lg font-bold font-heading">Chính sách Bảo mật & Điều khoản Sử dụng (Vận hành)</h3>
+            </div>
+            <div className="overflow-y-auto pr-2 space-y-4 text-xs text-muted-foreground leading-relaxed flex-1">
+              <h4 className="font-bold text-foreground text-sm">1. Quy định chung đối với Nhân viên & Quản trị viên</h4>
+              <p>
+                Hệ thống admin-dashboard của Fortify Kitchen là công cụ nội bộ phục vụ mục đích vận hành, điều phối giao hàng và đối soát thanh toán. Tất cả người dùng có tài khoản quản trị (ADMIN, MANAGER, STAFF) phải tuân thủ nghiêm ngặt các quy định bảo mật này.
+              </p>
+              <h4 className="font-bold text-foreground text-sm">2. Quản lý thông tin khách hàng</h4>
+              <p>
+                Nhân viên tuyệt đối không được tự ý chia sẻ, xuất dữ liệu thông tin cá nhân khách hàng (số điện thoại, địa chỉ, đơn hàng) ra bên ngoài hệ thống khi chưa có sự đồng ý của quản lý cấp cao hoặc yêu cầu pháp lý từ cơ quan chức năng.
+              </p>
+              <h4 className="font-bold text-foreground text-sm">3. Kiểm tra và xác nhận thanh toán</h4>
+              <p>
+                Đối với các đơn hàng sử dụng VietQR chuyển khoản (BANK_TRANSFER), nhân viên có trách nhiệm đối soát thông tin giao dịch trên hệ thống ngân hàng liên kết trước khi thực hiện chuyển đổi trạng thái thanh toán sang &quot;PAID&quot;.
+              </p>
+              <h4 className="font-bold text-foreground text-sm">4. Cam kết bảo mật hệ thống</h4>
+              <p>
+                Tài khoản đăng nhập hệ thống quản trị là tài khoản cá nhân, tuyệt đối không chia sẻ mật khẩu hoặc dùng chung tài khoản với nhân viên khác để đảm bảo truy vết lịch sử vận hành chính xác.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPrivacyModal(false)}
+              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10 mt-4 shrink-0"
+            >
+              Đóng
+            </button>
           </div>
         </div>
       )}

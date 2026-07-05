@@ -82,6 +82,16 @@ export class CustomersService {
     return { linkedOrders, linkedSubscriptions };
   }
 
+  async findByUserId(userId: string): Promise<Customer> {
+    const customer = await this.db.client.customer.findFirst({
+      where: { userId },
+    });
+    if (!customer) {
+      throw new NotFoundException(`Customer for user ID ${userId} not found`);
+    }
+    return this.mapCustomer(customer);
+  }
+
   private mapCustomer(customer: {
     id: string;
     userId: string | null;

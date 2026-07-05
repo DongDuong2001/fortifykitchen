@@ -10,8 +10,10 @@ import {
   IsUUID,
   IsDateString,
   ArrayMinSize,
+  IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { PaymentMethod } from "@fortifykitchen/database";
 
 class PublicOrderItemDto {
   @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098" })
@@ -63,6 +65,11 @@ export class CreatePublicOrderDto {
   @IsDateString()
   @IsOptional()
   deliveryDate?: string;
+
+  @ApiProperty({ enum: PaymentMethod, example: "CASH_ON_DELIVERY", required: false })
+  @IsEnum(PaymentMethod)
+  @IsOptional()
+  paymentMethod?: PaymentMethod;
 
   @ApiProperty({ required: false })
   @IsString()

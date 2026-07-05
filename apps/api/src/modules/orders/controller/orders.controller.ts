@@ -22,9 +22,9 @@ import { Order } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 
-// Orders are staff-created on behalf of a customer — there is no customer
-// self-checkout in this product yet, so every route here is staff-only.
+// Orders are staff-created on behalf of a customer or customer self-checkout.
 @ApiTags("orders")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("ADMIN", "MANAGER", "STAFF")
@@ -34,6 +34,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
+  @Roles("ADMIN", "MANAGER", "STAFF")
   @ApiOperation({ summary: "Get all orders" })
   @ApiQuery({ name: "page", required: false, type: Number, description: "Optional — omit to get every order (default today)" })
   @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 200 per page" })
@@ -42,7 +43,16 @@ export class OrdersController {
     return this.ordersService.findAll(page, limit);
   }
 
+  @Get("me")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({ summary: "Get own order history" })
+  @ApiResponse({ status: 200, description: "Returns customer's order history." })
+  async findMe(@CurrentUser() user: any): Promise<Order[]> {
+    return this.ordersService.findForUser(user.id);
+  }
+
   @Get(":id")
+  @Roles("ADMIN", "MANAGER", "STAFF")
   @ApiOperation({ summary: "Get order details by ID" })
   @ApiResponse({ status: 200, description: "Returns full order details." })
   @ApiResponse({ status: 404, description: "Order not found" })
@@ -51,11 +61,12 @@ export class OrdersController {
   }
 
   @Post()
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
   @ApiOperation({ summary: "Create a new order — server computes pricing via the discount engine" })
   @ApiResponse({ status: 201, description: "Order created." })
   @ApiResponse({ status: 400, description: "Bad request / unknown menu item" })
-  async create(@Body() dto: CreateOrderDto): Promise<Order> {
-    return this.ordersService.create(dto);
+  async create(@Body() dto: CreateOrderDto, @CurrentUser() user: any): Promise<Order> {
+    return this.ordersService.create(dto, user.id, user.role);
   }
 
   @Put(":id")
