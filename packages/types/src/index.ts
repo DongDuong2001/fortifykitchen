@@ -105,6 +105,8 @@ export interface Order {
   paymentStatus: PaymentState;
   deliveryStatus: DeliveryStatus;
   fulfillmentType: OrderFulfillmentType;
+  paymentMethod: PaymentMethod;
+  deliveryAddress?: string;
   subtotal: number;
   discountAmount: number;
   total: number;
@@ -187,6 +189,8 @@ export interface UnifiedDeliveryEntry {
   packageName?: string;
   items: { protein: Protein; flavor: string; sizeGrams: number; qty: number }[];
   totalGrams: number;
+  paymentMethod?: string;
+  deliveryAddress?: string;
 }
 
 // Ledger of actual payment transactions (future real payment processing) —
@@ -197,7 +201,8 @@ export type PaymentMethod =
   | "DEBIT_CARD"
   | "PAYPAL"
   | "STRIPE"
-  | "CASH_ON_DELIVERY";
+  | "CASH_ON_DELIVERY"
+  | "BANK_TRANSFER";
 
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
 
