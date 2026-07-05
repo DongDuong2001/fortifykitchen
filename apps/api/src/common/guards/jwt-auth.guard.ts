@@ -4,10 +4,12 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ConfigService } from "../../config/config.service";
+import { verifyJwt } from "../utils/jwt.util";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor() {}
+  constructor(private readonly configService: ConfigService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -20,23 +22,14 @@ export class JwtAuthGuard implements CanActivate {
     const token = authHeader.split(" ")[1];
 
     try {
-      // Decodes token payload. In production, use standard library verification (e.g. jsonwebtoken)
-      const payload = this.decodeToken(token);
+      // Verifies the HMAC-SHA256 signature against JWT_SECRET and checks
+      // expiry — previously this only base64-decoded the payload with no
+      // signature check at all, so any hand-crafted token was accepted.
+      const payload = verifyJwt(token, this.configService.get("JWT_SECRET"));
       request.user = payload;
       return true;
     } catch {
       throw new UnauthorizedException("Invalid or expired authorization token");
-    }
-  }
-
-  private decodeToken(token: string) {
-    try {
-      const parts = token.split(".");
-      if (parts.length !== 3) throw new Error();
-      const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
-      return payload;
-    } catch {
-      throw new UnauthorizedException("Invalid token format");
     }
   }
 }

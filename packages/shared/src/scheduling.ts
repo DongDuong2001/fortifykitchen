@@ -1,4 +1,4 @@
-import type { DeliveryStatus, PaymentState, Protein } from "@fortifykitchen/types";
+import type { DeliveryStatus, OrderFulfillmentType, PaymentState, Protein } from "@fortifykitchen/types";
 
 /**
  * Protein display names (Vietnamese) — ported from the original app's
@@ -55,6 +55,16 @@ export const DELIVERY_STATUSES: DeliveryStatus[] = [
   "SKIPPED",
   "CANCELLED",
 ];
+
+/**
+ * Labels for OrderFulfillmentType — IMMEDIATE means every line item was
+ * covered by ready stock (no prep needed, decremented at order time);
+ * SCHEDULED means at least one item needs the kitchen to prep it.
+ */
+export const FULFILLMENT_TYPE_LABELS: Record<OrderFulfillmentType, string> = {
+  IMMEDIATE: "Có sẵn — giao ngay",
+  SCHEDULED: "Cần chuẩn bị",
+};
 
 /**
  * Subscription scheduling model.

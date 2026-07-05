@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChefHat,
+  Package,
 } from "lucide-react";
 import {
   PROTEIN_LABELS,
@@ -36,6 +37,20 @@ const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
 const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
 const DELIVERY_STATUS_OPTIONS = ["SCHEDULED", "PREPPING", "DELIVERED", "SKIPPED", "CANCELLED"] as const;
 
+// Orders tab-specific labels for the shared DeliveryStatus enum — reusing
+// the same underlying values as the Deliveries tab (SCHEDULED/PREPPING/
+// DELIVERED) but with wording that matches the Orders workflow: a fresh
+// order is "Ordered", accepting it moves it to "Preparing", and finishing
+// it marks it "Completed". Kept local to this component (not in
+// packages/shared) so it doesn't affect the Deliveries tab's own labels.
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  SCHEDULED: "Ordered",
+  PREPPING: "Preparing",
+  DELIVERED: "Completed",
+  SKIPPED: "Skipped",
+  CANCELLED: "Cancelled",
+};
+
 // `new Date().toISOString().split("T")[0]` computes the UTC calendar date,
 // not the user's local one — for Vietnam (UTC+7) that's wrong for roughly
 // the first 7 hours of every local day (it shows yesterday). This builds
@@ -45,6 +60,22 @@ function getLocalDateString(date: Date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+// Groups same-flavor menu items (e.g. "xá xíu 150g" + "xá xíu 250g") into
+// one dish card with a portion-size toggle, instead of one card per exact
+// protein+flavor+size row — matches the same grouping used on customer-web.
+function groupMenuByFlavor(items: any[]) {
+  const map = new Map<string, { protein: Protein; flavor: string; sizes: any[] }>();
+  for (const item of items) {
+    const key = `${item.protein}::${item.flavor}`;
+    if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+    map.get(key)!.sizes.push(item);
+  }
+  for (const dish of map.values()) {
+    dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
+  }
+  return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
 }
 
 export default function AdminDashboard() {
@@ -58,9 +89,27 @@ export default function AdminDashboard() {
 
   // Section State
   const [section, setSection] = React.useState<
-    "dashboard" | "orders" | "menu" | "subscriptions" | "deliveries" | "customers" | "discounts" | "prep-list"
+    | "dashboard"
+    | "orders"
+    | "menu"
+    | "inventory"
+    | "subscriptions"
+    | "deliveries"
+    | "customers"
+    | "discounts"
+    | "prep-list"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+  // Inventory tab: two sub-views — Monitor (currently in-stock dishes only,
+  // no status badge needed since being listed here already means
+  // available) and Add Stock (restock an existing dish; doing so is what
+  // makes it available — see the isAvailable-forcing rule in the API).
+  const [inventorySubTab, setInventorySubTab] = React.useState<"monitor" | "add">("monitor");
+  const [inventorySort, setInventorySort] = React.useState<"stock-asc" | "stock-desc" | "name">("stock-desc");
+  const [addStockItemId, setAddStockItemId] = React.useState("");
+  const [addStockQty, setAddStockQty] = React.useState(10);
+  const [isAddingStock, setIsAddingStock] = React.useState(false);
 
   // Prep List state
   const [prepDate, setPrepDate] = React.useState(getLocalDateString());
@@ -88,6 +137,11 @@ export default function AdminDashboard() {
   const [deliveryView, setDeliveryView] = React.useState<"all" | "upcoming">("all");
   const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"week" | "month">("week");
   const [upcomingGroups, setUpcomingGroups] = React.useState<any[]>([]);
+  // Deliveries tab filters — apply to both "Tất cả" (grouped by day) and
+  // "Sắp tới" (grouped by week/month) views.
+  const [deliverySourceFilter, setDeliverySourceFilter] = React.useState<"ALL" | "ORDER" | "SUBSCRIPTION">("ALL");
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = React.useState<(typeof DELIVERY_STATUS_OPTIONS)[number] | "ALL">("ALL");
+  const [deliverySearch, setDeliverySearch] = React.useState("");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
 
@@ -106,12 +160,26 @@ export default function AdminDashboard() {
   // --- Order form state ---
   const [orderModal, setOrderModal] = React.useState<"create" | "edit" | null>(null);
   const [editingOrderId, setEditingOrderId] = React.useState<string | null>(null);
+  // Read-only detail view — clicking anywhere on an order row (outside the
+  // interactive controls) opens this instead of requiring the small Edit
+  // icon to see the full order.
+  const [orderDetailView, setOrderDetailView] = React.useState<any | null>(null);
   const [orderCustomerId, setOrderCustomerId] = React.useState("");
   const [orderDeliveryDate, setOrderDeliveryDate] = React.useState(getLocalDateString());
   const [orderPaymentStatus, setOrderPaymentStatus] = React.useState<(typeof PAYMENT_STATE_OPTIONS)[number]>("UNPAID");
   const [orderLineItems, setOrderLineItems] = React.useState<any[]>([]);
   const [orderSelectedMenuItemId, setOrderSelectedMenuItemId] = React.useState("");
   const [orderAddQty, setOrderAddQty] = React.useState(1);
+
+  // --- Orders tab: workflow view + filters ---
+  // "Current" holds everything still in flight (Ordered/Preparing/Skipped);
+  // hitting Complete moves an order to DELIVERED, which drops it out of
+  // Current and into the Completed tab. Cancelled orders get their own tab
+  // too so they don't linger in either working view.
+  const [orderViewTab, setOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
+  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
+  const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
+  const [orderSearch, setOrderSearch] = React.useState("");
 
   // --- Subscription form state (volume-based: one or more protein pools +
   // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
@@ -140,6 +208,15 @@ export default function AdminDashboard() {
   const [menuItemImage, setMenuItemImage] = React.useState("");
   const [menuItemCatId, setMenuItemCatId] = React.useState("");
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
+  const [menuItemStock, setMenuItemStock] = React.useState(0);
+  // Per-card "adjusting" flag so a stock +/- click can't be double-fired
+  // while its request is in flight.
+  const [adjustingStockId, setAdjustingStockId] = React.useState<string | null>(null);
+  // Which size (menuItemId) is showing per dish card in the Menu Catalog
+  // Manager, keyed by "protein::flavor" — same-flavor items with different
+  // sizeGrams are grouped into one card with a size toggle rather than
+  // listed as separate cards. Defaults to the smallest size when unset.
+  const [menuSelectedSizeByDish, setMenuSelectedSizeByDish] = React.useState<Record<string, string>>({});
 
   // Discount Form State
   const [discountCode, setDiscountCode] = React.useState("");
@@ -160,23 +237,54 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const handleLogout = React.useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("fka_token");
+    localStorage.removeItem("fka_user");
+  }, []);
+
+  // Any request can come back 401 if the saved token is missing, expired, or
+  // (one-time case) was issued before a JWT signing fix and is no longer
+  // valid — in every case the right move is the same: drop the stale
+  // session and send the user back to the login screen, rather than
+  // silently rendering empty data. Returns true if it fired, so callers can
+  // bail out of the rest of their response handling.
+  const handleUnauthorized = React.useCallback(
+    (responses: { status: number }[]) => {
+      if (responses.some((r) => r.status === 401)) {
+        handleLogout();
+        alert("Your session has expired — please log in again.");
+        return true;
+      }
+      return false;
+    },
+    [handleLogout],
+  );
+
   const loadData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
 
       if (section === "dashboard") {
-        const res = await fetch(`${API_URL}/dashboard/stats`, { headers });
-        if (res.ok) {
-          const result = await res.json();
+        const [resStats, resMenu] = await Promise.all([
+          fetch(`${API_URL}/dashboard/stats`, { headers }),
+          fetch(`${API_URL}/menu/admin`, { headers }),
+        ]);
+        if (handleUnauthorized([resStats, resMenu])) return;
+        if (resStats.ok) {
+          const result = await resStats.json();
           setStats(result.data);
         }
+        if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
       } else if (section === "orders") {
         const [resOrders, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/orders`, { headers }),
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
         ]);
+        if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
         if (resOrders.ok) setOrders((await resOrders.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
@@ -186,6 +294,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "customers") {
         const res = await fetch(`${API_URL}/customers`, { headers });
+        if (handleUnauthorized([res])) return;
         if (res.ok) {
           const result = await res.json();
           setCustomers(result.data || []);
@@ -197,9 +306,11 @@ export default function AdminDashboard() {
         await fetch(`${API_URL}/subscriptions/sync-deliveries`, { method: "POST", headers });
         if (deliveryView === "upcoming") {
           const res = await fetch(`${API_URL}/deliveries/upcoming?groupBy=${deliveryGroupBy}`, { headers });
+          if (handleUnauthorized([res])) return;
           if (res.ok) setUpcomingGroups((await res.json()).data || []);
         } else {
           const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
+          if (handleUnauthorized([res])) return;
           if (res.ok) setDeliveries((await res.json()).data || []);
         }
       } else if (section === "menu") {
@@ -207,6 +318,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/menu/admin`, { headers }),
           fetch(`${API_URL}/categories`),
         ]);
+        if (handleUnauthorized([resMenu])) return;
         if (resMenu.ok && resCat.ok) {
           const menuData = await resMenu.json();
           const catData = await resCat.json();
@@ -216,12 +328,17 @@ export default function AdminDashboard() {
             setMenuItemCatId(catData.data[0].id);
           }
         }
+      } else if (section === "inventory") {
+        const res = await fetch(`${API_URL}/menu/admin`, { headers });
+        if (handleUnauthorized([res])) return;
+        if (res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
         const [resSubs, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/subscriptions`, { headers }),
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
         ]);
+        if (handleUnauthorized([resSubs, resCustomers, resMenu])) return;
         if (resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
@@ -230,6 +347,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "discounts") {
         const res = await fetch(`${API_URL}/discounts`, { headers });
+        if (handleUnauthorized([res])) return;
         if (res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
@@ -240,7 +358,7 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL, deliveryView, deliveryGroupBy]);
+  }, [token, section, API_URL, deliveryView, deliveryGroupBy, handleUnauthorized]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -263,6 +381,10 @@ export default function AdminDashboard() {
         });
         const result = await res.json().catch(() => null);
         if (cancelled) return;
+        if (res.status === 401) {
+          handleUnauthorized([res]);
+          return;
+        }
         if (res.ok) {
           setPrepData(result?.data || { prepItems: [], totalPortions: 0, totalGrams: 0 });
         } else {
@@ -280,7 +402,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token, section, prepDate, API_URL]);
+  }, [token, section, prepDate, API_URL, handleUnauthorized]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,13 +436,6 @@ export default function AdminDashboard() {
     } finally {
       setIsLoggingIn(false);
     }
-  };
-
-  const handleLogout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("fka_token");
-    localStorage.removeItem("fka_user");
   };
 
   const authHeaders = React.useCallback(
@@ -698,6 +813,7 @@ export default function AdminDashboard() {
         imageUrl: menuItemImage || undefined,
         categoryId: menuItemCatId || undefined,
         isAvailable: menuItemAvailable,
+        stockQuantity: Number(menuItemStock),
       };
 
       const url = menuModal === "edit" ? `${API_URL}/menu/${editingMenuItemId}` : `${API_URL}/menu`;
@@ -750,6 +866,7 @@ export default function AdminDashboard() {
     setMenuItemImage(item.imageUrl || "");
     setMenuItemCatId(item.categoryId || "");
     setMenuItemAvailable(item.isAvailable);
+    setMenuItemStock(item.stockQuantity ?? 0);
     setMenuModal("edit");
   };
 
@@ -761,6 +878,69 @@ export default function AdminDashboard() {
     setMenuItemPrice(25000);
     setMenuItemImage("");
     setMenuItemAvailable(true);
+    setMenuItemStock(0);
+  };
+
+  // Quick +/- stock adjust from the catalog card — hits the dedicated
+  // PATCH /menu/:id/stock endpoint (delta) rather than resending the whole
+  // item form, and optimistically updates the local list so the card
+  // doesn't wait on a full reload to reflect the change.
+  const handleAdjustStock = async (itemId: string, delta: number) => {
+    if (adjustingStockId) return;
+    setAdjustingStockId(itemId);
+    try {
+      const res = await fetch(`${API_URL}/menu/${itemId}/stock`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ delta }),
+      });
+      if (res.ok) {
+        const updated = (await res.json()).data;
+        setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, stockQuantity: updated.stockQuantity } : m)));
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to adjust stock");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAdjustingStockId(null);
+    }
+  };
+
+  // "Add Stock" sub-tab of Inventory — restocking a dish is what makes it
+  // available to customers (see the isAvailable-forcing rule server-side),
+  // so this is the primary "bring a dish online" action, distinct from
+  // creating a brand-new menu item (that's still Menu Catalog Manager).
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addStockItemId || addStockQty <= 0) return;
+    setIsAddingStock(true);
+    try {
+      const res = await fetch(`${API_URL}/menu/${addStockItemId}/stock`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ delta: addStockQty }),
+      });
+      if (res.ok) {
+        const updated = (await res.json()).data;
+        setMenuItems((prev) => prev.map((m) => (m.id === addStockItemId ? { ...m, stockQuantity: updated.stockQuantity, isAvailable: updated.isAvailable } : m)));
+        setAddStockQty(10);
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to add stock");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsAddingStock(false);
+    }
   };
 
   // Create Discount Code
@@ -814,6 +994,38 @@ export default function AdminDashboard() {
   const formatVND = (num: number) => {
     return `${num.toLocaleString()} ₫`;
   };
+
+  // Shared filter predicate for the Deliveries tab — applies identically to
+  // the "Tất cả" (day-grouped) and "Sắp tới" (week/month-grouped) views so
+  // filtering doesn't behave differently depending on which grouping mode
+  // is active.
+  const matchesDeliveryFilters = (d: any): boolean => {
+    if (deliverySourceFilter !== "ALL" && d.source !== deliverySourceFilter) return false;
+    if (deliveryStatusFilter !== "ALL" && d.status !== deliveryStatusFilter) return false;
+    if (deliverySearch.trim() && !d.customerName?.toLowerCase().includes(deliverySearch.trim().toLowerCase())) return false;
+    return true;
+  };
+
+  // Groups the flat "Tất cả" delivery list by calendar day (local time) so
+  // staff can see everything due on a given date at a glance, instead of
+  // scrolling one long table — same grouping shape as the "Sắp tới" view's
+  // week/month groups, just at day granularity.
+  const filteredDeliveriesAll = deliveries.filter(matchesDeliveryFilters);
+  const deliveryDayGroups = (() => {
+    const map = new Map<string, any[]>();
+    for (const d of filteredDeliveriesAll) {
+      const key = getLocalDateString(new Date(d.scheduledDate));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    }
+    return Array.from(map.entries())
+      .map(([date, entries]) => ({
+        date,
+        entries,
+        totalGrams: entries.reduce((s, e) => s + (e.totalGrams || 0), 0),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date)); // oldest day first
+  })();
 
   // Render Login state if not authenticated
   if (!token) {
@@ -886,6 +1098,7 @@ export default function AdminDashboard() {
             { id: "customers", label: "Customers", icon: Users },
             { id: "orders", label: "Orders dispatcher", icon: ShoppingBag },
             { id: "menu", label: "Menu Catalog Manager", icon: Utensils },
+            { id: "inventory", label: "Inventory", icon: Package },
             { id: "subscriptions", label: "Subscriptions", icon: Calendar },
             { id: "deliveries", label: "Deliveries", icon: Truck },
             { id: "prep-list", label: "Prep List", icon: ChefHat },
@@ -974,6 +1187,56 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
+                  {/* Order-workflow KPIs — needs-attention counters, click through to Orders */}
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        label: "Awaiting Acceptance",
+                        value: stats.ordersAwaitingAcceptance || 0,
+                        icon: ShoppingBag,
+                        urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
+                      },
+                      {
+                        label: "In Preparation",
+                        value: stats.ordersInPreparation || 0,
+                        icon: ChefHat,
+                      },
+                      {
+                        label: "Out of Stock Dishes",
+                        value: (stats.outOfStockItems || []).length,
+                        icon: Package,
+                        urgent: (stats.outOfStockItems || []).length > 0,
+                      },
+                      {
+                        label: "Low Stock Dishes",
+                        value: (stats.lowStockItems || []).length,
+                        icon: Package,
+                      },
+                    ].map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSection(item.label.includes("Stock") ? "inventory" : "orders")}
+                        className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
+                          item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <div className="text-xl font-semibold font-heading">{item.value}</div>
+                        </div>
+                        <div
+                          className={`p-3 rounded-md border ${
+                            item.urgent
+                              ? "border-amber-300 bg-amber-100 text-amber-700"
+                              : "border-primary/20 bg-primary/10 text-primary"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Volume-subscription specific KPIs */}
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
@@ -997,6 +1260,11 @@ export default function AdminDashboard() {
                         value: stats.deliveriesThisWeek || 0,
                         icon: ShoppingBag,
                       },
+                      {
+                        label: "Dishes Ready Now",
+                        value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
+                        icon: ChefHat,
+                      },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
@@ -1010,6 +1278,38 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
+                  {/* Inventory alerts — out-of-stock / low-stock dishes */}
+                  {((stats.outOfStockItems || []).length > 0 || (stats.lowStockItems || []).length > 0) && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {(stats.outOfStockItems || []).length > 0 && (
+                        <div className="border border-red-200 bg-red-50 rounded-2xl p-6">
+                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">Out of Stock</h3>
+                          <ul className="space-y-1.5 text-xs">
+                            {stats.outOfStockItems.map((m: any) => (
+                              <li key={m.id} className="flex justify-between text-red-700">
+                                <span>{PROTEIN_LABELS[m.protein as Protein] || m.protein} {m.flavor} ({m.sizeGrams}g)</span>
+                                <span className="font-bold">0</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(stats.lowStockItems || []).length > 0 && (
+                        <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
+                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Low Stock (≤5)</h3>
+                          <ul className="space-y-1.5 text-xs">
+                            {stats.lowStockItems.map((m: any) => (
+                              <li key={m.id} className="flex justify-between text-amber-700">
+                                <span>{PROTEIN_LABELS[m.protein as Protein] || m.protein} {m.flavor} ({m.sizeGrams}g)</span>
+                                <span className="font-bold">{m.stockQuantity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
@@ -1019,6 +1319,7 @@ export default function AdminDashboard() {
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
                             <th className="pb-3 font-semibold">Customer</th>
                             <th className="pb-3 font-semibold">Amount</th>
+                            <th className="pb-3 font-semibold">Fulfillment</th>
                             <th className="pb-3 font-semibold">Status</th>
                             <th className="pb-3 font-semibold">Date</th>
                           </tr>
@@ -1028,6 +1329,17 @@ export default function AdminDashboard() {
                             <tr key={o.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold">{o.customerName}</td>
                               <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
+                              <td className="py-3.5">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                              </td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
                                   {o.deliveryStatus}
@@ -1058,6 +1370,65 @@ export default function AdminDashboard() {
                     </button>
                   </div>
 
+                  {/* Current / Completed / Cancelled — accepting an order
+                      moves it Ordered -> Preparing; marking it Completed
+                      moves it to DELIVERED, which drops it out of Current
+                      into the Completed tab here. */}
+                  <div className="flex gap-2 border-b border-border">
+                    {(
+                      [
+                        { id: "current", label: "Current" },
+                        { id: "completed", label: "Completed" },
+                        { id: "cancelled", label: "Cancelled" },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOrderViewTab(tab.id)}
+                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                          orderViewTab === tab.id
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Filters — only meaningful within Current, where more
+                      than one status/fulfillment type can be mixed together. */}
+                  {orderViewTab === "current" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search customer..."
+                        value={orderSearch}
+                        onChange={(e) => setOrderSearch(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                      />
+                      <select
+                        value={orderStatusFilter}
+                        onChange={(e) => setOrderStatusFilter(e.target.value as typeof orderStatusFilter)}
+                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="ALL">All statuses</option>
+                        <option value="SCHEDULED">Ordered</option>
+                        <option value="PREPPING">Preparing</option>
+                        <option value="SKIPPED">Skipped</option>
+                      </select>
+                      <select
+                        value={orderFulfillmentFilter}
+                        onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
+                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="ALL">All fulfillment</option>
+                        <option value="IMMEDIATE">Ready Now</option>
+                        <option value="SCHEDULED">Needs Prep</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-left">
@@ -1067,14 +1438,31 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">Khách hàng</th>
                             <th className="pb-3 font-semibold">Số phần</th>
                             <th className="pb-3 font-semibold">Tổng tiền</th>
+                            <th className="pb-3 font-semibold">Fulfillment</th>
                             <th className="pb-3 font-semibold">Thanh toán</th>
-                            <th className="pb-3 font-semibold">Giao hàng</th>
+                            <th className="pb-3 font-semibold">Trạng thái</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {orders.map((o) => (
-                            <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
+                          {orders
+                            .filter((o) => {
+                              if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
+                              if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
+                              // "current" = anything not completed/cancelled
+                              if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
+                              if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
+                              if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
+                              if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+                              return true;
+                            })
+                            .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
+                            .map((o) => (
+                            <tr
+                              key={o.id}
+                              onClick={() => setOrderDetailView(o)}
+                              className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
+                            >
                               <td className="py-4 text-muted-foreground">
                                 {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
                               </td>
@@ -1087,6 +1475,17 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
                               <td className="py-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                              </td>
+                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
                                 <select
                                   value={o.paymentStatus}
                                   onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
@@ -1096,25 +1495,59 @@ export default function AdminDashboard() {
                                 </select>
                               </td>
                               <td className="py-4">
-                                <select
-                                  value={o.deliveryStatus}
-                                  onChange={(e) => handleUpdateOrderDeliveryStatus(o.id, e.target.value)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.deliveryStatus === "PREPPING"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : o.deliveryStatus === "DELIVERED"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : o.deliveryStatus === "CANCELLED"
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : o.deliveryStatus === "SKIPPED"
+                                            ? "bg-muted text-muted-foreground border-border"
+                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
                                 >
-                                  {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                </span>
                               </td>
-                              <td className="py-4">
-                                <div className="flex justify-center gap-2">
+                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center items-center gap-2 flex-wrap">
+                                  {o.deliveryStatus === "SCHEDULED" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Accept Order
+                                    </button>
+                                  )}
+                                  {o.deliveryStatus === "PREPPING" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Mark Completed
+                                    </button>
+                                  )}
+                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
+                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleEditOrderTrigger(o)}
                                     className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                    title="Edit"
                                   >
                                     <Edit2 className="h-3.5 w-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteOrder(o.id)}
                                     className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                    title="Delete"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
@@ -1191,7 +1624,7 @@ export default function AdminDashboard() {
                 <div className="space-y-6 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <h3 className="text-sm font-bold font-heading">
-                      Deliveries {deliveryView === "all" ? `(${deliveries.length})` : ""}
+                      Deliveries {deliveryView === "all" ? `(${filteredDeliveriesAll.length})` : ""}
                     </h3>
                     <div className="flex items-center gap-2">
                       <div className="flex rounded-md border border-border overflow-hidden text-[10px] font-bold">
@@ -1221,99 +1654,149 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
+                  {/* Filters — apply to both views */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Tìm khách hàng..."
+                      value={deliverySearch}
+                      onChange={(e) => setDeliverySearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                    <select
+                      value={deliverySourceFilter}
+                      onChange={(e) => setDeliverySourceFilter(e.target.value as typeof deliverySourceFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả loại</option>
+                      <option value="ORDER">Đơn lẻ</option>
+                      <option value="SUBSCRIPTION">Gói đăng ký</option>
+                    </select>
+                    <select
+                      value={deliveryStatusFilter}
+                      onChange={(e) => setDeliveryStatusFilter(e.target.value as typeof deliveryStatusFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      {DELIVERY_STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {deliveryView === "all" ? (
-                    <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
-                          <thead>
-                            <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                              <th className="pb-3 font-semibold">Ngày giao</th>
-                              <th className="pb-3 font-semibold">Loại</th>
-                              <th className="pb-3 font-semibold">Khách hàng</th>
-                              <th className="pb-3 font-semibold">Gói / Món</th>
-                              <th className="pb-3 font-semibold">Khối lượng</th>
-                              <th className="pb-3 font-semibold">Trạng thái</th>
-                              <th className="pb-3 font-semibold text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {deliveries.map((d) => (
-                              <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
-                                <td className="py-3.5 text-muted-foreground">
-                                  {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
-                                </td>
-                                <td className="py-3.5">
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                      d.source === "SUBSCRIPTION"
-                                        ? "bg-primary/10 text-primary border-primary/20"
-                                        : "bg-muted text-muted-foreground border-border"
-                                    }`}
-                                  >
-                                    {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 font-bold">{d.customerName}</td>
-                                <td className="py-3.5 text-primary font-semibold">
-                                  {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
-                                </td>
-                                <td className="py-3.5 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
-                                <td className="py-3.5">
-                                  <select
-                                    value={d.status}
-                                    onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
-                                    className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                  >
-                                    {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                  </select>
-                                </td>
-                                <td className="py-3.5 text-center">
-                                  <div className="flex justify-center items-center gap-2">
-                                    {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                      <button
-                                        onClick={() => handleMarkDelivered(d)}
-                                        title="Xác nhận đã giao"
-                                        className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                                      >
-                                        Đã giao
-                                      </button>
-                                    )}
-                                    {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                      <button
-                                        onClick={() => handlePostponeDelivery(d)}
-                                        title="Hoãn lần giao này (bảo lưu số lượng)"
-                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
-                                      >
-                                        Hoãn
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => handleDeleteDelivery(d)}
-                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    <div className="space-y-6">
+                      {deliveryDayGroups.length === 0 ? (
+                        <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                          Không có lịch giao nào khớp bộ lọc
+                        </div>
+                      ) : (
+                        deliveryDayGroups.map((group) => (
+                          <div key={group.date} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                                {new Date(group.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
+                              </h4>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left">
+                                <thead>
+                                  <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                    <th className="pb-2 font-semibold">Loại</th>
+                                    <th className="pb-2 font-semibold">Khách hàng</th>
+                                    <th className="pb-2 font-semibold">Gói / Món</th>
+                                    <th className="pb-2 font-semibold">Khối lượng</th>
+                                    <th className="pb-2 font-semibold">Trạng thái</th>
+                                    <th className="pb-2 font-semibold text-center">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.entries.map((d: any) => (
+                                    <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
+                                      <td className="py-3">
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                            d.source === "SUBSCRIPTION"
+                                              ? "bg-primary/10 text-primary border-primary/20"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 font-bold">{d.customerName}</td>
+                                      <td className="py-3 text-primary font-semibold">
+                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                      </td>
+                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                      <td className="py-3">
+                                        <select
+                                          value={d.status}
+                                          onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                        >
+                                          {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </td>
+                                      <td className="py-3 text-center">
+                                        <div className="flex justify-center items-center gap-2">
+                                          {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handleMarkDelivered(d)}
+                                              title="Xác nhận đã giao"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                            >
+                                              Đã giao
+                                            </button>
+                                          )}
+                                          {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handlePostponeDelivery(d)}
+                                              title="Hoãn lần giao này (bảo lưu số lượng)"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                            >
+                                              Hoãn
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleDeleteDelivery(d)}
+                                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {upcomingGroups.length === 0 ? (
+                      {upcomingGroups
+                        .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
+                        .filter((group) => group.entries.length > 0).length === 0 ? (
                         <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
-                          Không có lịch giao sắp tới
+                          Không có lịch giao nào khớp bộ lọc
                         </div>
                       ) : (
-                        upcomingGroups.map((group) => (
+                        upcomingGroups
+                          .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
+                          .filter((group) => group.entries.length > 0)
+                          .map((group) => (
                           <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-xs font-bold font-mono uppercase tracking-wider">{group.key}</h4>
                               <span className="text-[10px] text-muted-foreground font-mono">
-                                {group.count} lần giao · {formatGrams(group.totalGrams)}
+                                {group.entries.length} lần giao ·{" "}
+                                {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
                               </span>
                             </div>
                             <div className="space-y-2">
@@ -1366,58 +1849,296 @@ export default function AdminDashboard() {
                   </div>
 
                   {PROTEIN_OPTIONS.filter((p) => menuItems.some((item) => item.protein === p)).map((protein) => {
-                    const items = menuItems
-                      .filter((item) => item.protein === protein)
-                      .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams);
+                    const dishes = groupMenuByFlavor(menuItems.filter((item) => item.protein === protein));
                     return (
                       <div key={protein} className="space-y-3">
                         <div className="flex items-center gap-2">
                           <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
                             {PROTEIN_LABELS[protein]}
                           </h4>
-                          <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">({dishes.length})</span>
                           <div className="flex-1 border-t border-border/60" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                          {items.map((item) => (
-                            <div key={item.id} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
-                              <div>
-                                <div className="flex justify-between items-start gap-3">
-                                  <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
-                                  <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                                  {item.sizeGrams}g
-                                  {item.description ? ` · ${item.description}` : ""}
-                                </p>
-                                <div className="mt-2.5 flex items-center gap-2">
-                                  <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
-                                  <span className="text-[10px] text-muted-foreground font-semibold">
-                                    {item.isAvailable ? "Available" : "Out of Stock"}
-                                  </span>
-                                </div>
-                              </div>
+                          {dishes.map((dish) => {
+                            const dishKey = `${dish.protein}::${dish.flavor}`;
+                            const selectedId = menuSelectedSizeByDish[dishKey];
+                            const item = dish.sizes.find((s: any) => s.id === selectedId) ?? dish.sizes[0];
+                            return (
+                              <div key={dishKey} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
+                                <div>
+                                  <div className="flex justify-between items-start gap-3">
+                                    <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
+                                    <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
+                                  </div>
 
-                              <div className="flex gap-2 pt-3 border-t border-border/30 mt-3">
-                                <button
-                                  onClick={() => handleEditMenuItemTrigger(item)}
-                                  className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
-                                >
-                                  <Edit2 className="h-3 w-3" /> Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteMenuItem(item.id)}
-                                  className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                  {dish.sizes.length > 1 ? (
+                                    <div className="flex gap-1 mt-2">
+                                      {dish.sizes.map((size: any) => (
+                                        <button
+                                          key={size.id}
+                                          onClick={() =>
+                                            setMenuSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))
+                                          }
+                                          className={`px-2 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                            item.id === size.id
+                                              ? "bg-primary border-primary text-primary-foreground"
+                                              : "bg-muted/40 border-border hover:bg-muted"
+                                          }`}
+                                        >
+                                          {size.sizeGrams}g
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground mt-1.5">{item.sizeGrams}g</p>
+                                  )}
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{item.description}</p>
+                                  )}
+                                  <div className="mt-2.5 flex items-center gap-2">
+                                    <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
+                                    <span className="text-[10px] text-muted-foreground font-semibold">
+                                      {item.isAvailable ? "Available" : "Hidden"}
+                                    </span>
+                                  </div>
+
+                                  {/* Live stock — what's actually prepped and ready right now.
+                                      0 means an order for this item needs prep (SCHEDULED). */}
+                                  <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
+                                    <span
+                                      className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                                        (item.stockQuantity ?? 0) > 0
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                                      }`}
+                                    >
+                                      {(item.stockQuantity ?? 0) > 0 ? `${item.stockQuantity} sẵn có` : "Cần chuẩn bị"}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleAdjustStock(item.id, -1)}
+                                        disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                        className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                      >
+                                        −
+                                      </button>
+                                      <button
+                                        onClick={() => handleAdjustStock(item.id, 1)}
+                                        disabled={adjustingStockId === item.id}
+                                        className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-3 border-t border-border/30 mt-3">
+                                  <button
+                                    onClick={() => handleEditMenuItemTrigger(item)}
+                                    className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit2 className="h-3 w-3" /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMenuItem(item.id)}
+                                    className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* SECTION C.5: INVENTORY — two sub-tabs: Monitor (what's
+                  currently in stock — no status indicator needed, being
+                  listed here already means available) and Add Stock
+                  (restocking a dish is what makes it available; see the
+                  isAvailable-forcing rule in MenuService). Separate from
+                  the Menu Catalog Manager's protein-grouped edit view. */}
+              {section === "inventory" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div>
+                    <h3 className="text-sm font-bold font-heading">Inventory</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length} of {menuItems.length} dishes currently in stock
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 border-b border-border">
+                    <button
+                      onClick={() => setInventorySubTab("monitor")}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                        inventorySubTab === "monitor"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Monitor
+                    </button>
+                    <button
+                      onClick={() => setInventorySubTab("add")}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                        inventorySubTab === "add"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Add Stock
+                    </button>
+                  </div>
+
+                  {inventorySubTab === "monitor" && (
+                    <div className="space-y-4">
+                      <div className="flex justify-end">
+                        <select
+                          value={inventorySort}
+                          onChange={(e) => setInventorySort(e.target.value as typeof inventorySort)}
+                          className="text-[11px] font-bold px-2 py-1.5 rounded border border-border bg-background cursor-pointer"
+                        >
+                          <option value="stock-desc">Stock: high to low</option>
+                          <option value="stock-asc">Stock: low to high</option>
+                          <option value="name">Name (A–Z)</option>
+                        </select>
+                      </div>
+
+                      {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length === 0 ? (
+                        <div className="border border-border bg-card rounded-2xl p-8 text-center text-xs text-muted-foreground shadow-sm">
+                          Nothing in stock right now — use the Add Stock tab to bring dishes online.
+                        </div>
+                      ) : (
+                        PROTEIN_OPTIONS.filter((p) =>
+                          menuItems.some((m) => m.protein === p && (m.stockQuantity ?? 0) > 0),
+                        ).map((protein) => {
+                          const items = menuItems
+                            .filter((m) => m.protein === protein && (m.stockQuantity ?? 0) > 0)
+                            .sort((a, b) => {
+                              if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
+                              const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
+                              return inventorySort === "stock-asc" ? diff : -diff;
+                            });
+                          return (
+                            <div key={protein} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                                  {PROTEIN_LABELS[protein]}
+                                </h4>
+                                <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                                <div className="flex-1 border-t border-border/60" />
+                              </div>
+                              <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs text-left">
+                                    <thead>
+                                      <tr className="text-muted-foreground border-b border-border/50">
+                                        <th className="pb-3 font-semibold">Dish</th>
+                                        <th className="pb-3 font-semibold">Size</th>
+                                        <th className="pb-3 font-semibold">Stock</th>
+                                        <th className="pb-3 font-semibold text-right">Adjust</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {items.map((item) => (
+                                        <tr key={item.id} className="border-b border-border/20 last:border-0">
+                                          <td className="py-3 font-bold">{item.flavor}</td>
+                                          <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
+                                          <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                          <td className="py-3">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              <button
+                                                onClick={() => handleAdjustStock(item.id, -1)}
+                                                disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                                className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                              >
+                                                −
+                                              </button>
+                                              <button
+                                                onClick={() => handleAdjustStock(item.id, 1)}
+                                                disabled={adjustingStockId === item.id}
+                                                className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {inventorySubTab === "add" && (
+                    <div className="max-w-md border border-border bg-card rounded-2xl p-6 shadow-sm space-y-4">
+                      <p className="text-xs text-muted-foreground">
+                        Pick a dish and add how many portions just came out of the kitchen. Adding stock makes the
+                        dish available to customers right away.
+                      </p>
+                      <form onSubmit={handleAddStock} className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dish</label>
+                          <select
+                            required
+                            value={addStockItemId}
+                            onChange={(e) => setAddStockItemId(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          >
+                            <option value="">— Select a dish —</option>
+                            {PROTEIN_OPTIONS.map((protein) => {
+                              const items = menuItems
+                                .filter((m) => m.protein === protein)
+                                .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams);
+                              if (items.length === 0) return null;
+                              return (
+                                <optgroup key={protein} label={PROTEIN_LABELS[protein]}>
+                                  {items.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.flavor} ({item.sizeGrams}g) — hiện có {item.stockQuantity ?? 0}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Quantity to add
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min={1}
+                            value={addStockQty}
+                            onChange={(e) => setAddStockQty(Number(e.target.value))}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isAddingStock || !addStockItemId}
+                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {isAddingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                          Add to Inventory
+                        </button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1851,6 +2572,22 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Stock on hand (portions ready right now)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={menuItemStock}
+                  onChange={(e) => setMenuItemStock(Number(e.target.value))}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  0 means orders for this dish need prep first. Use the +/− on the catalog card for quick day-to-day adjustments.
+                </p>
+              </div>
+
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -1969,6 +2706,117 @@ export default function AdminDashboard() {
       )}
 
       {/* ORDER CREATE/EDIT DIALOG MODAL */}
+      {/* Read-only order detail — opened by clicking anywhere on an Orders
+          row (see the onClick on <tr> above), so seeing the full order no
+          longer requires the small Edit icon. */}
+      {orderDetailView && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderDetailView(null)} />
+          <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-5 my-8">
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-lg font-bold font-heading">{orderDetailView.customerName}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Giao {new Date(orderDetailView.deliveryDate).toLocaleDateString("vi-VN")}
+                  {orderDetailView.createdAt && (
+                    <> · Đặt lúc {new Date(orderDetailView.createdAt).toLocaleString("vi-VN")}</>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setOrderDetailView(null)}
+                className="text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-0 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                  orderDetailView.fulfillmentType === "IMMEDIATE"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+              >
+                {orderDetailView.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                  orderDetailView.deliveryStatus === "PREPPING"
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : orderDetailView.deliveryStatus === "DELIVERED"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : orderDetailView.deliveryStatus === "CANCELLED"
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : orderDetailView.deliveryStatus === "SKIPPED"
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+              >
+                {ORDER_STATUS_LABELS[orderDetailView.deliveryStatus] || orderDetailView.deliveryStatus}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
+                {orderDetailView.paymentStatus}
+              </span>
+            </div>
+
+            <div className="border border-border rounded-lg divide-y divide-border/50">
+              {(orderDetailView.items || []).map((i: any) => (
+                <div key={i.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                  <div>
+                    <span className="font-bold">{i.flavor}</span>
+                    <span className="text-muted-foreground"> · {i.sizeGrams}g × {i.qty}</span>
+                  </div>
+                  <span className="font-mono text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Tạm tính</span>
+                <span className="font-mono">{formatVND(orderDetailView.subtotal)}</span>
+              </div>
+              {orderDetailView.discountAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Giảm giá</span>
+                  <span className="font-mono">−{formatVND(orderDetailView.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-border/50">
+                <span>Tổng cộng</span>
+                <span className="text-primary">{formatVND(orderDetailView.total)}</span>
+              </div>
+            </div>
+
+            {orderDetailView.notes && (
+              <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
+                &quot;{orderDetailView.notes}&quot;
+              </p>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setOrderDetailView(null)}
+                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => {
+                  handleEditOrderTrigger(orderDetailView);
+                  setOrderDetailView(null);
+                }}
+                className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-1.5"
+              >
+                <Edit2 className="h-3.5 w-3.5" /> Sửa đơn hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {orderModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderModal(null)} />

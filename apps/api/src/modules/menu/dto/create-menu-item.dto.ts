@@ -39,6 +39,16 @@ export class CreateMenuItemDto {
   @IsOptional()
   isAvailable?: boolean;
 
+  @ApiProperty({
+    example: 0,
+    required: false,
+    description: "Portions prepped and ready right now (0 = needs prep)",
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  stockQuantity?: number;
+
   @ApiProperty({ required: false })
   @IsUUID()
   @IsOptional()

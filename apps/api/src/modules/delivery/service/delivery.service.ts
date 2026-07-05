@@ -4,6 +4,7 @@ import { UpdateDeliveryDto } from "../dto/update-delivery.dto";
 import { Delivery, DeliveryItem, DeliveryStatus as DeliveryStatusType, UnifiedDeliveryEntry } from "@fortifykitchen/types";
 import { DeliveryStatus } from "@fortifykitchen/database";
 import { addDays } from "@fortifykitchen/shared";
+import { parsePagination } from "../../../common/utils/pagination.util";
 
 export interface DeliveryWithSubscriptionInfo extends Delivery {
   customerId?: string;
@@ -40,14 +41,14 @@ export class DeliveryService {
   // single list tagged by `source`, so the admin Deliveries tab can
   // distinguish between them (requirement: "identify between subscription
   // and normal delivery") while still showing them together.
-  async findAllUnified(filters?: { date?: string }): Promise<UnifiedDeliveryEntry[]> {
+  async findAllUnified(filters?: { date?: string; page?: string; limit?: string }): Promise<UnifiedDeliveryEntry[]> {
     const dateFilter = filters?.date ? new Date(filters.date) : undefined;
 
     const [orders, deliveries] = await Promise.all([
       this.db.client.order.findMany({
         where: dateFilter ? { deliveryDate: dateFilter } : undefined,
         include: { items: true },
-        orderBy: { deliveryDate: "desc" },
+        orderBy: { deliveryDate: "asc" },
       }),
       this.db.client.delivery.findMany({
         where: dateFilter ? { scheduledDate: dateFilter } : undefined,
@@ -55,7 +56,7 @@ export class DeliveryService {
           items: true,
           subscription: { select: { customerId: true, customerName: true, packageName: true } },
         },
-        orderBy: { scheduledDate: "desc" },
+        orderBy: { scheduledDate: "asc" },
       }),
     ]);
 
@@ -83,9 +84,21 @@ export class DeliveryService {
       totalGrams: d.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
     }));
 
-    return [...fromOrders, ...fromDeliveries].sort(
-      (a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime(),
+    // Oldest first — matches the admin Deliveries tab's "Tất cả" view,
+    // which shows day groups oldest-to-newest for easier chronological
+    // monitoring.
+    const merged = [...fromOrders, ...fromDeliveries].sort(
+      (a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime(),
     );
+
+    // Pagination applies as a post-merge slice (there's no way to push
+    // skip/take down into two separate findMany calls that then get
+    // interleaved by date) — opt-in only, since the admin Deliveries tab's
+    // day-grouping view needs the full unfiltered set to group correctly and
+    // never passes page/limit today.
+    const { skip, take } = parsePagination(filters?.page, filters?.limit);
+    if (skip === undefined || take === undefined) return merged;
+    return merged.slice(skip, skip + take);
   }
 
   // Upcoming (today onward) entries grouped by ISO week or by month, for the

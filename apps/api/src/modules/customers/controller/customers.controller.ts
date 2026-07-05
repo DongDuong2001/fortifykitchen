@@ -6,12 +6,13 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { CustomersService } from "../service/customers.service";
 import { CreateCustomerDto } from "../dto/create-customer.dto";
 import { UpdateCustomerDto } from "../dto/update-customer.dto";
@@ -32,9 +33,11 @@ export class CustomersController {
 
   @Get()
   @ApiOperation({ summary: "Get all customers" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 200 per page" })
   @ApiResponse({ status: 200, description: "Returns the customer directory." })
-  async findAll(): Promise<Customer[]> {
-    return this.customersService.findAll();
+  async findAll(@Query("page") page?: string, @Query("limit") limit?: string): Promise<Customer[]> {
+    return this.customersService.findAll(page, limit);
   }
 
   @Get(":id")

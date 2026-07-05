@@ -45,6 +45,7 @@ export class DashboardService {
       paymentStatus: o.paymentStatus,
       deliveryDate: o.deliveryDate,
       createdAt: o.createdAt,
+      fulfillmentType: o.fulfillmentType,
     }));
 
     // Deliveries due in the next 7 days (subscription deliveries + one-off
@@ -72,6 +73,29 @@ export class DashboardService {
     const unpaidOrders = await this.db.client.order.count({
       where: { paymentStatus: { not: PaymentState.PAID } },
     });
+
+    // Order-workflow stats (Ordered -> Preparing -> Completed) — surfaced so
+    // staff can see how much is waiting on them right now without opening
+    // the Orders tab first.
+    const [ordersAwaitingAcceptance, ordersInPreparation, ordersCancelledToday] = await Promise.all([
+      this.db.client.order.count({ where: { deliveryStatus: "SCHEDULED" } }),
+      this.db.client.order.count({ where: { deliveryStatus: "PREPPING" } }),
+      this.db.client.order.count({
+        where: { deliveryStatus: "CANCELLED", updatedAt: { gte: today } },
+      }),
+    ]);
+
+    // Inventory alerts — low/out-of-stock dishes, so a zero-stock item never
+    // silently sits invisible to staff until a customer complains.
+    const LOW_STOCK_THRESHOLD = 5;
+    const allMenuItems = await this.db.client.menuItem.findMany({
+      select: { id: true, protein: true, flavor: true, sizeGrams: true, stockQuantity: true },
+    });
+    const outOfStockItems = allMenuItems.filter((m) => m.stockQuantity <= 0).slice(0, 8);
+    const lowStockItems = allMenuItems
+      .filter((m) => m.stockQuantity > 0 && m.stockQuantity <= LOW_STOCK_THRESHOLD)
+      .slice(0, 8);
+    const dishesReadyNow = allMenuItems.filter((m) => m.stockQuantity > 0).length;
 
     // Volume-subscription specific stats.
     const activePools = await this.db.client.subscriptionPool.findMany({
@@ -115,6 +139,12 @@ export class DashboardService {
       outstandingVolumeGrams,
       subscriptionsNearingDepletion,
       gramsDeliveredThisMonth,
+      ordersAwaitingAcceptance,
+      ordersInPreparation,
+      ordersCancelledToday,
+      outOfStockItems,
+      lowStockItems,
+      dishesReadyNow,
     };
   }
 }

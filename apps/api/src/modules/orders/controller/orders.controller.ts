@@ -7,12 +7,13 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { OrdersService } from "../service/orders.service";
 import { CreateOrderDto } from "../dto/create-order.dto";
 import { UpdateOrderDto } from "../dto/update-order.dto";
@@ -34,9 +35,11 @@ export class OrdersController {
 
   @Get()
   @ApiOperation({ summary: "Get all orders" })
+  @ApiQuery({ name: "page", required: false, type: Number, description: "Optional — omit to get every order (default today)" })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 200 per page" })
   @ApiResponse({ status: 200, description: "Returns list of all orders." })
-  async findAll(): Promise<Order[]> {
-    return this.ordersService.findAll();
+  async findAll(@Query("page") page?: string, @Query("limit") limit?: string): Promise<Order[]> {
+    return this.ordersService.findAll(page, limit);
   }
 
   @Get(":id")

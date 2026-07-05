@@ -51,6 +51,9 @@ export interface MenuItem {
   // but needed by the customer-web storefront.
   description?: string;
   imageUrl?: string;
+  // Portions prepped and ready right now — 0 means "needs prep" for this
+  // SKU. Decremented when an Order using it is fulfilled IMMEDIATE.
+  stockQuantity: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -89,6 +92,11 @@ export interface OrderItem extends LineItem {
   orderId: string;
 }
 
+// Whether an Order was fulfilled from ready-made stock (no prep needed) or
+// needs the kitchen to prep it first. Computed server-side at order-creation
+// time from each line item's MenuItem.stockQuantity — never client-set.
+export type OrderFulfillmentType = "IMMEDIATE" | "SCHEDULED";
+
 export interface Order {
   id: string;
   customerId?: string;
@@ -96,6 +104,7 @@ export interface Order {
   deliveryDate: Date;
   paymentStatus: PaymentState;
   deliveryStatus: DeliveryStatus;
+  fulfillmentType: OrderFulfillmentType;
   subtotal: number;
   discountAmount: number;
   total: number;
