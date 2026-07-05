@@ -45,8 +45,24 @@ export default function CustomerPortal() {
     placeOrder,
   } = useApp();
 
-  // Tab State: "menu" | "subscriptions" | "dashboard"
-  const [activeTab, setActiveTab] = React.useState<"menu" | "subscriptions" | "dashboard">("menu");
+  // Tab State: "menu" | "order-now" | "subscriptions" | "dashboard"
+  const [activeTab, setActiveTab] = React.useState<"menu" | "order-now" | "subscriptions" | "dashboard">("menu");
+
+  // "Order Now" — in-stock items only, ready today with no login required.
+  // This is a separate, self-contained flow from the regular cart/checkout
+  // above (which requires an account) since in-stock orders should be as
+  // frictionless as possible: just name + phone + address, like the
+  // subscription phone-lookup view. Server still re-verifies stock and
+  // decides IMMEDIATE vs SCHEDULED — this is just what the UI shows before
+  // submitting.
+  const [orderNowCart, setOrderNowCart] = React.useState<{ menuItem: MenuItem; qty: number }[]>([]);
+  const [orderNowName, setOrderNowName] = React.useState("");
+  const [orderNowPhone, setOrderNowPhone] = React.useState("");
+  const [orderNowAddress, setOrderNowAddress] = React.useState("");
+  const [orderNowNotes, setOrderNowNotes] = React.useState("");
+  const [isSubmittingOrderNow, setIsSubmittingOrderNow] = React.useState(false);
+  const [orderNowResult, setOrderNowResult] = React.useState<any | null>(null);
+  const [orderNowError, setOrderNowError] = React.useState<string | null>(null);
 
   // My Subscription (volume-based) lookup state — subscriptions are set up
   // by staff (see /subscriptions being ADMIN/MANAGER/STAFF-only), so
@@ -274,6 +290,66 @@ export default function CustomerPortal() {
     return `${num.toLocaleString()} ₫`;
   };
 
+  // Items with live stock ready right now — the storefront's Order Now tab
+  // only ever shows these, so a normal Order Now checkout should always
+  // resolve IMMEDIATE server-side (barring a stock race with another
+  // customer, which the server handles by falling back to SCHEDULED).
+  const readyNowItems = menuItems.filter((m) => (m.stockQuantity ?? 0) > 0);
+
+  const addToOrderNowCart = (item: MenuItem) => {
+    setOrderNowCart((prev) => {
+      const maxQty = item.stockQuantity ?? 0;
+      const idx = prev.findIndex((l) => l.menuItem.id === item.id);
+      if (idx > -1) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], qty: Math.min(updated[idx].qty + 1, maxQty) };
+        return updated;
+      }
+      return [...prev, { menuItem: item, qty: Math.min(1, maxQty) }];
+    });
+  };
+
+  const updateOrderNowQty = (itemId: string, qty: number) => {
+    setOrderNowCart((prev) => {
+      if (qty <= 0) return prev.filter((l) => l.menuItem.id !== itemId);
+      return prev.map((l) => (l.menuItem.id === itemId ? { ...l, qty } : l));
+    });
+  };
+
+  const orderNowTotal = orderNowCart.reduce((s, l) => s + l.menuItem.price * l.qty, 0);
+
+  const handleSubmitOrderNow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
+    setIsSubmittingOrderNow(true);
+    setOrderNowError(null);
+    try {
+      const res = await fetch(`${API_URL}/orders/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: orderNowName.trim(),
+          phone: orderNowPhone.trim(),
+          address: orderNowAddress.trim() || undefined,
+          notes: orderNowNotes.trim() || undefined,
+          items: orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty })),
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setOrderNowResult(result.data);
+        setOrderNowCart([]);
+      } else {
+        setOrderNowError(result?.message || "Không thể đặt hàng lúc này");
+      }
+    } catch (err) {
+      console.error(err);
+      setOrderNowError("Lỗi kết nối — vui lòng thử lại");
+    } finally {
+      setIsSubmittingOrderNow(false);
+    }
+  };
+
   const filteredMenu = selectedProtein
     ? menuItems.filter((item) => item.protein === selectedProtein)
     : menuItems;
@@ -311,6 +387,14 @@ export default function CustomerPortal() {
               }`}
             >
               Browse Menu
+            </button>
+            <button
+              onClick={() => setActiveTab("order-now")}
+              className={`hover:text-primary transition-colors py-2 relative ${
+                activeTab === "order-now" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+              }`}
+            >
+              Order Now
             </button>
             <button
               onClick={() => setActiveTab("subscriptions")}
@@ -533,6 +617,169 @@ export default function CustomerPortal() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 1.5: ORDER NOW — in-stock items only, ready today, no account
+            needed. Separate from the cart/checkout flow above on purpose:
+            this should be the fastest possible path to a hot meal. */}
+        {activeTab === "order-now" && (
+          <div>
+            <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
+              <h2 className="text-3xl font-extrabold tracking-tight font-heading">Sẵn sàng giao ngay</h2>
+              <p className="text-sm text-muted-foreground">
+                Những món dưới đây đã được chuẩn bị sẵn — đặt và nhận trong ngày, không cần chờ chuẩn bị.
+              </p>
+            </div>
+
+            {orderNowResult ? (
+              <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-3 shadow-sm">
+                <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
+                <h3 className="text-sm font-bold font-heading">Đặt hàng thành công!</h3>
+                <p className="text-xs text-muted-foreground">
+                  {orderNowResult.fulfillmentType === "IMMEDIATE"
+                    ? "Đơn của bạn đã sẵn sàng — giao ngay hôm nay."
+                    : "Một vài món cần chuẩn bị — đơn của bạn đã được lên lịch."}
+                </p>
+                <p className="text-sm font-bold text-primary">{formatVND(orderNowResult.total)}</p>
+                <button
+                  onClick={() => {
+                    setOrderNowResult(null);
+                    setOrderNowName("");
+                    setOrderNowPhone("");
+                    setOrderNowAddress("");
+                    setOrderNowNotes("");
+                  }}
+                  className="text-xs font-bold px-4 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer"
+                >
+                  Đặt thêm đơn khác
+                </button>
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-4">
+                  {isLoadingMenu ? (
+                    <div className="flex justify-center py-16">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : readyNowItems.length === 0 ? (
+                    <div className="text-center py-16 border border-dashed border-border rounded-xl">
+                      <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-xs text-muted-foreground">Hiện chưa có món nào sẵn sàng giao ngay.</p>
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {readyNowItems.map((item) => {
+                        const inCart = orderNowCart.find((l) => l.menuItem.id === item.id);
+                        return (
+                          <div key={item.id} className="border border-border bg-card rounded-xl p-4 space-y-3">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="min-w-0">
+                                <h4 className="text-sm font-bold font-heading truncate">{item.flavor}</h4>
+                                <p className="text-xs text-muted-foreground">{item.sizeGrams}g</p>
+                              </div>
+                              <span className="text-xs font-bold text-primary shrink-0">{formatVND(item.price)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {item.stockQuantity} sẵn có
+                              </span>
+                              {inCart ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => updateOrderNowQty(item.id, inCart.qty - 1)}
+                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </button>
+                                  <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
+                                  <button
+                                    onClick={() => updateOrderNowQty(item.id, inCart.qty + 1)}
+                                    disabled={inCart.qty >= item.stockQuantity}
+                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => addToOrderNowCart(item)}
+                                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
+                                >
+                                  Thêm
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border border-border bg-card rounded-2xl p-6 space-y-4 h-fit shadow-sm">
+                  <h3 className="text-sm font-bold font-heading">Đơn hàng của bạn</h3>
+                  {orderNowCart.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Chưa có món nào — chọn từ danh sách bên trái.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {orderNowCart.map((l) => (
+                        <div key={l.menuItem.id} className="flex justify-between text-xs">
+                          <span className="truncate pr-2">{l.menuItem.flavor} ×{l.qty}</span>
+                          <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
+                        <span>Tổng cộng</span>
+                        <span className="text-primary">{formatVND(orderNowTotal)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmitOrderNow} className="space-y-3 pt-2 border-t border-border/50">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Họ và tên"
+                      value={orderNowName}
+                      onChange={(e) => setOrderNowName(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="Số điện thoại"
+                      value={orderNowPhone}
+                      onChange={(e) => setOrderNowPhone(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Địa chỉ giao hàng"
+                      value={orderNowAddress}
+                      onChange={(e) => setOrderNowAddress(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                    <textarea
+                      placeholder="Ghi chú (tuỳ chọn)"
+                      value={orderNowNotes}
+                      onChange={(e) => setOrderNowNotes(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                      rows={2}
+                    />
+                    {orderNowError && <p className="text-[10px] text-red-500">{orderNowError}</p>}
+                    <button
+                      type="submit"
+                      disabled={orderNowCart.length === 0 || isSubmittingOrderNow}
+                      className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {isSubmittingOrderNow && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Đặt hàng ngay
+                    </button>
+                  </form>
+                </div>
               </div>
             )}
           </div>

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import { DatabaseService } from "../../../database/database.service";
 import { CreateOrderDto } from "../dto/create-order.dto";
 import { UpdateOrderDto } from "../dto/update-order.dto";
+import { CreatePublicOrderDto } from "../dto/create-public-order.dto";
 import { calculateOrderTotal } from "@fortifykitchen/shared";
 import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
 import { DeliveryStatus, PaymentState, OrderFulfillmentType, Prisma } from "@fortifykitchen/database";
@@ -115,14 +116,71 @@ export class OrdersService {
       throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    const lineItems = await this.buildLineItems(dto.items);
+    return this.createForCustomer(
+      customer,
+      dto.items,
+      dto.deliveryDate,
+      dto.paymentStatus,
+      dto.notes,
+    );
+  }
+
+  // Customer self-checkout — no login system yet, so phone number is the
+  // identity: reuse an existing Customer with this phone, or create one on
+  // the fly (mirroring how staff add ad-hoc customers today). Everything
+  // else (fulfillment resolution, stock decrement, pricing) is identical to
+  // the staff-facing create() above — same rules apply regardless of who's
+  // placing the order.
+  async createPublic(dto: CreatePublicOrderDto): Promise<Order> {
+    let customer = await this.db.client.customer.findFirst({ where: { phone: dto.phone } });
+    if (!customer) {
+      customer = await this.db.client.customer.create({
+        data: { name: dto.name, phone: dto.phone, address: dto.address },
+      });
+    } else if (dto.address && !customer.address) {
+      // Fill in an address we didn't have yet; never overwrite one already on file.
+      customer = await this.db.client.customer.update({
+        where: { id: customer.id },
+        data: { address: dto.address },
+      });
+    }
+
+    // Fallback date only matters if the order turns out SCHEDULED (some
+    // item was short) — default to tomorrow so it's never in the past.
+    const fallbackDeliveryDate =
+      dto.deliveryDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    return this.createForCustomer(customer, dto.items, fallbackDeliveryDate, undefined, dto.notes);
+  }
+
+  // Order history for the customer-web "My Orders" view — same phone-based
+  // identity check used by the subscriptions self-service view.
+  async findForPhone(phone: string): Promise<Order[]> {
+    const customer = await this.db.client.customer.findFirst({ where: { phone } });
+    if (!customer) return [];
+    const orders = await this.db.client.order.findMany({
+      where: { customerId: customer.id },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return orders.map((o) => this.mapOrder(o));
+  }
+
+  private async createForCustomer(
+    customer: { id: string; name: string },
+    items: { menuItemId: string; qty: number }[],
+    deliveryDateInput: string,
+    paymentStatus: PaymentState | undefined,
+    notes: string | undefined,
+  ): Promise<Order> {
+    const lineItems = await this.buildLineItems(items);
     const pricing = calculateOrderTotal(lineItems);
-    const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(dto.items);
+    const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
     // IMMEDIATE orders are ready today, no scheduling needed — force the
     // delivery date to today regardless of what was submitted.
     const deliveryDate =
-      fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(dto.deliveryDate);
+      fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
 
     const order = await this.db.client.$transaction(async (tx) => {
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
@@ -134,13 +192,13 @@ export class OrdersService {
           customerId: customer.id,
           customerName: customer.name,
           deliveryDate,
-          paymentStatus: dto.paymentStatus ?? PaymentState.UNPAID,
+          paymentStatus: paymentStatus ?? PaymentState.UNPAID,
           deliveryStatus: DeliveryStatus.SCHEDULED,
           fulfillmentType,
           subtotal: Math.round(pricing.lineSubtotal),
           discountAmount: Math.round(pricing.orderDiscountAmount),
           total: Math.round(pricing.finalTotal),
-          notes: dto.notes,
+          notes,
           items: {
             create: lineItems.map((l) => ({
               menuItemId: l.menuItemId,
