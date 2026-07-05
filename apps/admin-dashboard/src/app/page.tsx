@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChefHat,
+  Package,
 } from "lucide-react";
 import {
   PROTEIN_LABELS,
@@ -58,9 +59,23 @@ export default function AdminDashboard() {
 
   // Section State
   const [section, setSection] = React.useState<
-    "dashboard" | "orders" | "menu" | "subscriptions" | "deliveries" | "customers" | "discounts" | "prep-list"
+    | "dashboard"
+    | "orders"
+    | "menu"
+    | "inventory"
+    | "subscriptions"
+    | "deliveries"
+    | "customers"
+    | "discounts"
+    | "prep-list"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+  // Inventory tab: sort + filter controls, separate from the Menu Catalog
+  // Manager's protein-grouped edit view — this one is for at-a-glance stock
+  // monitoring across every dish at once.
+  const [inventorySort, setInventorySort] = React.useState<"stock-asc" | "stock-desc" | "name">("stock-asc");
+  const [inventoryShowLowOnly, setInventoryShowLowOnly] = React.useState(false);
 
   // Prep List state
   const [prepDate, setPrepDate] = React.useState(getLocalDateString());
@@ -224,6 +239,9 @@ export default function AdminDashboard() {
             setMenuItemCatId(catData.data[0].id);
           }
         }
+      } else if (section === "inventory") {
+        const res = await fetch(`${API_URL}/menu/admin`, { headers });
+        if (res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
         const [resSubs, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/subscriptions`, { headers }),
@@ -927,6 +945,7 @@ export default function AdminDashboard() {
             { id: "customers", label: "Customers", icon: Users },
             { id: "orders", label: "Orders dispatcher", icon: ShoppingBag },
             { id: "menu", label: "Menu Catalog Manager", icon: Utensils },
+            { id: "inventory", label: "Inventory", icon: Package },
             { id: "subscriptions", label: "Subscriptions", icon: Calendar },
             { id: "deliveries", label: "Deliveries", icon: Truck },
             { id: "prep-list", label: "Prep List", icon: ChefHat },
@@ -1518,6 +1537,123 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* SECTION C.5: INVENTORY MONITOR — a stock-first view across
+                  every dish, separate from the Menu Catalog Manager's
+                  protein-grouped edit view. Sorted low-to-high by default so
+                  whatever needs restocking floats to the top. */}
+              {section === "inventory" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex flex-wrap justify-between items-center gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold font-heading">Inventory</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {menuItems.filter((m) => (m.stockQuantity ?? 0) <= 0).length} of {menuItems.length} dishes need prep
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={inventoryShowLowOnly}
+                          onChange={(e) => setInventoryShowLowOnly(e.target.checked)}
+                          className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                        />
+                        Needs prep only
+                      </label>
+                      <select
+                        value={inventorySort}
+                        onChange={(e) => setInventorySort(e.target.value as typeof inventorySort)}
+                        className="text-[11px] font-bold px-2 py-1.5 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="stock-asc">Stock: low to high</option>
+                        <option value="stock-desc">Stock: high to low</option>
+                        <option value="name">Name (A–Z)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border/50">
+                            <th className="pb-3 font-semibold">Protein</th>
+                            <th className="pb-3 font-semibold">Dish</th>
+                            <th className="pb-3 font-semibold">Size</th>
+                            <th className="pb-3 font-semibold">Stock</th>
+                            <th className="pb-3 font-semibold">Status</th>
+                            <th className="pb-3 font-semibold text-right">Adjust</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menuItems
+                            .filter((m) => !inventoryShowLowOnly || (m.stockQuantity ?? 0) <= 0)
+                            .sort((a, b) => {
+                              if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
+                              const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
+                              return inventorySort === "stock-asc" ? diff : -diff;
+                            })
+                            .map((item) => (
+                              <tr key={item.id} className="border-b border-border/20 last:border-0">
+                                <td className="py-3 text-muted-foreground">
+                                  {PROTEIN_LABELS[item.protein as Protein] || item.protein}
+                                </td>
+                                <td className="py-3 font-bold">{item.flavor}</td>
+                                <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
+                                <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                <td className="py-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                      (item.stockQuantity ?? 0) > 0
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}
+                                  >
+                                    {(item.stockQuantity ?? 0) > 0 ? "Ready" : "Needs prep"}
+                                  </span>
+                                </td>
+                                <td className="py-3">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleAdjustStock(item.id, -1)}
+                                      disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                      className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                    >
+                                      −
+                                    </button>
+                                    <button
+                                      onClick={() => handleAdjustStock(item.id, 1)}
+                                      disabled={adjustingStockId === item.id}
+                                      className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                    <button
+                                      onClick={() => handleAdjustStock(item.id, 10)}
+                                      disabled={adjustingStockId === item.id}
+                                      className="ml-1 h-6 px-2 flex items-center justify-center rounded border border-border hover:bg-muted text-[10px] font-bold disabled:opacity-30 cursor-pointer"
+                                      title="Add 10 (e.g. a fresh batch out of the kitchen)"
+                                    >
+                                      +10
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          {menuItems.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                No menu items yet — add some in Menu Catalog Manager first.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
