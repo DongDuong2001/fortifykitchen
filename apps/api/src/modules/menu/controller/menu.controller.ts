@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { MenuService } from "../service/menu.service";
 import { CreateMenuItemDto } from "../dto/create-menu-item.dto";
+import { AdjustStockDto } from "../dto/adjust-stock.dto";
 import { MenuItem } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
@@ -64,6 +65,21 @@ export class MenuController {
     @Body() dto: CreateMenuItemDto,
   ): Promise<MenuItem> {
     return this.menuService.update(id, dto);
+  }
+
+  @Patch(":id/stock")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN", "MANAGER", "STAFF")
+  @ApiBearerAuth("JWT-auth")
+  @ApiOperation({ summary: "Set or adjust a menu item's live stock quantity" })
+  @ApiResponse({ status: 200, description: "Stock updated." })
+  @ApiResponse({ status: 400, description: "Bad request / would go negative" })
+  @ApiResponse({ status: 404, description: "Menu item not found" })
+  async adjustStock(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AdjustStockDto,
+  ): Promise<MenuItem> {
+    return this.menuService.adjustStock(id, dto);
   }
 
   @Delete(":id")

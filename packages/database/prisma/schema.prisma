@@ -43,6 +43,15 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+// Whether an Order was fulfilled from ready-made stock (no prep needed,
+// delivered/picked up right away) or needs the kitchen to prep it first.
+// Computed automatically at order-creation time from each line item's
+// MenuItem.stockQuantity — never set directly by the client.
+enum OrderFulfillmentType {
+  IMMEDIATE // every line item had enough stockQuantity; stock was decremented
+  SCHEDULED // at least one line item needed prep; no stock was touched
+}
+
 enum Protein {
   CHICKEN
   BEEF
@@ -155,6 +164,12 @@ model MenuItem {
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  // How many portions of this exact SKU are prepped and ready to go right
+  // now — decremented when an Order is fulfilled IMMEDIATE, restored if
+  // that order is later cancelled/deleted before delivery. 0 means "needs
+  // prep" for this item (the normal/original behavior).
+  stockQuantity Int @default(0)
+
   // Optional customer-facing copy/photo — not used by the admin tool today
   // but needed by the customer-web storefront.
   description String?
@@ -181,19 +196,21 @@ model Order {
   customer        Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerName    String // denormalized snapshot; survives customer deletion
   deliveryDate    DateTime
-  paymentStatus   PaymentState   @default(UNPAID)
-  deliveryStatus  DeliveryStatus @default(SCHEDULED)
+  paymentStatus   PaymentState         @default(UNPAID)
+  deliveryStatus  DeliveryStatus       @default(SCHEDULED)
+  fulfillmentType OrderFulfillmentType @default(SCHEDULED)
   subtotal        Int
-  discountAmount  Int            @default(0)
+  discountAmount  Int                  @default(0)
   total           Int
   notes           String?
   items           OrderItem[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([customerId])
   @@index([deliveryDate])
   @@index([paymentStatus])
+  @@index([fulfillmentType])
 }
 
 model OrderItem {

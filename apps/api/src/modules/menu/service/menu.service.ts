@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateMenuItemDto } from "../dto/create-menu-item.dto";
+import { AdjustStockDto } from "../dto/adjust-stock.dto";
 import { MenuItem } from "@fortifykitchen/types";
 
 @Injectable()
@@ -56,6 +57,7 @@ export class MenuService {
         categoryId: dto.categoryId,
         description: dto.description,
         imageUrl: dto.imageUrl,
+        stockQuantity: dto.stockQuantity ?? 0,
       },
     });
 
@@ -85,7 +87,41 @@ export class MenuService {
         categoryId: dto.categoryId ?? null,
         description: dto.description,
         imageUrl: dto.imageUrl,
+        // Only touch stockQuantity if the caller actually sent one — the
+        // admin's edit-item form and the dedicated stock-adjust endpoint
+        // (adjustStock below) are two different workflows and shouldn't
+        // stomp on each other.
+        ...(dto.stockQuantity !== undefined ? { stockQuantity: dto.stockQuantity } : {}),
       },
+    });
+
+    return this.mapMenuItem(item);
+  }
+
+  // Dedicated stock-adjustment path for the admin Stock tab — set an
+  // absolute count (physical recount) or apply a signed delta (kitchen just
+  // finished a batch, or spoilage/waste). Kept separate from the general
+  // update() so quick stock changes don't require resending the whole item
+  // form.
+  async adjustStock(id: string, dto: AdjustStockDto): Promise<MenuItem> {
+    const existing = await this.findOne(id);
+
+    let nextQuantity: number;
+    if (dto.set !== undefined) {
+      nextQuantity = dto.set;
+    } else if (dto.delta !== undefined) {
+      nextQuantity = existing.stockQuantity + dto.delta;
+    } else {
+      throw new BadRequestException("Must provide either `set` or `delta`");
+    }
+
+    if (nextQuantity < 0) {
+      throw new BadRequestException("Stock quantity cannot go below 0");
+    }
+
+    const item = await this.db.client.menuItem.update({
+      where: { id },
+      data: { stockQuantity: nextQuantity },
     });
 
     return this.mapMenuItem(item);
@@ -108,6 +144,7 @@ export class MenuService {
     categoryId: string | null;
     description: string | null;
     imageUrl: string | null;
+    stockQuantity: number;
     createdAt: Date;
     updatedAt: Date;
   }): MenuItem {
@@ -121,6 +158,7 @@ export class MenuService {
       categoryId: item.categoryId ?? undefined,
       description: item.description ?? undefined,
       imageUrl: item.imageUrl ?? undefined,
+      stockQuantity: item.stockQuantity,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     };

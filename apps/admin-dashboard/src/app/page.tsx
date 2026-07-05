@@ -140,6 +140,10 @@ export default function AdminDashboard() {
   const [menuItemImage, setMenuItemImage] = React.useState("");
   const [menuItemCatId, setMenuItemCatId] = React.useState("");
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
+  const [menuItemStock, setMenuItemStock] = React.useState(0);
+  // Per-card "adjusting" flag so a stock +/- click can't be double-fired
+  // while its request is in flight.
+  const [adjustingStockId, setAdjustingStockId] = React.useState<string | null>(null);
 
   // Discount Form State
   const [discountCode, setDiscountCode] = React.useState("");
@@ -166,11 +170,15 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (section === "dashboard") {
-        const res = await fetch(`${API_URL}/dashboard/stats`, { headers });
-        if (res.ok) {
-          const result = await res.json();
+        const [resStats, resMenu] = await Promise.all([
+          fetch(`${API_URL}/dashboard/stats`, { headers }),
+          fetch(`${API_URL}/menu/admin`, { headers }),
+        ]);
+        if (resStats.ok) {
+          const result = await resStats.json();
           setStats(result.data);
         }
+        if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
       } else if (section === "orders") {
         const [resOrders, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/orders`, { headers }),
@@ -698,6 +706,7 @@ export default function AdminDashboard() {
         imageUrl: menuItemImage || undefined,
         categoryId: menuItemCatId || undefined,
         isAvailable: menuItemAvailable,
+        stockQuantity: Number(menuItemStock),
       };
 
       const url = menuModal === "edit" ? `${API_URL}/menu/${editingMenuItemId}` : `${API_URL}/menu`;
@@ -750,6 +759,7 @@ export default function AdminDashboard() {
     setMenuItemImage(item.imageUrl || "");
     setMenuItemCatId(item.categoryId || "");
     setMenuItemAvailable(item.isAvailable);
+    setMenuItemStock(item.stockQuantity ?? 0);
     setMenuModal("edit");
   };
 
@@ -761,6 +771,37 @@ export default function AdminDashboard() {
     setMenuItemPrice(25000);
     setMenuItemImage("");
     setMenuItemAvailable(true);
+    setMenuItemStock(0);
+  };
+
+  // Quick +/- stock adjust from the catalog card — hits the dedicated
+  // PATCH /menu/:id/stock endpoint (delta) rather than resending the whole
+  // item form, and optimistically updates the local list so the card
+  // doesn't wait on a full reload to reflect the change.
+  const handleAdjustStock = async (itemId: string, delta: number) => {
+    if (adjustingStockId) return;
+    setAdjustingStockId(itemId);
+    try {
+      const res = await fetch(`${API_URL}/menu/${itemId}/stock`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ delta }),
+      });
+      if (res.ok) {
+        const updated = (await res.json()).data;
+        setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, stockQuantity: updated.stockQuantity } : m)));
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to adjust stock");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAdjustingStockId(null);
+    }
   };
 
   // Create Discount Code
@@ -997,6 +1038,11 @@ export default function AdminDashboard() {
                         value: stats.deliveriesThisWeek || 0,
                         icon: ShoppingBag,
                       },
+                      {
+                        label: "Dishes Ready Now",
+                        value: menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
+                        icon: ChefHat,
+                      },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
@@ -1019,6 +1065,7 @@ export default function AdminDashboard() {
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
                             <th className="pb-3 font-semibold">Customer</th>
                             <th className="pb-3 font-semibold">Amount</th>
+                            <th className="pb-3 font-semibold">Fulfillment</th>
                             <th className="pb-3 font-semibold">Status</th>
                             <th className="pb-3 font-semibold">Date</th>
                           </tr>
@@ -1028,6 +1075,17 @@ export default function AdminDashboard() {
                             <tr key={o.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold">{o.customerName}</td>
                               <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
+                              <td className="py-3.5">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                              </td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
                                   {o.deliveryStatus}
@@ -1067,6 +1125,7 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">Khách hàng</th>
                             <th className="pb-3 font-semibold">Số phần</th>
                             <th className="pb-3 font-semibold">Tổng tiền</th>
+                            <th className="pb-3 font-semibold">Fulfillment</th>
                             <th className="pb-3 font-semibold">Thanh toán</th>
                             <th className="pb-3 font-semibold">Giao hàng</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
@@ -1086,6 +1145,17 @@ export default function AdminDashboard() {
                                 {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
                               </td>
                               <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
+                              <td className="py-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                              </td>
                               <td className="py-4">
                                 <select
                                   value={o.paymentStatus}
@@ -1393,8 +1463,38 @@ export default function AdminDashboard() {
                                 <div className="mt-2.5 flex items-center gap-2">
                                   <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
                                   <span className="text-[10px] text-muted-foreground font-semibold">
-                                    {item.isAvailable ? "Available" : "Out of Stock"}
+                                    {item.isAvailable ? "Available" : "Hidden"}
                                   </span>
+                                </div>
+
+                                {/* Live stock — what's actually prepped and ready right now.
+                                    0 means an order for this item needs prep (SCHEDULED). */}
+                                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
+                                  <span
+                                    className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                                      (item.stockQuantity ?? 0) > 0
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                                    }`}
+                                  >
+                                    {(item.stockQuantity ?? 0) > 0 ? `${item.stockQuantity} sẵn có` : "Cần chuẩn bị"}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleAdjustStock(item.id, -1)}
+                                      disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                      className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                    >
+                                      −
+                                    </button>
+                                    <button
+                                      onClick={() => handleAdjustStock(item.id, 1)}
+                                      disabled={adjustingStockId === item.id}
+                                      className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
 
@@ -1849,6 +1949,22 @@ export default function AdminDashboard() {
                   onChange={(e) => setMenuItemImage(e.target.value)}
                   className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Stock on hand (portions ready right now)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={menuItemStock}
+                  onChange={(e) => setMenuItemStock(Number(e.target.value))}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  0 means orders for this dish need prep first. Use the +/− on the catalog card for quick day-to-day adjustments.
+                </p>
               </div>
 
               <div className="flex items-center gap-2">
