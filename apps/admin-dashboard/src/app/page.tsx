@@ -160,6 +160,10 @@ export default function AdminDashboard() {
   // --- Order form state ---
   const [orderModal, setOrderModal] = React.useState<"create" | "edit" | null>(null);
   const [editingOrderId, setEditingOrderId] = React.useState<string | null>(null);
+  // Read-only detail view — clicking anywhere on an order row (outside the
+  // interactive controls) opens this instead of requiring the small Edit
+  // icon to see the full order.
+  const [orderDetailView, setOrderDetailView] = React.useState<any | null>(null);
   const [orderCustomerId, setOrderCustomerId] = React.useState("");
   const [orderDeliveryDate, setOrderDeliveryDate] = React.useState(getLocalDateString());
   const [orderPaymentStatus, setOrderPaymentStatus] = React.useState<(typeof PAYMENT_STATE_OPTIONS)[number]>("UNPAID");
@@ -1341,7 +1345,11 @@ export default function AdminDashboard() {
                             })
                             .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
                             .map((o) => (
-                            <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
+                            <tr
+                              key={o.id}
+                              onClick={() => setOrderDetailView(o)}
+                              className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
+                            >
                               <td className="py-4 text-muted-foreground">
                                 {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
                               </td>
@@ -1364,7 +1372,7 @@ export default function AdminDashboard() {
                                   {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
                                 </span>
                               </td>
-                              <td className="py-4">
+                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
                                 <select
                                   value={o.paymentStatus}
                                   onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
@@ -1390,7 +1398,7 @@ export default function AdminDashboard() {
                                   {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
                                 </span>
                               </td>
-                              <td className="py-4">
+                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex justify-center items-center gap-2 flex-wrap">
                                   {o.deliveryStatus === "SCHEDULED" && (
                                     <button
@@ -2585,6 +2593,117 @@ export default function AdminDashboard() {
       )}
 
       {/* ORDER CREATE/EDIT DIALOG MODAL */}
+      {/* Read-only order detail — opened by clicking anywhere on an Orders
+          row (see the onClick on <tr> above), so seeing the full order no
+          longer requires the small Edit icon. */}
+      {orderDetailView && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderDetailView(null)} />
+          <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-5 my-8">
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-lg font-bold font-heading">{orderDetailView.customerName}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Giao {new Date(orderDetailView.deliveryDate).toLocaleDateString("vi-VN")}
+                  {orderDetailView.createdAt && (
+                    <> · Đặt lúc {new Date(orderDetailView.createdAt).toLocaleString("vi-VN")}</>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setOrderDetailView(null)}
+                className="text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-0 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                  orderDetailView.fulfillmentType === "IMMEDIATE"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+              >
+                {orderDetailView.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                  orderDetailView.deliveryStatus === "PREPPING"
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : orderDetailView.deliveryStatus === "DELIVERED"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : orderDetailView.deliveryStatus === "CANCELLED"
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : orderDetailView.deliveryStatus === "SKIPPED"
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+              >
+                {ORDER_STATUS_LABELS[orderDetailView.deliveryStatus] || orderDetailView.deliveryStatus}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
+                {orderDetailView.paymentStatus}
+              </span>
+            </div>
+
+            <div className="border border-border rounded-lg divide-y divide-border/50">
+              {(orderDetailView.items || []).map((i: any) => (
+                <div key={i.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                  <div>
+                    <span className="font-bold">{i.flavor}</span>
+                    <span className="text-muted-foreground"> · {i.sizeGrams}g × {i.qty}</span>
+                  </div>
+                  <span className="font-mono text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Tạm tính</span>
+                <span className="font-mono">{formatVND(orderDetailView.subtotal)}</span>
+              </div>
+              {orderDetailView.discountAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Giảm giá</span>
+                  <span className="font-mono">−{formatVND(orderDetailView.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-border/50">
+                <span>Tổng cộng</span>
+                <span className="text-primary">{formatVND(orderDetailView.total)}</span>
+              </div>
+            </div>
+
+            {orderDetailView.notes && (
+              <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
+                &quot;{orderDetailView.notes}&quot;
+              </p>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setOrderDetailView(null)}
+                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => {
+                  handleEditOrderTrigger(orderDetailView);
+                  setOrderDetailView(null);
+                }}
+                className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-1.5"
+              >
+                <Edit2 className="h-3.5 w-3.5" /> Sửa đơn hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {orderModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderModal(null)} />
