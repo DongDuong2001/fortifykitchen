@@ -237,6 +237,31 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const handleLogout = React.useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("fka_token");
+    localStorage.removeItem("fka_user");
+  }, []);
+
+  // Any request can come back 401 if the saved token is missing, expired, or
+  // (one-time case) was issued before a JWT signing fix and is no longer
+  // valid — in every case the right move is the same: drop the stale
+  // session and send the user back to the login screen, rather than
+  // silently rendering empty data. Returns true if it fired, so callers can
+  // bail out of the rest of their response handling.
+  const handleUnauthorized = React.useCallback(
+    (responses: { status: number }[]) => {
+      if (responses.some((r) => r.status === 401)) {
+        handleLogout();
+        alert("Your session has expired — please log in again.");
+        return true;
+      }
+      return false;
+    },
+    [handleLogout],
+  );
+
   const loadData = React.useCallback(async () => {
     try {
       setIsLoading(true);
@@ -247,6 +272,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/dashboard/stats`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
         ]);
+        if (handleUnauthorized([resStats, resMenu])) return;
         if (resStats.ok) {
           const result = await resStats.json();
           setStats(result.data);
@@ -258,6 +284,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
         ]);
+        if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
         if (resOrders.ok) setOrders((await resOrders.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
@@ -267,6 +294,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "customers") {
         const res = await fetch(`${API_URL}/customers`, { headers });
+        if (handleUnauthorized([res])) return;
         if (res.ok) {
           const result = await res.json();
           setCustomers(result.data || []);
@@ -278,9 +306,11 @@ export default function AdminDashboard() {
         await fetch(`${API_URL}/subscriptions/sync-deliveries`, { method: "POST", headers });
         if (deliveryView === "upcoming") {
           const res = await fetch(`${API_URL}/deliveries/upcoming?groupBy=${deliveryGroupBy}`, { headers });
+          if (handleUnauthorized([res])) return;
           if (res.ok) setUpcomingGroups((await res.json()).data || []);
         } else {
           const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
+          if (handleUnauthorized([res])) return;
           if (res.ok) setDeliveries((await res.json()).data || []);
         }
       } else if (section === "menu") {
@@ -288,6 +318,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/menu/admin`, { headers }),
           fetch(`${API_URL}/categories`),
         ]);
+        if (handleUnauthorized([resMenu])) return;
         if (resMenu.ok && resCat.ok) {
           const menuData = await resMenu.json();
           const catData = await resCat.json();
@@ -299,6 +330,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "inventory") {
         const res = await fetch(`${API_URL}/menu/admin`, { headers });
+        if (handleUnauthorized([res])) return;
         if (res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
         const [resSubs, resCustomers, resMenu] = await Promise.all([
@@ -306,6 +338,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
         ]);
+        if (handleUnauthorized([resSubs, resCustomers, resMenu])) return;
         if (resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
@@ -314,6 +347,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "discounts") {
         const res = await fetch(`${API_URL}/discounts`, { headers });
+        if (handleUnauthorized([res])) return;
         if (res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
@@ -324,7 +358,7 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL, deliveryView, deliveryGroupBy]);
+  }, [token, section, API_URL, deliveryView, deliveryGroupBy, handleUnauthorized]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -347,6 +381,10 @@ export default function AdminDashboard() {
         });
         const result = await res.json().catch(() => null);
         if (cancelled) return;
+        if (res.status === 401) {
+          handleUnauthorized([res]);
+          return;
+        }
         if (res.ok) {
           setPrepData(result?.data || { prepItems: [], totalPortions: 0, totalGrams: 0 });
         } else {
@@ -364,7 +402,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token, section, prepDate, API_URL]);
+  }, [token, section, prepDate, API_URL, handleUnauthorized]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -398,13 +436,6 @@ export default function AdminDashboard() {
     } finally {
       setIsLoggingIn(false);
     }
-  };
-
-  const handleLogout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("fka_token");
-    localStorage.removeItem("fka_user");
   };
 
   const authHeaders = React.useCallback(
