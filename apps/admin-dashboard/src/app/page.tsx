@@ -87,11 +87,15 @@ export default function AdminDashboard() {
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
-  // Inventory tab: sort + filter controls, separate from the Menu Catalog
-  // Manager's protein-grouped edit view — this one is for at-a-glance stock
-  // monitoring across every dish at once.
-  const [inventorySort, setInventorySort] = React.useState<"stock-asc" | "stock-desc" | "name">("stock-asc");
-  const [inventoryShowLowOnly, setInventoryShowLowOnly] = React.useState(false);
+  // Inventory tab: two sub-views — Monitor (currently in-stock dishes only,
+  // no status badge needed since being listed here already means
+  // available) and Add Stock (restock an existing dish; doing so is what
+  // makes it available — see the isAvailable-forcing rule in the API).
+  const [inventorySubTab, setInventorySubTab] = React.useState<"monitor" | "add">("monitor");
+  const [inventorySort, setInventorySort] = React.useState<"stock-asc" | "stock-desc" | "name">("stock-desc");
+  const [addStockItemId, setAddStockItemId] = React.useState("");
+  const [addStockQty, setAddStockQty] = React.useState(10);
+  const [isAddingStock, setIsAddingStock] = React.useState(false);
 
   // Prep List state
   const [prepDate, setPrepDate] = React.useState(getLocalDateString());
@@ -843,6 +847,38 @@ export default function AdminDashboard() {
     }
   };
 
+  // "Add Stock" sub-tab of Inventory — restocking a dish is what makes it
+  // available to customers (see the isAvailable-forcing rule server-side),
+  // so this is the primary "bring a dish online" action, distinct from
+  // creating a brand-new menu item (that's still Menu Catalog Manager).
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addStockItemId || addStockQty <= 0) return;
+    setIsAddingStock(true);
+    try {
+      const res = await fetch(`${API_URL}/menu/${addStockItemId}/stock`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ delta: addStockQty }),
+      });
+      if (res.ok) {
+        const updated = (await res.json()).data;
+        setMenuItems((prev) => prev.map((m) => (m.id === addStockItemId ? { ...m, stockQuantity: updated.stockQuantity, isAvailable: updated.isAvailable } : m)));
+        setAddStockQty(10);
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to add stock");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsAddingStock(false);
+    }
+  };
+
   // Create Discount Code
   const handleCreateDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1585,120 +1621,177 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* SECTION C.5: INVENTORY MONITOR — a stock-first view across
-                  every dish, separate from the Menu Catalog Manager's
-                  protein-grouped edit view. Sorted low-to-high by default so
-                  whatever needs restocking floats to the top. */}
+              {/* SECTION C.5: INVENTORY — two sub-tabs: Monitor (what's
+                  currently in stock — no status indicator needed, being
+                  listed here already means available) and Add Stock
+                  (restocking a dish is what makes it available; see the
+                  isAvailable-forcing rule in MenuService). Separate from
+                  the Menu Catalog Manager's protein-grouped edit view. */}
               {section === "inventory" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex flex-wrap justify-between items-center gap-3">
-                    <div>
-                      <h3 className="text-sm font-bold font-heading">Inventory</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {menuItems.filter((m) => (m.stockQuantity ?? 0) <= 0).length} of {menuItems.length} dishes need prep
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={inventoryShowLowOnly}
-                          onChange={(e) => setInventoryShowLowOnly(e.target.checked)}
-                          className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
-                        />
-                        Needs prep only
-                      </label>
-                      <select
-                        value={inventorySort}
-                        onChange={(e) => setInventorySort(e.target.value as typeof inventorySort)}
-                        className="text-[11px] font-bold px-2 py-1.5 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="stock-asc">Stock: low to high</option>
-                        <option value="stock-desc">Stock: high to low</option>
-                        <option value="name">Name (A–Z)</option>
-                      </select>
-                    </div>
+                  <div>
+                    <h3 className="text-sm font-bold font-heading">Inventory</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length} of {menuItems.length} dishes currently in stock
+                    </p>
                   </div>
 
-                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left">
-                        <thead>
-                          <tr className="text-muted-foreground border-b border-border/50">
-                            <th className="pb-3 font-semibold">Protein</th>
-                            <th className="pb-3 font-semibold">Dish</th>
-                            <th className="pb-3 font-semibold">Size</th>
-                            <th className="pb-3 font-semibold">Stock</th>
-                            <th className="pb-3 font-semibold">Status</th>
-                            <th className="pb-3 font-semibold text-right">Adjust</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {menuItems
-                            .filter((m) => !inventoryShowLowOnly || (m.stockQuantity ?? 0) <= 0)
-                            .sort((a, b) => {
-                              if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
-                              const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
-                              return inventorySort === "stock-asc" ? diff : -diff;
-                            })
-                            .map((item) => (
-                              <tr key={item.id} className="border-b border-border/20 last:border-0">
-                                <td className="py-3 text-muted-foreground">
-                                  {PROTEIN_LABELS[item.protein as Protein] || item.protein}
-                                </td>
-                                <td className="py-3 font-bold">{item.flavor}</td>
-                                <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
-                                <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
-                                <td className="py-3">
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                      (item.stockQuantity ?? 0) > 0
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : "bg-amber-50 text-amber-700 border-amber-200"
-                                    }`}
-                                  >
-                                    {(item.stockQuantity ?? 0) > 0 ? "Ready" : "Needs prep"}
-                                  </span>
-                                </td>
-                                <td className="py-3">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button
-                                      onClick={() => handleAdjustStock(item.id, -1)}
-                                      disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
-                                      className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
-                                    >
-                                      −
-                                    </button>
-                                    <button
-                                      onClick={() => handleAdjustStock(item.id, 1)}
-                                      disabled={adjustingStockId === item.id}
-                                      className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
-                                    >
-                                      +
-                                    </button>
-                                    <button
-                                      onClick={() => handleAdjustStock(item.id, 10)}
-                                      disabled={adjustingStockId === item.id}
-                                      className="ml-1 h-6 px-2 flex items-center justify-center rounded border border-border hover:bg-muted text-[10px] font-bold disabled:opacity-30 cursor-pointer"
-                                      title="Add 10 (e.g. a fresh batch out of the kitchen)"
-                                    >
-                                      +10
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          {menuItems.length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                                No menu items yet — add some in Menu Catalog Manager first.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="flex gap-2 border-b border-border">
+                    <button
+                      onClick={() => setInventorySubTab("monitor")}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                        inventorySubTab === "monitor"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Monitor
+                    </button>
+                    <button
+                      onClick={() => setInventorySubTab("add")}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                        inventorySubTab === "add"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Add Stock
+                    </button>
                   </div>
+
+                  {inventorySubTab === "monitor" && (
+                    <div className="space-y-4">
+                      <div className="flex justify-end">
+                        <select
+                          value={inventorySort}
+                          onChange={(e) => setInventorySort(e.target.value as typeof inventorySort)}
+                          className="text-[11px] font-bold px-2 py-1.5 rounded border border-border bg-background cursor-pointer"
+                        >
+                          <option value="stock-desc">Stock: high to low</option>
+                          <option value="stock-asc">Stock: low to high</option>
+                          <option value="name">Name (A–Z)</option>
+                        </select>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-muted-foreground border-b border-border/50">
+                                <th className="pb-3 font-semibold">Protein</th>
+                                <th className="pb-3 font-semibold">Dish</th>
+                                <th className="pb-3 font-semibold">Size</th>
+                                <th className="pb-3 font-semibold">Stock</th>
+                                <th className="pb-3 font-semibold text-right">Adjust</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {menuItems
+                                .filter((m) => (m.stockQuantity ?? 0) > 0)
+                                .sort((a, b) => {
+                                  if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
+                                  const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
+                                  return inventorySort === "stock-asc" ? diff : -diff;
+                                })
+                                .map((item) => (
+                                  <tr key={item.id} className="border-b border-border/20 last:border-0">
+                                    <td className="py-3 text-muted-foreground">
+                                      {PROTEIN_LABELS[item.protein as Protein] || item.protein}
+                                    </td>
+                                    <td className="py-3 font-bold">{item.flavor}</td>
+                                    <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
+                                    <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                    <td className="py-3">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          onClick={() => handleAdjustStock(item.id, -1)}
+                                          disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                        >
+                                          −
+                                        </button>
+                                        <button
+                                          onClick={() => handleAdjustStock(item.id, 1)}
+                                          disabled={adjustingStockId === item.id}
+                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length === 0 && (
+                                <tr>
+                                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                                    Nothing in stock right now — use the Add Stock tab to bring dishes online.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {inventorySubTab === "add" && (
+                    <div className="max-w-md border border-border bg-card rounded-2xl p-6 shadow-sm space-y-4">
+                      <p className="text-xs text-muted-foreground">
+                        Pick a dish and add how many portions just came out of the kitchen. Adding stock makes the
+                        dish available to customers right away.
+                      </p>
+                      <form onSubmit={handleAddStock} className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dish</label>
+                          <select
+                            required
+                            value={addStockItemId}
+                            onChange={(e) => setAddStockItemId(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          >
+                            <option value="">— Select a dish —</option>
+                            {PROTEIN_OPTIONS.map((protein) => {
+                              const items = menuItems
+                                .filter((m) => m.protein === protein)
+                                .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams);
+                              if (items.length === 0) return null;
+                              return (
+                                <optgroup key={protein} label={PROTEIN_LABELS[protein]}>
+                                  {items.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.flavor} ({item.sizeGrams}g) — hiện có {item.stockQuantity ?? 0}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Quantity to add
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min={1}
+                            value={addStockQty}
+                            onChange={(e) => setAddStockQty(Number(e.target.value))}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isAddingStock || !addStockItemId}
+                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {isAddingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                          Add to Inventory
+                        </button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               )}
 
