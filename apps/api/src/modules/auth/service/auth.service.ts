@@ -1,14 +1,19 @@
 import { Injectable, UnauthorizedException, ConflictException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
+import { ConfigService } from "../../../config/config.service";
 import { SignupDto } from "../dto/signup.dto";
 import { LoginDto } from "../dto/login.dto";
 import { AuthResponseDto } from "../dto/auth-response.dto";
 import * as argon2 from "argon2";
+import { signJwt } from "../../../common/utils/jwt.util";
 import { UserRole } from "@fortifykitchen/types";
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async signup(signupDto: SignupDto): Promise<AuthResponseDto> {
     const existingUser = await this.db.client.user.findUnique({
@@ -96,16 +101,14 @@ export class AuthService {
   }
 
   private generateToken(id: string, email: string, role: UserRole): string {
-    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64");
-    const payload = Buffer.from(
-      JSON.stringify({
+    return signJwt(
+      {
         id,
         email,
         role,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days expiration
-      }),
-    ).toString("base64");
-    const signature = Buffer.from("dummy-signature").toString("base64");
-    return `${header}.${payload}.${signature}`;
+      },
+      this.configService.get("JWT_SECRET"),
+    );
   }
 }

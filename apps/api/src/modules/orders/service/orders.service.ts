@@ -3,6 +3,7 @@ import { DatabaseService } from "../../../database/database.service";
 import { CreateOrderDto } from "../dto/create-order.dto";
 import { UpdateOrderDto } from "../dto/update-order.dto";
 import { CreatePublicOrderDto } from "../dto/create-public-order.dto";
+import { normalizePhone } from "../../../common/utils/phone.util";
 import { calculateOrderTotal } from "@fortifykitchen/shared";
 import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
 import { DeliveryStatus, PaymentState, OrderFulfillmentType, Prisma } from "@fortifykitchen/database";
@@ -132,10 +133,13 @@ export class OrdersService {
   // the staff-facing create() above — same rules apply regardless of who's
   // placing the order.
   async createPublic(dto: CreatePublicOrderDto): Promise<Order> {
-    let customer = await this.db.client.customer.findFirst({ where: { phone: dto.phone } });
+    // Normalize so "0987 654 321" and "+84987654321" resolve to the same
+    // customer instead of silently creating a duplicate — see phone.util.ts.
+    const phone = normalizePhone(dto.phone);
+    let customer = await this.db.client.customer.findFirst({ where: { phone } });
     if (!customer) {
       customer = await this.db.client.customer.create({
-        data: { name: dto.name, phone: dto.phone, address: dto.address },
+        data: { name: dto.name, phone, address: dto.address },
       });
     } else if (dto.address && !customer.address) {
       // Fill in an address we didn't have yet; never overwrite one already on file.
@@ -156,7 +160,7 @@ export class OrdersService {
   // Order history for the customer-web "My Orders" view — same phone-based
   // identity check used by the subscriptions self-service view.
   async findForPhone(phone: string): Promise<Order[]> {
-    const customer = await this.db.client.customer.findFirst({ where: { phone } });
+    const customer = await this.db.client.customer.findFirst({ where: { phone: normalizePhone(phone) } });
     if (!customer) return [];
     const orders = await this.db.client.order.findMany({
       where: { customerId: customer.id },

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
-import { ThrottlerModule, ThrottlerModuleOptions } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerModule, ThrottlerModuleOptions, ThrottlerGuard } from "@nestjs/throttler";
 import { ConfigModule } from "./config/config.module";
 import { ConfigService } from "./config/config.service";
 import { DatabaseModule } from "./database/database.module";
@@ -40,6 +41,13 @@ import { PrepListModule } from "./modules/prep-list/prep-list.module";
         },
       ],
     }),
+  ],
+  providers: [
+    // ThrottlerModule only registers the tracker; without binding the guard
+    // globally, rate limiting was configured but never actually enforced on
+    // any route — this closes that gap for the unauthenticated public
+    // endpoints (orders/public, subscriptions/public) in particular.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

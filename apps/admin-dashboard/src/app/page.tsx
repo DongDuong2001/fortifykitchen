@@ -1156,6 +1156,56 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
+                  {/* Order-workflow KPIs — needs-attention counters, click through to Orders */}
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        label: "Awaiting Acceptance",
+                        value: stats.ordersAwaitingAcceptance || 0,
+                        icon: ShoppingBag,
+                        urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
+                      },
+                      {
+                        label: "In Preparation",
+                        value: stats.ordersInPreparation || 0,
+                        icon: ChefHat,
+                      },
+                      {
+                        label: "Out of Stock Dishes",
+                        value: (stats.outOfStockItems || []).length,
+                        icon: Package,
+                        urgent: (stats.outOfStockItems || []).length > 0,
+                      },
+                      {
+                        label: "Low Stock Dishes",
+                        value: (stats.lowStockItems || []).length,
+                        icon: Package,
+                      },
+                    ].map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSection(item.label.includes("Stock") ? "inventory" : "orders")}
+                        className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
+                          item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <div className="text-xl font-semibold font-heading">{item.value}</div>
+                        </div>
+                        <div
+                          className={`p-3 rounded-md border ${
+                            item.urgent
+                              ? "border-amber-300 bg-amber-100 text-amber-700"
+                              : "border-primary/20 bg-primary/10 text-primary"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Volume-subscription specific KPIs */}
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
@@ -1181,7 +1231,7 @@ export default function AdminDashboard() {
                       },
                       {
                         label: "Dishes Ready Now",
-                        value: menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
+                        value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
                         icon: ChefHat,
                       },
                     ].map((item, idx) => (
@@ -1196,6 +1246,38 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Inventory alerts — out-of-stock / low-stock dishes */}
+                  {((stats.outOfStockItems || []).length > 0 || (stats.lowStockItems || []).length > 0) && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {(stats.outOfStockItems || []).length > 0 && (
+                        <div className="border border-red-200 bg-red-50 rounded-2xl p-6">
+                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">Out of Stock</h3>
+                          <ul className="space-y-1.5 text-xs">
+                            {stats.outOfStockItems.map((m: any) => (
+                              <li key={m.id} className="flex justify-between text-red-700">
+                                <span>{PROTEIN_LABELS[m.protein as Protein] || m.protein} {m.flavor} ({m.sizeGrams}g)</span>
+                                <span className="font-bold">0</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(stats.lowStockItems || []).length > 0 && (
+                        <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
+                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Low Stock (≤5)</h3>
+                          <ul className="space-y-1.5 text-xs">
+                            {stats.lowStockItems.map((m: any) => (
+                              <li key={m.id} className="flex justify-between text-amber-700">
+                                <span>{PROTEIN_LABELS[m.protein as Protein] || m.protein} {m.flavor} ({m.sizeGrams}g)</span>
+                                <span className="font-bold">{m.stockQuantity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">

@@ -3,6 +3,7 @@ import { DatabaseService } from "../../../database/database.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
 import { TopUpPoolDto } from "../dto/top-up-pool.dto";
+import { normalizePhone } from "../../../common/utils/phone.util";
 import { calculatePoolPricing, addDays } from "@fortifykitchen/shared";
 import { Subscription, SubscriptionPool } from "@fortifykitchen/types";
 import { PaymentState, Protein } from "@fortifykitchen/database";
@@ -125,7 +126,7 @@ export class SubscriptionsService {
   // staff already collect on every Customer record) stands in as the
   // identity check for read-only balance viewing and postponing a delivery.
   async findForPhone(phone: string): Promise<Subscription[]> {
-    const customer = await this.db.client.customer.findFirst({ where: { phone } });
+    const customer = await this.db.client.customer.findFirst({ where: { phone: normalizePhone(phone) } });
     if (!customer) return [];
     return this.findForCustomer(customer.id);
   }
@@ -138,7 +139,7 @@ export class SubscriptionsService {
       where: { id: deliveryId },
       include: { subscription: { include: { customer: true } } },
     });
-    return !!delivery && delivery.subscription.customer?.phone === phone;
+    return !!delivery && normalizePhone(delivery.subscription.customer?.phone ?? "") === normalizePhone(phone);
   }
 
   async update(id: string, dto: UpdateSubscriptionDto): Promise<Subscription> {

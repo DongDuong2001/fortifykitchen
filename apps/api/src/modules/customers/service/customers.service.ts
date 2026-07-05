@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateCustomerDto } from "../dto/create-customer.dto";
 import { UpdateCustomerDto } from "../dto/update-customer.dto";
+import { normalizePhone } from "../../../common/utils/phone.util";
 import { Customer } from "@fortifykitchen/types";
 
 @Injectable()
@@ -31,7 +32,9 @@ export class CustomersService {
     const customer = await this.db.client.customer.create({
       data: {
         name: dto.name,
-        phone: dto.phone,
+        // Normalized so staff-entered numbers match however a customer
+        // types their own phone back on the storefront (see phone.util.ts).
+        phone: dto.phone ? normalizePhone(dto.phone) : dto.phone,
         zalo: dto.zalo,
         address: dto.address,
         notes: dto.notes,
@@ -48,7 +51,7 @@ export class CustomersService {
       where: { id },
       data: {
         name: dto.name,
-        phone: dto.phone,
+        phone: dto.phone ? normalizePhone(dto.phone) : dto.phone,
         zalo: dto.zalo,
         address: dto.address,
         notes: dto.notes,
