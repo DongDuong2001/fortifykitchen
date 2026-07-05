@@ -4,6 +4,7 @@ import { CreateOrderDto } from "../dto/create-order.dto";
 import { UpdateOrderDto } from "../dto/update-order.dto";
 import { CreatePublicOrderDto } from "../dto/create-public-order.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
+import { parsePagination } from "../../../common/utils/pagination.util";
 import { calculateOrderTotal } from "@fortifykitchen/shared";
 import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
 import { DeliveryStatus, PaymentState, OrderFulfillmentType, Prisma } from "@fortifykitchen/database";
@@ -221,12 +222,15 @@ export class OrdersService {
     return this.mapOrder(order);
   }
 
-  async findAll(): Promise<Order[]> {
+  async findAll(page?: string, limit?: string): Promise<Order[]> {
+    const { skip, take } = parsePagination(page, limit);
     const orders = await this.db.client.order.findMany({
       include: { items: true },
       // Oldest first — matches the admin Orders tab, which lists orders
       // chronologically so the oldest still-open ones surface first.
       orderBy: { deliveryDate: "asc" },
+      ...(skip !== undefined ? { skip } : {}),
+      ...(take !== undefined ? { take } : {}),
     });
     return orders.map((o) => this.mapOrder(o));
   }

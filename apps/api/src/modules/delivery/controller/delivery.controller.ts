@@ -45,9 +45,15 @@ export class DeliveryController {
   @Get("unified")
   @ApiOperation({ summary: "Get one-off Orders and Subscription Deliveries merged, tagged by source" })
   @ApiQuery({ name: "date", required: false, type: String })
-  @ApiResponse({ status: 200, description: "Returns the merged list, newest first." })
-  async findAllUnified(@Query("date") date?: string) {
-    return this.deliveryService.findAllUnified({ date });
+  @ApiQuery({ name: "page", required: false, type: Number, description: "Omit for the full list (needed for day-grouping views)" })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 200 per page" })
+  @ApiResponse({ status: 200, description: "Returns the merged list, oldest first." })
+  async findAllUnified(
+    @Query("date") date?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.deliveryService.findAllUnified({ date, page, limit });
   }
 
   @Get("upcoming")

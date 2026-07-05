@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import { DatabaseService } from "../../../database/database.service";
 import { CreateMenuItemDto } from "../dto/create-menu-item.dto";
 import { AdjustStockDto } from "../dto/adjust-stock.dto";
+import { parsePagination } from "../../../common/utils/pagination.util";
 import { MenuItem } from "@fortifykitchen/types";
 
 @Injectable()
@@ -17,9 +18,12 @@ export class MenuService {
     return items.map((item) => this.mapMenuItem(item));
   }
 
-  async findAllAdmin(): Promise<MenuItem[]> {
+  async findAllAdmin(page?: string, limit?: string): Promise<MenuItem[]> {
+    const { skip, take } = parsePagination(page, limit);
     const items = await this.db.client.menuItem.findMany({
       orderBy: [{ protein: "asc" }, { flavor: "asc" }, { sizeGrams: "asc" }],
+      ...(skip !== undefined ? { skip } : {}),
+      ...(take !== undefined ? { take } : {}),
     });
 
     return items.map((item) => this.mapMenuItem(item));

@@ -3,15 +3,19 @@ import { DatabaseService } from "../../../database/database.service";
 import { CreateCustomerDto } from "../dto/create-customer.dto";
 import { UpdateCustomerDto } from "../dto/update-customer.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
+import { parsePagination } from "../../../common/utils/pagination.util";
 import { Customer } from "@fortifykitchen/types";
 
 @Injectable()
 export class CustomersService {
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(): Promise<Customer[]> {
+  async findAll(page?: string, limit?: string): Promise<Customer[]> {
+    const { skip, take } = parsePagination(page, limit);
     const list = await this.db.client.customer.findMany({
       orderBy: { createdAt: "desc" },
+      ...(skip !== undefined ? { skip } : {}),
+      ...(take !== undefined ? { take } : {}),
     });
     return list.map((c) => this.mapCustomer(c));
   }

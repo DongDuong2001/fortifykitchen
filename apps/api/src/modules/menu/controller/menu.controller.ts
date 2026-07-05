@@ -26,9 +26,11 @@ export class MenuController {
   @Roles("ADMIN", "MANAGER", "STAFF")
   @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Get all menu items including unavailable (Admin/Staff only)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number, description: "Max 200 per page" })
   @ApiResponse({ status: 200, description: "Returns list of all menu items." })
-  async findAllAdmin(): Promise<MenuItem[]> {
-    return this.menuService.findAllAdmin();
+  async findAllAdmin(@Query("page") page?: string, @Query("limit") limit?: string): Promise<MenuItem[]> {
+    return this.menuService.findAllAdmin(page, limit);
   }
 
   @Get(":id")
