@@ -47,17 +47,25 @@ export class MenuService {
       }
     }
 
+    const stockQuantity = dto.stockQuantity ?? 0;
+    // Having stock on hand implies the dish should be sellable — a customer
+    // can't order what they can't see. Stock > 0 always forces the item
+    // visible in the public catalog, overriding a manual "hidden" toggle;
+    // isAvailable only stays meaningful as a manual override when there's
+    // no stock to force the issue either way.
+    const isAvailable = stockQuantity > 0 ? true : (dto.isAvailable ?? true);
+
     const item = await this.db.client.menuItem.create({
       data: {
         protein: dto.protein,
         flavor: dto.flavor,
         sizeGrams: dto.sizeGrams,
         price: dto.price,
-        isAvailable: dto.isAvailable ?? true,
+        isAvailable,
         categoryId: dto.categoryId,
         description: dto.description,
         imageUrl: dto.imageUrl,
-        stockQuantity: dto.stockQuantity ?? 0,
+        stockQuantity,
       },
     });
 
@@ -65,7 +73,7 @@ export class MenuService {
   }
 
   async update(id: string, dto: CreateMenuItemDto): Promise<MenuItem> {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     if (dto.categoryId) {
       const category = await this.db.client.category.findUnique({
@@ -76,6 +84,13 @@ export class MenuService {
       }
     }
 
+    // Resolve what stock will be AFTER this update (either the value the
+    // form sent, or whatever it already was) so the isAvailable-forcing
+    // rule below sees the final state, not the pre-update one.
+    const resultingStock = dto.stockQuantity !== undefined ? dto.stockQuantity : existing.stockQuantity;
+    // Same rule as create(): stock > 0 always forces the item visible.
+    const isAvailable = resultingStock > 0 ? true : (dto.isAvailable ?? true);
+
     const item = await this.db.client.menuItem.update({
       where: { id },
       data: {
@@ -83,7 +98,7 @@ export class MenuService {
         flavor: dto.flavor,
         sizeGrams: dto.sizeGrams,
         price: dto.price,
-        isAvailable: dto.isAvailable ?? true,
+        isAvailable,
         categoryId: dto.categoryId ?? null,
         description: dto.description,
         imageUrl: dto.imageUrl,
@@ -121,7 +136,13 @@ export class MenuService {
 
     const item = await this.db.client.menuItem.update({
       where: { id },
-      data: { stockQuantity: nextQuantity },
+      data: {
+        stockQuantity: nextQuantity,
+        // Restocking should make the dish orderable right away without a
+        // separate trip to the edit form to flip "Available in Catalog" —
+        // see the same rule in create()/update().
+        ...(nextQuantity > 0 ? { isAvailable: true } : {}),
+      },
     });
 
     return this.mapMenuItem(item);

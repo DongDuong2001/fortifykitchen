@@ -358,13 +358,39 @@ export default function CustomerPortal() {
     menuItems.some((item) => item.protein === p)
   );
 
+  // Groups same-flavor menu items (e.g. "Gà xá xíu 150g" + "Gà xá xíu 250g")
+  // into one dish card with a portion-size toggle, instead of listing each
+  // size as its own separate card. `sizeFilter` lets a caller (Order Now)
+  // restrict which underlying MenuItems count toward a group, e.g. only
+  // ones currently in stock.
+  function groupByFlavor(items: MenuItem[]) {
+    const map = new Map<string, { protein: Protein; flavor: string; sizes: MenuItem[] }>();
+    for (const item of items) {
+      const key = `${item.protein}::${item.flavor}`;
+      if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+      map.get(key)!.sizes.push(item);
+    }
+    for (const dish of map.values()) {
+      dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
+    }
+    return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
+  }
+
+  // Which size (menuItemId) is currently selected per dish group, keyed by
+  // "protein::flavor" — defaults to the smallest available size when unset.
+  const [selectedSizeByDish, setSelectedSizeByDish] = React.useState<Record<string, string>>({});
+
+  function getSelectedSize(dish: { protein: Protein; flavor: string; sizes: MenuItem[] }): MenuItem {
+    const key = `${dish.protein}::${dish.flavor}`;
+    const selectedId = selectedSizeByDish[key];
+    return dish.sizes.find((s) => s.id === selectedId) ?? dish.sizes[0];
+  }
+
   const groupedMenu = proteinsPresent
     .filter((p) => !selectedProtein || p === selectedProtein)
     .map((protein) => ({
       protein,
-      items: filteredMenu
-        .filter((item) => item.protein === protein)
-        .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams),
+      dishes: groupByFlavor(filteredMenu.filter((item) => item.protein === protein)),
     }));
 
   return (
@@ -559,61 +585,84 @@ export default function CustomerPortal() {
               </div>
             ) : (
               <div className="space-y-10">
-                {groupedMenu.map(({ protein, items }) => (
+                {groupedMenu.map(({ protein, dishes }) => (
                   <div key={protein} className="space-y-4">
                     <div className="flex items-center gap-3">
                       <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground">
                         {PROTEIN_LABELS[protein]}
                       </h3>
-                      <span className="text-xs font-mono text-muted-foreground">({items.length})</span>
+                      <span className="text-xs font-mono text-muted-foreground">({dishes.length})</span>
                       <div className="flex-1 border-t border-border" />
                     </div>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-lg overflow-hidden transition-all"
-                        >
-                          <div>
-                            {/* Image placeholder with premium styling */}
-                            <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={getMenuItemLabel(item)}
-                                  className="object-cover h-full w-full group-hover:scale-105 transition-all duration-300"
-                                />
-                              ) : (
-                                <Utensils className="h-12 w-12 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-200" />
-                              )}
-                              <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
-                                {formatVND(item.price)}
-                              </span>
+                      {dishes.map((dish) => {
+                        const dishKey = `${dish.protein}::${dish.flavor}`;
+                        const selected = getSelectedSize(dish);
+                        return (
+                          <div
+                            key={dishKey}
+                            className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-lg overflow-hidden transition-all"
+                          >
+                            <div>
+                              {/* Image placeholder with premium styling */}
+                              <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
+                                {selected.imageUrl ? (
+                                  <img
+                                    src={selected.imageUrl}
+                                    alt={getMenuItemLabel(selected)}
+                                    className="object-cover h-full w-full group-hover:scale-105 transition-all duration-300"
+                                  />
+                                ) : (
+                                  <Utensils className="h-12 w-12 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-200" />
+                                )}
+                                <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
+                                  {formatVND(selected.price)}
+                                </span>
+                              </div>
+
+                              <div className="p-6">
+                                <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
+                                  {dish.flavor}
+                                </h3>
+                                {selected.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                                    {selected.description}
+                                  </p>
+                                )}
+                                {dish.sizes.length > 1 && (
+                                  <div className="flex gap-1.5">
+                                    {dish.sizes.map((size) => (
+                                      <button
+                                        key={size.id}
+                                        onClick={() =>
+                                          setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))
+                                        }
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                          selected.id === size.id
+                                            ? "bg-primary border-primary text-primary-foreground"
+                                            : "bg-muted/40 border-border hover:bg-muted"
+                                        }`}
+                                      >
+                                        {size.sizeGrams}g
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="p-6">
-                              <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
-                                {item.flavor} ({item.sizeGrams}g)
-                              </h3>
-                              {item.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                  {item.description}
-                                </p>
-                              )}
+                            <div className="p-6 pt-0 border-t border-border/30 mt-4">
+                              <button
+                                onClick={() => addToCart(selected)}
+                                className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Add to Order
+                              </button>
                             </div>
                           </div>
-
-                          <div className="p-6 pt-0 border-t border-border/30 mt-4">
-                            <button
-                              onClick={() => addToCart(item)}
-                              className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Add to Order
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -671,33 +720,51 @@ export default function CustomerPortal() {
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {readyNowItems.map((item) => {
-                        const inCart = orderNowCart.find((l) => l.menuItem.id === item.id);
+                      {groupByFlavor(readyNowItems).map((dish) => {
+                        const dishKey = `${dish.protein}::${dish.flavor}`;
+                        const selected = getSelectedSize(dish);
+                        const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
                         return (
-                          <div key={item.id} className="border border-border bg-card rounded-xl p-4 space-y-3">
+                          <div key={dishKey} className="border border-border bg-card rounded-xl p-4 space-y-3">
                             <div className="flex justify-between items-start gap-2">
                               <div className="min-w-0">
-                                <h4 className="text-sm font-bold font-heading truncate">{item.flavor}</h4>
-                                <p className="text-xs text-muted-foreground">{item.sizeGrams}g</p>
+                                <h4 className="text-sm font-bold font-heading truncate">{dish.flavor}</h4>
                               </div>
-                              <span className="text-xs font-bold text-primary shrink-0">{formatVND(item.price)}</span>
+                              <span className="text-xs font-bold text-primary shrink-0">{formatVND(selected.price)}</span>
                             </div>
+                            {dish.sizes.length > 1 && (
+                              <div className="flex gap-1.5">
+                                {dish.sizes.map((size) => (
+                                  <button
+                                    key={size.id}
+                                    onClick={() => setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))}
+                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                                      selected.id === size.id
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "bg-muted/40 border-border hover:bg-muted"
+                                    }`}
+                                  >
+                                    {size.sizeGrams}g
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {item.stockQuantity} sẵn có
+                                {selected.stockQuantity} sẵn có
                               </span>
                               {inCart ? (
                                 <div className="flex items-center gap-2">
                                   <button
-                                    onClick={() => updateOrderNowQty(item.id, inCart.qty - 1)}
+                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
                                     className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
                                   >
                                     <Minus className="h-3 w-3" />
                                   </button>
                                   <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
                                   <button
-                                    onClick={() => updateOrderNowQty(item.id, inCart.qty + 1)}
-                                    disabled={inCart.qty >= item.stockQuantity}
+                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty + 1)}
+                                    disabled={inCart.qty >= selected.stockQuantity}
                                     className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
                                   >
                                     <Plus className="h-3 w-3" />
@@ -705,7 +772,7 @@ export default function CustomerPortal() {
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => addToOrderNowCart(item)}
+                                  onClick={() => addToOrderNowCart(selected)}
                                   className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
                                 >
                                   Thêm

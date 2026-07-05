@@ -48,6 +48,22 @@ function getLocalDateString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+// Groups same-flavor menu items (e.g. "xá xíu 150g" + "xá xíu 250g") into
+// one dish card with a portion-size toggle, instead of one card per exact
+// protein+flavor+size row — matches the same grouping used on customer-web.
+function groupMenuByFlavor(items: any[]) {
+  const map = new Map<string, { protein: Protein; flavor: string; sizes: any[] }>();
+  for (const item of items) {
+    const key = `${item.protein}::${item.flavor}`;
+    if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+    map.get(key)!.sizes.push(item);
+  }
+  for (const dish of map.values()) {
+    dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
+  }
+  return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
+}
+
 export default function AdminDashboard() {
   const [token, setToken] = React.useState<string | null>(null);
   const [user, setUser] = React.useState<any | null>(null);
@@ -159,6 +175,11 @@ export default function AdminDashboard() {
   // Per-card "adjusting" flag so a stock +/- click can't be double-fired
   // while its request is in flight.
   const [adjustingStockId, setAdjustingStockId] = React.useState<string | null>(null);
+  // Which size (menuItemId) is showing per dish card in the Menu Catalog
+  // Manager, keyed by "protein::flavor" — same-flavor items with different
+  // sizeGrams are grouped into one card with a size toggle rather than
+  // listed as separate cards. Defaults to the smallest size when unset.
+  const [menuSelectedSizeByDish, setMenuSelectedSizeByDish] = React.useState<Record<string, string>>({});
 
   // Discount Form State
   const [discountCode, setDiscountCode] = React.useState("");
@@ -1455,84 +1476,108 @@ export default function AdminDashboard() {
                   </div>
 
                   {PROTEIN_OPTIONS.filter((p) => menuItems.some((item) => item.protein === p)).map((protein) => {
-                    const items = menuItems
-                      .filter((item) => item.protein === protein)
-                      .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams);
+                    const dishes = groupMenuByFlavor(menuItems.filter((item) => item.protein === protein));
                     return (
                       <div key={protein} className="space-y-3">
                         <div className="flex items-center gap-2">
                           <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
                             {PROTEIN_LABELS[protein]}
                           </h4>
-                          <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">({dishes.length})</span>
                           <div className="flex-1 border-t border-border/60" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                          {items.map((item) => (
-                            <div key={item.id} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
-                              <div>
-                                <div className="flex justify-between items-start gap-3">
-                                  <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
-                                  <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                                  {item.sizeGrams}g
-                                  {item.description ? ` · ${item.description}` : ""}
-                                </p>
-                                <div className="mt-2.5 flex items-center gap-2">
-                                  <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
-                                  <span className="text-[10px] text-muted-foreground font-semibold">
-                                    {item.isAvailable ? "Available" : "Hidden"}
-                                  </span>
-                                </div>
+                          {dishes.map((dish) => {
+                            const dishKey = `${dish.protein}::${dish.flavor}`;
+                            const selectedId = menuSelectedSizeByDish[dishKey];
+                            const item = dish.sizes.find((s: any) => s.id === selectedId) ?? dish.sizes[0];
+                            return (
+                              <div key={dishKey} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
+                                <div>
+                                  <div className="flex justify-between items-start gap-3">
+                                    <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
+                                    <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
+                                  </div>
 
-                                {/* Live stock — what's actually prepped and ready right now.
-                                    0 means an order for this item needs prep (SCHEDULED). */}
-                                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
-                                  <span
-                                    className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
-                                      (item.stockQuantity ?? 0) > 0
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                                    }`}
-                                  >
-                                    {(item.stockQuantity ?? 0) > 0 ? `${item.stockQuantity} sẵn có` : "Cần chuẩn bị"}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => handleAdjustStock(item.id, -1)}
-                                      disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
-                                      className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                  {dish.sizes.length > 1 ? (
+                                    <div className="flex gap-1 mt-2">
+                                      {dish.sizes.map((size: any) => (
+                                        <button
+                                          key={size.id}
+                                          onClick={() =>
+                                            setMenuSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))
+                                          }
+                                          className={`px-2 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                            item.id === size.id
+                                              ? "bg-primary border-primary text-primary-foreground"
+                                              : "bg-muted/40 border-border hover:bg-muted"
+                                          }`}
+                                        >
+                                          {size.sizeGrams}g
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground mt-1.5">{item.sizeGrams}g</p>
+                                  )}
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{item.description}</p>
+                                  )}
+                                  <div className="mt-2.5 flex items-center gap-2">
+                                    <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
+                                    <span className="text-[10px] text-muted-foreground font-semibold">
+                                      {item.isAvailable ? "Available" : "Hidden"}
+                                    </span>
+                                  </div>
+
+                                  {/* Live stock — what's actually prepped and ready right now.
+                                      0 means an order for this item needs prep (SCHEDULED). */}
+                                  <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
+                                    <span
+                                      className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                                        (item.stockQuantity ?? 0) > 0
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                                      }`}
                                     >
-                                      −
-                                    </button>
-                                    <button
-                                      onClick={() => handleAdjustStock(item.id, 1)}
-                                      disabled={adjustingStockId === item.id}
-                                      className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
-                                    >
-                                      +
-                                    </button>
+                                      {(item.stockQuantity ?? 0) > 0 ? `${item.stockQuantity} sẵn có` : "Cần chuẩn bị"}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleAdjustStock(item.id, -1)}
+                                        disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                        className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                      >
+                                        −
+                                      </button>
+                                      <button
+                                        onClick={() => handleAdjustStock(item.id, 1)}
+                                        disabled={adjustingStockId === item.id}
+                                        className="h-5 w-5 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              <div className="flex gap-2 pt-3 border-t border-border/30 mt-3">
-                                <button
-                                  onClick={() => handleEditMenuItemTrigger(item)}
-                                  className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
-                                >
-                                  <Edit2 className="h-3 w-3" /> Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteMenuItem(item.id)}
-                                  className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="flex gap-2 pt-3 border-t border-border/30 mt-3">
+                                  <button
+                                    onClick={() => handleEditMenuItemTrigger(item)}
+                                    className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit2 className="h-3 w-3" /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMenuItem(item.id)}
+                                    className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
