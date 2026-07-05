@@ -989,7 +989,7 @@ export default function AdminDashboard() {
         entries,
         totalGrams: entries.reduce((s, e) => s + (e.totalGrams || 0), 0),
       }))
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => a.date.localeCompare(b.date)); // oldest day first
   })();
 
   // Render Login state if not authenticated
@@ -1339,7 +1339,7 @@ export default function AdminDashboard() {
                               if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
                               return true;
                             })
-                            .sort((a, b) => new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime())
+                            .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
                             .map((o) => (
                             <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
                               <td className="py-4 text-muted-foreground">
@@ -1889,65 +1889,75 @@ export default function AdminDashboard() {
                         </select>
                       </div>
 
-                      <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs text-left">
-                            <thead>
-                              <tr className="text-muted-foreground border-b border-border/50">
-                                <th className="pb-3 font-semibold">Protein</th>
-                                <th className="pb-3 font-semibold">Dish</th>
-                                <th className="pb-3 font-semibold">Size</th>
-                                <th className="pb-3 font-semibold">Stock</th>
-                                <th className="pb-3 font-semibold text-right">Adjust</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {menuItems
-                                .filter((m) => (m.stockQuantity ?? 0) > 0)
-                                .sort((a, b) => {
-                                  if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
-                                  const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
-                                  return inventorySort === "stock-asc" ? diff : -diff;
-                                })
-                                .map((item) => (
-                                  <tr key={item.id} className="border-b border-border/20 last:border-0">
-                                    <td className="py-3 text-muted-foreground">
-                                      {PROTEIN_LABELS[item.protein as Protein] || item.protein}
-                                    </td>
-                                    <td className="py-3 font-bold">{item.flavor}</td>
-                                    <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
-                                    <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
-                                    <td className="py-3">
-                                      <div className="flex items-center justify-end gap-1.5">
-                                        <button
-                                          onClick={() => handleAdjustStock(item.id, -1)}
-                                          disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
-                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
-                                        >
-                                          −
-                                        </button>
-                                        <button
-                                          onClick={() => handleAdjustStock(item.id, 1)}
-                                          disabled={adjustingStockId === item.id}
-                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length === 0 && (
-                                <tr>
-                                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                                    Nothing in stock right now — use the Add Stock tab to bring dishes online.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                      {menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length === 0 ? (
+                        <div className="border border-border bg-card rounded-2xl p-8 text-center text-xs text-muted-foreground shadow-sm">
+                          Nothing in stock right now — use the Add Stock tab to bring dishes online.
                         </div>
-                      </div>
+                      ) : (
+                        PROTEIN_OPTIONS.filter((p) =>
+                          menuItems.some((m) => m.protein === p && (m.stockQuantity ?? 0) > 0),
+                        ).map((protein) => {
+                          const items = menuItems
+                            .filter((m) => m.protein === protein && (m.stockQuantity ?? 0) > 0)
+                            .sort((a, b) => {
+                              if (inventorySort === "name") return a.flavor.localeCompare(b.flavor);
+                              const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
+                              return inventorySort === "stock-asc" ? diff : -diff;
+                            });
+                          return (
+                            <div key={protein} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                                  {PROTEIN_LABELS[protein]}
+                                </h4>
+                                <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                                <div className="flex-1 border-t border-border/60" />
+                              </div>
+                              <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs text-left">
+                                    <thead>
+                                      <tr className="text-muted-foreground border-b border-border/50">
+                                        <th className="pb-3 font-semibold">Dish</th>
+                                        <th className="pb-3 font-semibold">Size</th>
+                                        <th className="pb-3 font-semibold">Stock</th>
+                                        <th className="pb-3 font-semibold text-right">Adjust</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {items.map((item) => (
+                                        <tr key={item.id} className="border-b border-border/20 last:border-0">
+                                          <td className="py-3 font-bold">{item.flavor}</td>
+                                          <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
+                                          <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                          <td className="py-3">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              <button
+                                                onClick={() => handleAdjustStock(item.id, -1)}
+                                                disabled={adjustingStockId === item.id || (item.stockQuantity ?? 0) <= 0}
+                                                className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                              >
+                                                −
+                                              </button>
+                                              <button
+                                                onClick={() => handleAdjustStock(item.id, 1)}
+                                                disabled={adjustingStockId === item.id}
+                                                className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   )}
 

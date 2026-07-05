@@ -47,7 +47,7 @@ export class DeliveryService {
       this.db.client.order.findMany({
         where: dateFilter ? { deliveryDate: dateFilter } : undefined,
         include: { items: true },
-        orderBy: { deliveryDate: "desc" },
+        orderBy: { deliveryDate: "asc" },
       }),
       this.db.client.delivery.findMany({
         where: dateFilter ? { scheduledDate: dateFilter } : undefined,
@@ -55,7 +55,7 @@ export class DeliveryService {
           items: true,
           subscription: { select: { customerId: true, customerName: true, packageName: true } },
         },
-        orderBy: { scheduledDate: "desc" },
+        orderBy: { scheduledDate: "asc" },
       }),
     ]);
 
@@ -83,8 +83,11 @@ export class DeliveryService {
       totalGrams: d.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
     }));
 
+    // Oldest first — matches the admin Deliveries tab's "Tất cả" view,
+    // which shows day groups oldest-to-newest for easier chronological
+    // monitoring.
     return [...fromOrders, ...fromDeliveries].sort(
-      (a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime(),
+      (a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime(),
     );
   }
 

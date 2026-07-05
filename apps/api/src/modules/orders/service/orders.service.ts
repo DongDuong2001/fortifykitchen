@@ -220,7 +220,9 @@ export class OrdersService {
   async findAll(): Promise<Order[]> {
     const orders = await this.db.client.order.findMany({
       include: { items: true },
-      orderBy: { deliveryDate: "desc" },
+      // Oldest first — matches the admin Orders tab, which lists orders
+      // chronologically so the oldest still-open ones surface first.
+      orderBy: { deliveryDate: "asc" },
     });
     return orders.map((o) => this.mapOrder(o));
   }
