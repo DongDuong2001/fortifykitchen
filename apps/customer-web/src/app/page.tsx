@@ -28,6 +28,18 @@ import {
 } from "lucide-react";
 import { formatGrams } from "@fortifykitchen/shared";
 
+// Order status labels for the customer-facing "Track my order" lookup —
+// same underlying DeliveryStatus enum the admin Orders tab uses
+// (SCHEDULED/PREPPING/DELIVERED/SKIPPED/CANCELLED), just worded for a
+// customer audience in Vietnamese.
+const ORDER_STATUS_LABELS_VI: Record<string, string> = {
+  SCHEDULED: "Đã đặt",
+  PREPPING: "Đang chuẩn bị",
+  DELIVERED: "Hoàn thành",
+  SKIPPED: "Đã bỏ qua",
+  CANCELLED: "Đã huỷ",
+};
+
 export default function CustomerPortal() {
   const {
     user,
@@ -63,6 +75,17 @@ export default function CustomerPortal() {
   const [isSubmittingOrderNow, setIsSubmittingOrderNow] = React.useState(false);
   const [orderNowResult, setOrderNowResult] = React.useState<any | null>(null);
   const [orderNowError, setOrderNowError] = React.useState<string | null>(null);
+
+  // "Track my order" — self-serve status check by phone number, the
+  // customer-facing counterpart to the admin's Accept/Complete workflow.
+  // There's no SMS/push notification service connected yet, so this lookup
+  // is how a customer finds out their order moved to "Đang chuẩn bị" or
+  // "Hoàn thành" rather than a message arriving automatically.
+  const [trackPhone, setTrackPhone] = React.useState("");
+  const [trackedOrders, setTrackedOrders] = React.useState<any[]>([]);
+  const [isTrackingLoading, setIsTrackingLoading] = React.useState(false);
+  const [trackingError, setTrackingError] = React.useState<string | null>(null);
+  const [hasTracked, setHasTracked] = React.useState(false);
 
   // My Subscription (volume-based) lookup state — subscriptions are set up
   // by staff (see /subscriptions being ADMIN/MANAGER/STAFF-only), so
@@ -347,6 +370,29 @@ export default function CustomerPortal() {
       setOrderNowError("Lỗi kết nối — vui lòng thử lại");
     } finally {
       setIsSubmittingOrderNow(false);
+    }
+  };
+
+  const handleTrackOrders = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackPhone.trim()) return;
+    setIsTrackingLoading(true);
+    setTrackingError(null);
+    setHasTracked(true);
+    try {
+      const res = await fetch(`${API_URL}/orders/public?phone=${encodeURIComponent(trackPhone.trim())}`);
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setTrackedOrders(result?.data || []);
+      } else {
+        setTrackingError(result?.message || "Không thể tra cứu lúc này");
+        setTrackedOrders([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setTrackingError("Lỗi kết nối — vui lòng thử lại");
+    } finally {
+      setIsTrackingLoading(false);
     }
   };
 
@@ -849,6 +895,72 @@ export default function CustomerPortal() {
                 </div>
               </div>
             )}
+
+            {/* Track my order — self-serve status check by phone. There's
+                no SMS/push notification connected yet, so this is how a
+                customer finds out staff accepted or completed their order. */}
+            <div className="max-w-md mx-auto mt-16 pt-10 border-t border-border">
+              <h3 className="text-center text-sm font-bold font-heading mb-1">Theo dõi đơn hàng của bạn</h3>
+              <p className="text-center text-xs text-muted-foreground mb-5">
+                Nhập số điện thoại đã dùng để đặt hàng để xem trạng thái mới nhất.
+              </p>
+              <form onSubmit={handleTrackOrders} className="flex gap-2 mb-6">
+                <input
+                  type="tel"
+                  required
+                  placeholder="Số điện thoại của bạn"
+                  value={trackPhone}
+                  onChange={(e) => setTrackPhone(e.target.value)}
+                  className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isTrackingLoading}
+                  className="bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground font-bold px-4 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 text-xs"
+                >
+                  {isTrackingLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Tra cứu
+                </button>
+              </form>
+
+              {trackingError && <p className="text-center text-xs text-red-500 mb-4">{trackingError}</p>}
+
+              {hasTracked && !isTrackingLoading && !trackingError && trackedOrders.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Không tìm thấy đơn hàng nào với số điện thoại này.
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {trackedOrders.map((o: any) => (
+                  <div key={o.id} className="border border-border bg-card rounded-xl p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate">
+                        {(o.items || []).map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${
+                        o.deliveryStatus === "PREPPING"
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : o.deliveryStatus === "DELIVERED"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : o.deliveryStatus === "CANCELLED"
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : o.deliveryStatus === "SKIPPED"
+                                ? "bg-muted text-muted-foreground border-border"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      {ORDER_STATUS_LABELS_VI[o.deliveryStatus] || o.deliveryStatus}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

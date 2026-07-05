@@ -37,6 +37,20 @@ const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
 const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
 const DELIVERY_STATUS_OPTIONS = ["SCHEDULED", "PREPPING", "DELIVERED", "SKIPPED", "CANCELLED"] as const;
 
+// Orders tab-specific labels for the shared DeliveryStatus enum — reusing
+// the same underlying values as the Deliveries tab (SCHEDULED/PREPPING/
+// DELIVERED) but with wording that matches the Orders workflow: a fresh
+// order is "Ordered", accepting it moves it to "Preparing", and finishing
+// it marks it "Completed". Kept local to this component (not in
+// packages/shared) so it doesn't affect the Deliveries tab's own labels.
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  SCHEDULED: "Ordered",
+  PREPPING: "Preparing",
+  DELIVERED: "Completed",
+  SKIPPED: "Skipped",
+  CANCELLED: "Cancelled",
+};
+
 // `new Date().toISOString().split("T")[0]` computes the UTC calendar date,
 // not the user's local one — for Vietnam (UTC+7) that's wrong for roughly
 // the first 7 hours of every local day (it shows yesterday). This builds
@@ -147,6 +161,16 @@ export default function AdminDashboard() {
   const [orderLineItems, setOrderLineItems] = React.useState<any[]>([]);
   const [orderSelectedMenuItemId, setOrderSelectedMenuItemId] = React.useState("");
   const [orderAddQty, setOrderAddQty] = React.useState(1);
+
+  // --- Orders tab: workflow view + filters ---
+  // "Current" holds everything still in flight (Ordered/Preparing/Skipped);
+  // hitting Complete moves an order to DELIVERED, which drops it out of
+  // Current and into the Completed tab. Cancelled orders get their own tab
+  // too so they don't linger in either working view.
+  const [orderViewTab, setOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
+  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
+  const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
+  const [orderSearch, setOrderSearch] = React.useState("");
 
   // --- Subscription form state (volume-based: one or more protein pools +
   // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
@@ -1192,6 +1216,65 @@ export default function AdminDashboard() {
                     </button>
                   </div>
 
+                  {/* Current / Completed / Cancelled — accepting an order
+                      moves it Ordered -> Preparing; marking it Completed
+                      moves it to DELIVERED, which drops it out of Current
+                      into the Completed tab here. */}
+                  <div className="flex gap-2 border-b border-border">
+                    {(
+                      [
+                        { id: "current", label: "Current" },
+                        { id: "completed", label: "Completed" },
+                        { id: "cancelled", label: "Cancelled" },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOrderViewTab(tab.id)}
+                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                          orderViewTab === tab.id
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Filters — only meaningful within Current, where more
+                      than one status/fulfillment type can be mixed together. */}
+                  {orderViewTab === "current" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search customer..."
+                        value={orderSearch}
+                        onChange={(e) => setOrderSearch(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                      />
+                      <select
+                        value={orderStatusFilter}
+                        onChange={(e) => setOrderStatusFilter(e.target.value as typeof orderStatusFilter)}
+                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="ALL">All statuses</option>
+                        <option value="SCHEDULED">Ordered</option>
+                        <option value="PREPPING">Preparing</option>
+                        <option value="SKIPPED">Skipped</option>
+                      </select>
+                      <select
+                        value={orderFulfillmentFilter}
+                        onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
+                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="ALL">All fulfillment</option>
+                        <option value="IMMEDIATE">Ready Now</option>
+                        <option value="SCHEDULED">Needs Prep</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-left">
@@ -1203,12 +1286,24 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">Tổng tiền</th>
                             <th className="pb-3 font-semibold">Fulfillment</th>
                             <th className="pb-3 font-semibold">Thanh toán</th>
-                            <th className="pb-3 font-semibold">Giao hàng</th>
+                            <th className="pb-3 font-semibold">Trạng thái</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {orders.map((o) => (
+                          {orders
+                            .filter((o) => {
+                              if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
+                              if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
+                              // "current" = anything not completed/cancelled
+                              if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
+                              if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
+                              if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
+                              if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+                              return true;
+                            })
+                            .sort((a, b) => new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime())
+                            .map((o) => (
                             <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
                               <td className="py-4 text-muted-foreground">
                                 {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
@@ -1242,25 +1337,59 @@ export default function AdminDashboard() {
                                 </select>
                               </td>
                               <td className="py-4">
-                                <select
-                                  value={o.deliveryStatus}
-                                  onChange={(e) => handleUpdateOrderDeliveryStatus(o.id, e.target.value)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.deliveryStatus === "PREPPING"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : o.deliveryStatus === "DELIVERED"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : o.deliveryStatus === "CANCELLED"
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : o.deliveryStatus === "SKIPPED"
+                                            ? "bg-muted text-muted-foreground border-border"
+                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
                                 >
-                                  {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                </span>
                               </td>
                               <td className="py-4">
-                                <div className="flex justify-center gap-2">
+                                <div className="flex justify-center items-center gap-2 flex-wrap">
+                                  {o.deliveryStatus === "SCHEDULED" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Accept Order
+                                    </button>
+                                  )}
+                                  {o.deliveryStatus === "PREPPING" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Mark Completed
+                                    </button>
+                                  )}
+                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
+                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleEditOrderTrigger(o)}
                                     className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                    title="Edit"
                                   >
                                     <Edit2 className="h-3.5 w-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteOrder(o.id)}
                                     className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                    title="Delete"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
