@@ -137,6 +137,11 @@ export default function AdminDashboard() {
   const [deliveryView, setDeliveryView] = React.useState<"all" | "upcoming">("all");
   const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"week" | "month">("week");
   const [upcomingGroups, setUpcomingGroups] = React.useState<any[]>([]);
+  // Deliveries tab filters — apply to both "Tất cả" (grouped by day) and
+  // "Sắp tới" (grouped by week/month) views.
+  const [deliverySourceFilter, setDeliverySourceFilter] = React.useState<"ALL" | "ORDER" | "SUBSCRIPTION">("ALL");
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = React.useState<(typeof DELIVERY_STATUS_OPTIONS)[number] | "ALL">("ALL");
+  const [deliverySearch, setDeliverySearch] = React.useState("");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
 
@@ -955,6 +960,38 @@ export default function AdminDashboard() {
     return `${num.toLocaleString()} ₫`;
   };
 
+  // Shared filter predicate for the Deliveries tab — applies identically to
+  // the "Tất cả" (day-grouped) and "Sắp tới" (week/month-grouped) views so
+  // filtering doesn't behave differently depending on which grouping mode
+  // is active.
+  const matchesDeliveryFilters = (d: any): boolean => {
+    if (deliverySourceFilter !== "ALL" && d.source !== deliverySourceFilter) return false;
+    if (deliveryStatusFilter !== "ALL" && d.status !== deliveryStatusFilter) return false;
+    if (deliverySearch.trim() && !d.customerName?.toLowerCase().includes(deliverySearch.trim().toLowerCase())) return false;
+    return true;
+  };
+
+  // Groups the flat "Tất cả" delivery list by calendar day (local time) so
+  // staff can see everything due on a given date at a glance, instead of
+  // scrolling one long table — same grouping shape as the "Sắp tới" view's
+  // week/month groups, just at day granularity.
+  const filteredDeliveriesAll = deliveries.filter(matchesDeliveryFilters);
+  const deliveryDayGroups = (() => {
+    const map = new Map<string, any[]>();
+    for (const d of filteredDeliveriesAll) {
+      const key = getLocalDateString(new Date(d.scheduledDate));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    }
+    return Array.from(map.entries())
+      .map(([date, entries]) => ({
+        date,
+        entries,
+        totalGrams: entries.reduce((s, e) => s + (e.totalGrams || 0), 0),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  })();
+
   // Render Login state if not authenticated
   if (!token) {
     return (
@@ -1466,7 +1503,7 @@ export default function AdminDashboard() {
                 <div className="space-y-6 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <h3 className="text-sm font-bold font-heading">
-                      Deliveries {deliveryView === "all" ? `(${deliveries.length})` : ""}
+                      Deliveries {deliveryView === "all" ? `(${filteredDeliveriesAll.length})` : ""}
                     </h3>
                     <div className="flex items-center gap-2">
                       <div className="flex rounded-md border border-border overflow-hidden text-[10px] font-bold">
@@ -1496,99 +1533,149 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
+                  {/* Filters — apply to both views */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Tìm khách hàng..."
+                      value={deliverySearch}
+                      onChange={(e) => setDeliverySearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                    <select
+                      value={deliverySourceFilter}
+                      onChange={(e) => setDeliverySourceFilter(e.target.value as typeof deliverySourceFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả loại</option>
+                      <option value="ORDER">Đơn lẻ</option>
+                      <option value="SUBSCRIPTION">Gói đăng ký</option>
+                    </select>
+                    <select
+                      value={deliveryStatusFilter}
+                      onChange={(e) => setDeliveryStatusFilter(e.target.value as typeof deliveryStatusFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      {DELIVERY_STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {deliveryView === "all" ? (
-                    <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
-                          <thead>
-                            <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                              <th className="pb-3 font-semibold">Ngày giao</th>
-                              <th className="pb-3 font-semibold">Loại</th>
-                              <th className="pb-3 font-semibold">Khách hàng</th>
-                              <th className="pb-3 font-semibold">Gói / Món</th>
-                              <th className="pb-3 font-semibold">Khối lượng</th>
-                              <th className="pb-3 font-semibold">Trạng thái</th>
-                              <th className="pb-3 font-semibold text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {deliveries.map((d) => (
-                              <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
-                                <td className="py-3.5 text-muted-foreground">
-                                  {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
-                                </td>
-                                <td className="py-3.5">
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                      d.source === "SUBSCRIPTION"
-                                        ? "bg-primary/10 text-primary border-primary/20"
-                                        : "bg-muted text-muted-foreground border-border"
-                                    }`}
-                                  >
-                                    {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 font-bold">{d.customerName}</td>
-                                <td className="py-3.5 text-primary font-semibold">
-                                  {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
-                                </td>
-                                <td className="py-3.5 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
-                                <td className="py-3.5">
-                                  <select
-                                    value={d.status}
-                                    onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
-                                    className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                  >
-                                    {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                  </select>
-                                </td>
-                                <td className="py-3.5 text-center">
-                                  <div className="flex justify-center items-center gap-2">
-                                    {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                      <button
-                                        onClick={() => handleMarkDelivered(d)}
-                                        title="Xác nhận đã giao"
-                                        className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                                      >
-                                        Đã giao
-                                      </button>
-                                    )}
-                                    {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                      <button
-                                        onClick={() => handlePostponeDelivery(d)}
-                                        title="Hoãn lần giao này (bảo lưu số lượng)"
-                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
-                                      >
-                                        Hoãn
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => handleDeleteDelivery(d)}
-                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    <div className="space-y-6">
+                      {deliveryDayGroups.length === 0 ? (
+                        <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                          Không có lịch giao nào khớp bộ lọc
+                        </div>
+                      ) : (
+                        deliveryDayGroups.map((group) => (
+                          <div key={group.date} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                                {new Date(group.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
+                              </h4>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left">
+                                <thead>
+                                  <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                    <th className="pb-2 font-semibold">Loại</th>
+                                    <th className="pb-2 font-semibold">Khách hàng</th>
+                                    <th className="pb-2 font-semibold">Gói / Món</th>
+                                    <th className="pb-2 font-semibold">Khối lượng</th>
+                                    <th className="pb-2 font-semibold">Trạng thái</th>
+                                    <th className="pb-2 font-semibold text-center">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.entries.map((d: any) => (
+                                    <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
+                                      <td className="py-3">
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                            d.source === "SUBSCRIPTION"
+                                              ? "bg-primary/10 text-primary border-primary/20"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 font-bold">{d.customerName}</td>
+                                      <td className="py-3 text-primary font-semibold">
+                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                      </td>
+                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                      <td className="py-3">
+                                        <select
+                                          value={d.status}
+                                          onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                        >
+                                          {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </td>
+                                      <td className="py-3 text-center">
+                                        <div className="flex justify-center items-center gap-2">
+                                          {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handleMarkDelivered(d)}
+                                              title="Xác nhận đã giao"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                            >
+                                              Đã giao
+                                            </button>
+                                          )}
+                                          {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handlePostponeDelivery(d)}
+                                              title="Hoãn lần giao này (bảo lưu số lượng)"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                            >
+                                              Hoãn
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleDeleteDelivery(d)}
+                                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {upcomingGroups.length === 0 ? (
+                      {upcomingGroups
+                        .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
+                        .filter((group) => group.entries.length > 0).length === 0 ? (
                         <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
-                          Không có lịch giao sắp tới
+                          Không có lịch giao nào khớp bộ lọc
                         </div>
                       ) : (
-                        upcomingGroups.map((group) => (
+                        upcomingGroups
+                          .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
+                          .filter((group) => group.entries.length > 0)
+                          .map((group) => (
                           <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-xs font-bold font-mono uppercase tracking-wider">{group.key}</h4>
                               <span className="text-[10px] text-muted-foreground font-mono">
-                                {group.count} lần giao · {formatGrams(group.totalGrams)}
+                                {group.entries.length} lần giao ·{" "}
+                                {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
                               </span>
                             </div>
                             <div className="space-y-2">
