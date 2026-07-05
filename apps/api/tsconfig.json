@@ -2,6 +2,7 @@
   "extends": "@fortifykitchen/tsconfig/nestjs.json",
   "compilerOptions": {
     "rootDir": "./src",
+    "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]

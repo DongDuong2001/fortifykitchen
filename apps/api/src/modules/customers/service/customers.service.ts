@@ -1,54 +1,101 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
+import { CreateCustomerDto } from "../dto/create-customer.dto";
 import { UpdateCustomerDto } from "../dto/update-customer.dto";
-import { CustomerProfile } from "@fortifykitchen/types";
+import { Customer } from "@fortifykitchen/types";
 
 @Injectable()
 export class CustomersService {
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(): Promise<CustomerProfile[]> {
+  async findAll(): Promise<Customer[]> {
     const list = await this.db.client.customer.findMany({
       orderBy: { createdAt: "desc" },
     });
-    return list.map((c) => ({
-      ...c,
-      preferences: c.preferences ? (c.preferences as Record<string, any>) : undefined,
-    }));
+    return list.map((c) => this.mapCustomer(c));
   }
 
-  async findOneByUserId(userId: string): Promise<CustomerProfile> {
+  async findOne(id: string): Promise<Customer> {
     const customer = await this.db.client.customer.findUnique({
-      where: { userId },
+      where: { id },
     });
 
     if (!customer) {
-      throw new NotFoundException(`Customer profile not found for user ID ${userId}`);
+      throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
-    return {
-      ...customer,
-      preferences: customer.preferences ? (customer.preferences as Record<string, any>) : undefined,
-    };
+    return this.mapCustomer(customer);
   }
 
-  async updateByUserId(userId: string, dto: UpdateCustomerDto): Promise<CustomerProfile> {
-    const customer = await this.findOneByUserId(userId);
-
-    const updated = await this.db.client.customer.update({
-      where: { id: customer.id },
+  async create(dto: CreateCustomerDto): Promise<Customer> {
+    const customer = await this.db.client.customer.create({
       data: {
+        name: dto.name,
         phone: dto.phone,
+        zalo: dto.zalo,
         address: dto.address,
-        city: dto.city,
-        postalCode: dto.postalCode,
-        preferences: dto.preferences ?? undefined,
+        notes: dto.notes,
       },
     });
 
+    return this.mapCustomer(customer);
+  }
+
+  async update(id: string, dto: UpdateCustomerDto): Promise<Customer> {
+    await this.findOne(id);
+
+    const customer = await this.db.client.customer.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        phone: dto.phone,
+        zalo: dto.zalo,
+        address: dto.address,
+        notes: dto.notes,
+      },
+    });
+
+    return this.mapCustomer(customer);
+  }
+
+  // Deleting a customer does NOT cascade-delete their orders/subscriptions —
+  // those records are orphaned (customerId set to null via the schema's
+  // onDelete: SetNull) but keep their denormalized customerName snapshot,
+  // matching the original app's behavior.
+  async remove(id: string): Promise<{ linkedOrders: number; linkedSubscriptions: number }> {
+    await this.findOne(id);
+
+    const [linkedOrders, linkedSubscriptions] = await Promise.all([
+      this.db.client.order.count({ where: { customerId: id } }),
+      this.db.client.subscription.count({ where: { customerId: id } }),
+    ]);
+
+    await this.db.client.customer.delete({ where: { id } });
+
+    return { linkedOrders, linkedSubscriptions };
+  }
+
+  private mapCustomer(customer: {
+    id: string;
+    userId: string | null;
+    name: string;
+    phone: string | null;
+    zalo: string | null;
+    address: string | null;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Customer {
     return {
-      ...updated,
-      preferences: updated.preferences ? (updated.preferences as Record<string, any>) : undefined,
+      id: customer.id,
+      userId: customer.userId ?? undefined,
+      name: customer.name,
+      phone: customer.phone ?? undefined,
+      zalo: customer.zalo ?? undefined,
+      address: customer.address ?? undefined,
+      notes: customer.notes ?? undefined,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
     };
   }
 }

@@ -1,80 +1,102 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, ParseUUIDPipe, ForbiddenException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  ParseUUIDPipe,
+} from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { SubscriptionsService } from "../service/subscriptions.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
+import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
+import { TopUpPoolDto } from "../dto/top-up-pool.dto";
+import { Subscription } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
-import { CurrentUser } from "../../../common/decorators/current-user.decorator";
-import { SubscriptionStatus } from "@fortifykitchen/types";
 
+// Subscriptions are staff-created — there is no customer self-service
+// signup flow in this product yet, so every route here is staff-only.
 @ApiTags("subscriptions")
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("ADMIN", "MANAGER", "STAFF")
 @ApiBearerAuth("JWT-auth")
 @Controller("subscriptions")
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
-  @Post()
-  @Roles("CUSTOMER")
-  @ApiOperation({ summary: "Subscribe to a recurring meal plan" })
-  @ApiResponse({ status: 201, description: "Subscription successfully created." })
-  async create(@CurrentUser() user: { id: string }, @Body() dto: CreateSubscriptionDto) {
-    return this.subscriptionsService.create(user.id, dto);
-  }
-
-  @Get("me")
-  @Roles("CUSTOMER")
-  @ApiOperation({ summary: "Get current logged-in customer's subscriptions" })
-  @ApiResponse({ status: 200, description: "Returns list of customer's active plans." })
-  async findAllMySubscriptions(@CurrentUser() user: { id: string }) {
-    return this.subscriptionsService.findAllByUserId(user.id);
-  }
-
   @Get()
-  @Roles("ADMIN", "MANAGER", "STAFF")
-  @ApiOperation({ summary: "Get all customer subscriptions (Admin/Staff only)" })
+  @ApiOperation({ summary: "Get all subscriptions, each with its protein pool balances" })
   @ApiResponse({ status: 200, description: "Returns list of all subscriptions." })
-  async findAll() {
+  async findAll(): Promise<Subscription[]> {
     return this.subscriptionsService.findAll();
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "Get subscription details by ID" })
-  @ApiResponse({ status: 200, description: "Returns full subscription schedule." })
+  @ApiOperation({ summary: "Get subscription details, including protein pool balances" })
+  @ApiResponse({ status: 200, description: "Returns subscription details." })
   @ApiResponse({ status: 404, description: "Subscription not found" })
-  async findOne(@CurrentUser() user: { id: string; role: string }, @Param("id", ParseUUIDPipe) id: string) {
-    const sub = await this.subscriptionsService.findOne(id);
-    if (user.role === "CUSTOMER") {
-      const mySubs = await this.subscriptionsService.findAllByUserId(user.id);
-      const isMySub = mySubs.some((s) => s.id === id);
-      if (!isMySub) {
-        throw new ForbiddenException("You do not have permission to view this subscription");
-      }
-    }
-    return sub;
+  async findOne(@Param("id", ParseUUIDPipe) id: string): Promise<Subscription> {
+    return this.subscriptionsService.findOne(id);
   }
 
-  @Put(":id/status")
-  @ApiOperation({ summary: "Pause, activate, or cancel a subscription plan" })
-  @ApiResponse({ status: 200, description: "Subscription status updated." })
-  async updateStatus(
-    @CurrentUser() user: { id: string; role: string },
+  @Get(":id/deliveries")
+  @ApiOperation({ summary: "Get the full delivery history/schedule for one subscription" })
+  @ApiResponse({ status: 200, description: "Returns this subscription's Delivery rows." })
+  async findDeliveries(@Param("id", ParseUUIDPipe) id: string) {
+    return this.subscriptionsService.findDeliveries(id);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary:
+      "Create a volume-based subscription (one or more protein pools + a delivery cadence) and materialize its first week of deliveries",
+  })
+  @ApiResponse({ status: 201, description: "Subscription, its pools, and the first week's deliveries created." })
+  @ApiResponse({ status: 400, description: "No available menu item for a purchased protein" })
+  async create(@Body() dto: CreateSubscriptionDto): Promise<Subscription> {
+    return this.subscriptionsService.create(dto);
+  }
+
+  @Put(":id")
+  @ApiOperation({
+    summary: "Update package name / price / payment / status / cadence. Does not touch already-materialized deliveries.",
+  })
+  @ApiResponse({ status: 200, description: "Subscription updated." })
+  @ApiResponse({ status: 404, description: "Subscription not found" })
+  async update(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body("status") status: SubscriptionStatus,
-  ) {
-    // Check ownership if they are a customer
-    if (user.role === "CUSTOMER") {
-      const mySubs = await this.subscriptionsService.findAllByUserId(user.id);
-      const isMySub = mySubs.some((s) => s.id === id);
-      if (!isMySub) {
-        throw new ForbiddenException("You do not have permission to manage this subscription");
-      }
-      // Customer can pause or cancel, but shouldn't be allowed to force expire it
-      if (status !== "ACTIVE" && status !== "PAUSED" && status !== "CANCELLED") {
-        throw new ForbiddenException("Invalid status option for customer self-management");
-      }
-    }
-    return this.subscriptionsService.updateStatus(id, status);
+    @Body() dto: UpdateSubscriptionDto,
+  ): Promise<Subscription> {
+    return this.subscriptionsService.update(id, dto);
+  }
+
+  @Post(":id/top-up")
+  @ApiOperation({ summary: "Add more purchased weight to a protein pool (or start a new one)" })
+  @ApiResponse({ status: 200, description: "Pool topped up and near-term deliveries re-synced." })
+  async topUpPool(@Param("id", ParseUUIDPipe) id: string, @Body() dto: TopUpPoolDto): Promise<Subscription> {
+    return this.subscriptionsService.topUpPool(id, dto);
+  }
+
+  @Post("sync-deliveries")
+  @ApiOperation({
+    summary: "Materialize any due-within-7-days Delivery rows across all active subscriptions (safe to call repeatedly)",
+  })
+  @ApiResponse({ status: 200, description: "Returns how many new Delivery rows were created." })
+  async syncDeliveries() {
+    return this.subscriptionsService.syncUpcomingDeliveries();
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "MANAGER")
+  @ApiOperation({ summary: "Delete a subscription, its pools, and its whole delivery schedule" })
+  @ApiResponse({ status: 200, description: "Subscription and its deliveries deleted." })
+  @ApiResponse({ status: 404, description: "Subscription not found" })
+  async remove(@Param("id", ParseUUIDPipe) id: string) {
+    return this.subscriptionsService.remove(id);
   }
 }

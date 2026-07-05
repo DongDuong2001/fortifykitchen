@@ -41,9 +41,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              "pointer-events-auto transform rounded-md border p-4 shadow-lg transition-all translate-y-0",
+              "pointer-events-auto transform rounded-2xl border p-4 shadow-warm-lg transition-smooth animate-in fade-in-50 slide-in-from-bottom-2 translate-y-0",
               {
-                "bg-white border-gray-200 text-gray-900": t.type === "default" || !t.type,
+                "bg-card border-border text-card-foreground": t.type === "default" || !t.type,
                 "bg-emerald-50 border-emerald-200 text-emerald-800": t.type === "success",
                 "bg-red-50 border-red-200 text-red-800": t.type === "error"
               }

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useApp } from "../providers/app-context";
-import { MenuItem, Category } from "@fortifykitchen/types";
+import { MenuItem, Protein } from "@fortifykitchen/types";
+import { getMenuItemLabel, PROTEIN_LABELS } from "@fortifykitchen/shared";
 import {
   ShoppingBag,
   User as UserIcon,
@@ -22,7 +23,10 @@ import {
   Tag,
   CreditCard,
   Check,
+  Search,
+  CalendarClock,
 } from "lucide-react";
+import { formatGrams } from "@fortifykitchen/shared";
 
 export default function CustomerPortal() {
   const {
@@ -43,6 +47,17 @@ export default function CustomerPortal() {
 
   // Tab State: "menu" | "subscriptions" | "dashboard"
   const [activeTab, setActiveTab] = React.useState<"menu" | "subscriptions" | "dashboard">("menu");
+
+  // My Subscription (volume-based) lookup state — subscriptions are set up
+  // by staff (see /subscriptions being ADMIN/MANAGER/STAFF-only), so
+  // there's no self-checkout here yet. This is a read + postpone view keyed
+  // off the phone number staff already have on file, since there's no
+  // customer login system wired to the new backend.
+  const [lookupPhone, setLookupPhone] = React.useState("");
+  const [myPoolSubscriptions, setMyPoolSubscriptions] = React.useState<any[]>([]);
+  const [isLookupLoading, setIsLookupLoading] = React.useState(false);
+  const [lookupError, setLookupError] = React.useState<string | null>(null);
+  const [hasLookedUp, setHasLookedUp] = React.useState(false);
 
   // Auth Modals State
   const [authModal, setAuthModal] = React.useState<"login" | "signup" | null>(null);
@@ -67,8 +82,7 @@ export default function CustomerPortal() {
 
   // Menu Catalog State
   const [menuItems, setMenuItems] = React.useState<MenuItem[]>([]);
-  const [categories, setCategories] = React.useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = React.useState<string>("");
+  const [selectedProtein, setSelectedProtein] = React.useState<Protein | "">("");
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
   // User Dashboard State
@@ -83,14 +97,9 @@ export default function CustomerPortal() {
     async function loadCatalog() {
       try {
         setIsLoadingMenu(true);
-        const [resCat, resMenu] = await Promise.all([
-          fetch(`${API_URL}/categories`),
-          fetch(`${API_URL}/menu`),
-        ]);
-        if (resCat.ok && resMenu.ok) {
-          const catData = await resCat.json();
+        const resMenu = await fetch(`${API_URL}/menu`);
+        if (resMenu.ok) {
           const menuData = await resMenu.json();
-          setCategories(catData.data || []);
           setMenuItems(menuData.data || []);
         }
       } catch (err) {
@@ -195,36 +204,49 @@ export default function CustomerPortal() {
     }
   };
 
-  const handleSubscribe = async (frequency: "DAILY" | "WEEKLY" | "MONTHLY", price: number) => {
-    if (!user) {
-      setAuthModal("login");
-      return;
-    }
+  // Volume subscriptions are set up by staff (see the admin dashboard's
+  // Subscriptions tab) — there's no self-checkout for a brand new
+  // subscription here yet. This looks up existing ones by phone number
+  // (no customer login system exists on the new backend) so a customer can
+  // check their remaining balance and postpone today's delivery themselves.
+  const handleLookupSubscription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupPhone.trim()) return;
+    setIsLookupLoading(true);
+    setLookupError(null);
+    setHasLookedUp(true);
     try {
-      const token = localStorage.getItem("fk_token");
-      const res = await fetch(`${API_URL}/subscriptions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          frequency,
-          startDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Start tomorrow
-          pricePerCycle: price,
-        }),
-      });
-
-      const result = await res.json();
+      const res = await fetch(`${API_URL}/subscriptions/public?phone=${encodeURIComponent(lookupPhone.trim())}`);
+      const result = await res.json().catch(() => null);
       if (res.ok) {
-        alert(`Successfully subscribed to ${frequency} plan! Price: ${price.toLocaleString()} ₫ per cycle.`);
-        setActiveTab("dashboard");
+        setMyPoolSubscriptions(result?.data || []);
       } else {
-        alert(result.message || "Failed to create subscription");
+        setLookupError(result?.message || "Không thể tra cứu lúc này");
+        setMyPoolSubscriptions([]);
       }
-    } catch (e) {
-      console.error(e);
-      alert("Error creating subscription");
+    } catch (err) {
+      console.error(err);
+      setLookupError("Lỗi kết nối — vui lòng thử lại");
+    } finally {
+      setIsLookupLoading(false);
+    }
+  };
+
+  const handlePostponeMyDelivery = async (deliveryId: string) => {
+    if (!confirm("Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.")) return;
+    try {
+      const res = await fetch(
+        `${API_URL}/subscriptions/public/${deliveryId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
+        { method: "POST" },
+      );
+      if (res.ok) {
+        handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+      } else {
+        const result = await res.json().catch(() => null);
+        alert(result?.message || "Không thể hoãn lần giao này");
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -252,19 +274,30 @@ export default function CustomerPortal() {
     return `${num.toLocaleString()} ₫`;
   };
 
-  const filteredMenu = selectedCategory
-    ? menuItems.filter((item) => item.categoryId === selectedCategory)
+  const filteredMenu = selectedProtein
+    ? menuItems.filter((item) => item.protein === selectedProtein)
     : menuItems;
+
+  const proteinsPresent = (Object.keys(PROTEIN_LABELS) as Protein[]).filter((p) =>
+    menuItems.some((item) => item.protein === p)
+  );
+
+  const groupedMenu = proteinsPresent
+    .filter((p) => !selectedProtein || p === selectedProtein)
+    .map((protein) => ({
+      protein,
+      items: filteredMenu
+        .filter((item) => item.protein === protein)
+        .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams),
+    }));
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       {/* 1. HEADER */}
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab("menu")}>
-            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-              <Utensils className="h-5 w-5" />
-            </div>
+            <img src="/logo.png" alt="Fortify Kitchen" className="h-10 w-10 rounded-md object-contain" />
             <span className="text-xl font-bold tracking-tight font-heading">
               Fortify<span className="text-primary">Kitchen</span>
             </span>
@@ -344,7 +377,7 @@ export default function CustomerPortal() {
 
       {/* 2. HERO SECTION */}
       {activeTab !== "dashboard" && (
-        <section className="relative overflow-hidden py-16 lg:py-24 border-b border-border bg-radial from-secondary/40 via-transparent to-transparent">
+        <section className="relative overflow-hidden py-16 lg:py-24 border-b border-border bg-secondary/20">
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full border border-border bg-muted/40 text-xs text-primary font-semibold">
@@ -352,7 +385,7 @@ export default function CustomerPortal() {
                 Vietnam&apos;s Premium Meal Delivery & Subscription
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-heading leading-tight">
-                Fuel Your Body with <span className="text-primary bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">Gourmet Nutrition</span>
+                Fuel Your Body with <span className="text-primary">Gourmet Nutrition</span>
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground max-w-xl">
                 Expertly crafted organic salads, high-protein bowls, and fresh cold-pressed juices delivered straight to your door in Ho Chi Minh City. Pay easily via **Cash on Delivery (COD)**.
@@ -360,20 +393,20 @@ export default function CustomerPortal() {
               <div className="flex gap-4">
                 <button
                   onClick={() => setActiveTab("menu")}
-                  className="bg-primary text-primary-foreground font-semibold px-8 py-3.5 rounded-full hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 cursor-pointer text-sm"
+                  className="bg-primary text-primary-foreground font-semibold px-8 py-3.5 rounded-md hover:bg-primary/90 transition-all cursor-pointer text-sm"
                 >
                   Explore Menu
                 </button>
                 <button
                   onClick={() => setActiveTab("subscriptions")}
-                  className="border border-border bg-muted/20 hover:bg-muted font-semibold px-8 py-3.5 rounded-full transition-all cursor-pointer text-sm"
+                  className="border border-border bg-muted/20 hover:bg-muted font-semibold px-8 py-3.5 rounded-md transition-all cursor-pointer text-sm"
                 >
                   Meal Subscription plans
                 </button>
               </div>
             </div>
             <div className="relative h-80 sm:h-96 w-full rounded-2xl border border-border bg-muted/20 overflow-hidden flex items-center justify-center shadow-xl">
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-primary/5" />
               <div className="text-center space-y-2 p-8 z-10">
                 <Utensils className="h-16 w-16 text-primary mx-auto opacity-70 animate-bounce" />
                 <h3 className="text-lg font-bold font-heading">Clean & Fresh Ingredients Only</h3>
@@ -401,29 +434,29 @@ export default function CustomerPortal() {
                 </p>
               </div>
 
-              {/* Minimal Category Filter */}
+              {/* Protein Filter */}
               <div className="flex flex-wrap gap-2.5">
                 <button
-                  onClick={() => setSelectedCategory("")}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                    selectedCategory === ""
-                      ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10"
+                  onClick={() => setSelectedProtein("")}
+                  className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                    selectedProtein === ""
+                      ? "bg-primary border-primary text-primary-foreground"
                       : "bg-muted/40 border-border hover:bg-muted"
                   }`}
                 >
                   All Items
                 </button>
-                {categories.map((cat) => (
+                {proteinsPresent.map((protein) => (
                   <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                      selectedCategory === cat.id
-                        ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10"
+                    key={protein}
+                    onClick={() => setSelectedProtein(protein)}
+                    className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                      selectedProtein === protein
+                        ? "bg-primary border-primary text-primary-foreground"
                         : "bg-muted/40 border-border hover:bg-muted"
                     }`}
                   >
-                    {cat.name}
+                    {PROTEIN_LABELS[protein]}
                   </button>
                 ))}
               </div>
@@ -441,47 +474,62 @@ export default function CustomerPortal() {
                 <p className="text-sm text-muted-foreground font-medium">No menu items found in this category.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredMenu.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:shadow-primary/5"
-                  >
-                    <div>
-                      {/* Image placeholder with premium styling */}
-                      <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="object-cover h-full w-full group-hover:scale-105 transition-all duration-300"
-                          />
-                        ) : (
-                          <Utensils className="h-12 w-12 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-200" />
-                        )}
-                        <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-full border border-border">
-                          {formatVND(item.price)}
-                        </span>
-                      </div>
-
-                      <div className="p-6">
-                        <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
-                          {item.name}
-                        </h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                          {item.description}
-                        </p>
-                      </div>
+              <div className="space-y-10">
+                {groupedMenu.map(({ protein, items }) => (
+                  <div key={protein} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                        {PROTEIN_LABELS[protein]}
+                      </h3>
+                      <span className="text-xs font-mono text-muted-foreground">({items.length})</span>
+                      <div className="flex-1 border-t border-border" />
                     </div>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-lg overflow-hidden transition-all"
+                        >
+                          <div>
+                            {/* Image placeholder with premium styling */}
+                            <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={getMenuItemLabel(item)}
+                                  className="object-cover h-full w-full group-hover:scale-105 transition-all duration-300"
+                                />
+                              ) : (
+                                <Utensils className="h-12 w-12 text-muted-foreground/30 group-hover:scale-110 transition-transform duration-200" />
+                              )}
+                              <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
+                                {formatVND(item.price)}
+                              </span>
+                            </div>
 
-                    <div className="p-6 pt-0 border-t border-border/30 mt-4">
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add to Order
-                      </button>
+                            <div className="p-6">
+                              <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
+                                {item.flavor} ({item.sizeGrams}g)
+                              </h3>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-6 pt-0 border-t border-border/30 mt-4">
+                            <button
+                              onClick={() => addToCart(item)}
+                              className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add to Order
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -490,122 +538,114 @@ export default function CustomerPortal() {
           </div>
         )}
 
-        {/* TAB 2: MEAL SUBSCRIPTIONS */}
+        {/* TAB 2: MY VOLUME SUBSCRIPTION (staff set these up — this is a
+            phone-number lookup so a customer can check their remaining
+            balance per protein and postpone today's delivery themselves) */}
         {activeTab === "subscriptions" && (
           <div>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <h2 className="text-3xl font-extrabold tracking-tight font-heading">
-                Weekly & Monthly Meal Subscriptions
-              </h2>
+            <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
+              <h2 className="text-3xl font-extrabold tracking-tight font-heading">Gói đăng ký của bạn</h2>
               <p className="text-sm text-muted-foreground">
-                Set and forget. Select a plan and frequency, and receive fresh healthy chef-crafted meals daily at your office or residence. Skip or pause anytime.
+                Nhập số điện thoại đã đăng ký với Fortify Kitchen để xem số lượng còn lại và lịch giao sắp tới. Gói đăng ký
+                mới được thiết lập bởi đội ngũ Fortify Kitchen — liên hệ để bắt đầu một gói.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
-              {/* Daily Plan */}
-              <div className="border border-border bg-card rounded-2xl p-8 flex flex-col justify-between hover:border-primary/50 transition-all hover:shadow-lg shadow-sm">
-                <div>
-                  <div className="text-xs font-extrabold tracking-wider text-muted-foreground uppercase mb-2">Daily Trial</div>
-                  <h3 className="text-2xl font-bold font-heading mb-4">Daily Power</h3>
-                  <div className="text-3xl font-black font-heading text-primary mb-6">
-                    {formatVND(80000)} <span className="text-xs text-muted-foreground font-normal">/ day</span>
-                  </div>
-                  <ul className="space-y-3.5 text-xs text-muted-foreground mb-8">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      1 Chef-designed healthy meal per day
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Delivered hot before 12:00 PM
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Perfect for trying out our service
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => handleSubscribe("DAILY", 80000)}
-                  className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/95 transition-all text-xs cursor-pointer shadow-md shadow-primary/10"
-                >
-                  Subscribe Plan (Daily)
-                </button>
-              </div>
+            <form onSubmit={handleLookupSubscription} className="max-w-md mx-auto flex gap-2 mb-10">
+              <input
+                type="tel"
+                required
+                placeholder="Số điện thoại của bạn"
+                value={lookupPhone}
+                onChange={(e) => setLookupPhone(e.target.value)}
+                className="flex-1 bg-background border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isLookupLoading}
+                className="bg-primary text-primary-foreground font-bold px-5 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Tra cứu
+              </button>
+            </form>
 
-              {/* Weekly Plan */}
-              <div className="border border-primary bg-card rounded-2xl p-8 flex flex-col justify-between relative hover:shadow-xl transition-all shadow-md">
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[10px] font-black tracking-wider uppercase py-1.5 px-4 rounded-full shadow-md">
-                  Most Popular
-                </div>
-                <div>
-                  <div className="text-xs font-extrabold tracking-wider text-primary uppercase mb-2">Office Classic</div>
-                  <h3 className="text-2xl font-bold font-heading mb-4">Weekly Balance</h3>
-                  <div className="text-3xl font-black font-heading text-primary mb-6">
-                    {formatVND(450000)} <span className="text-xs text-muted-foreground font-normal">/ cycle</span>
-                  </div>
-                  <ul className="space-y-3.5 text-xs text-muted-foreground mb-8">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      5 Gourmet lunch meals (Mon-Fri)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Includes 1 fresh cold-pressed juice/week
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Free delivery in District 1, 3, Binh Thanh
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Flexible pausing & menu selection
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => handleSubscribe("WEEKLY", 450000)}
-                  className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/95 transition-all text-xs cursor-pointer shadow-md shadow-primary/10"
-                >
-                  Subscribe Plan (Weekly)
-                </button>
-              </div>
+            {lookupError && (
+              <p className="text-center text-xs text-red-500 mb-8">{lookupError}</p>
+            )}
 
-              {/* Monthly Plan */}
-              <div className="border border-border bg-card rounded-2xl p-8 flex flex-col justify-between hover:border-primary/50 transition-all hover:shadow-lg shadow-sm">
-                <div>
-                  <div className="text-xs font-extrabold tracking-wider text-muted-foreground uppercase mb-2">Committed Fitness</div>
-                  <h3 className="text-2xl font-bold font-heading mb-4">Monthly Lifestyle</h3>
-                  <div className="text-3xl font-black font-heading text-primary mb-6">
-                    {formatVND(1650000)} <span className="text-xs text-muted-foreground font-normal">/ cycle</span>
-                  </div>
-                  <ul className="space-y-3.5 text-xs text-muted-foreground mb-8">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      20 Gourmet lunch meals (Mon-Fri, 4 weeks)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Includes 4 fresh cold-pressed juices
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Free delivery all districts
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      Priority custom meal requests
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => handleSubscribe("MONTHLY", 1650000)}
-                  className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl hover:bg-primary/95 transition-all text-xs cursor-pointer shadow-md shadow-primary/10"
-                >
-                  Subscribe Plan (Monthly)
-                </button>
+            {hasLookedUp && !isLookupLoading && !lookupError && myPoolSubscriptions.length === 0 && (
+              <div className="max-w-md mx-auto text-center py-10 border border-dashed border-border rounded-xl">
+                <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  Không tìm thấy gói đăng ký nào với số điện thoại này.
+                </p>
               </div>
+            )}
+
+            <div className="max-w-2xl mx-auto space-y-6">
+              {myPoolSubscriptions.map((sub) => (
+                <div key={sub.id} className="border border-border bg-card rounded-2xl p-6 space-y-5 shadow-sm">
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold font-heading">{sub.packageName}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Giao {formatGrams(sub.deliveryAmountGrams)} mỗi {sub.deliveryIntervalDays} ngày
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${
+                        sub.status === "ACTIVE"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-amber-50 border-amber-200 text-amber-700"
+                      }`}
+                    >
+                      {sub.status}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {sub.pools.map((p: any) => {
+                      const pct = p.totalGrams > 0 ? Math.max(0, Math.min(100, (p.remainingGrams / p.totalGrams) * 100)) : 0;
+                      return (
+                        <div key={p.id} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-semibold">{PROTEIN_LABELS[p.protein as Protein] || p.protein}</span>
+                            <span className="text-muted-foreground">
+                              còn {formatGrams(p.remainingGrams)} / {formatGrams(p.totalGrams)}
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {sub.upcomingDeliveries?.length > 0 && (
+                    <div className="pt-4 border-t border-border/50 space-y-2">
+                      <h4 className="text-xs font-bold flex items-center gap-1.5">
+                        <CalendarClock className="h-3.5 w-3.5 text-primary" /> Lịch giao sắp tới
+                      </h4>
+                      {sub.upcomingDeliveries.map((d: any) => (
+                        <div key={d.id} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            {new Date(d.scheduledDate).toLocaleDateString("vi-VN")} —{" "}
+                            {d.items.map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
+                          </span>
+                          <button
+                            onClick={() => handlePostponeMyDelivery(d.id)}
+                            className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer shrink-0"
+                          >
+                            Hoãn
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -853,7 +893,7 @@ export default function CustomerPortal() {
                         {item.menuItem.imageUrl ? (
                           <img
                             src={item.menuItem.imageUrl}
-                            alt={item.menuItem.name}
+                            alt={getMenuItemLabel(item.menuItem)}
                             className="object-cover h-full w-full"
                           />
                         ) : (
@@ -862,7 +902,7 @@ export default function CustomerPortal() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-bold text-foreground truncate">{item.menuItem.name}</h4>
+                        <h4 className="text-xs font-bold text-foreground truncate">{getMenuItemLabel(item.menuItem)}</h4>
                         <div className="text-xs text-primary font-bold mt-1">
                           {formatVND(item.menuItem.price)}
                         </div>

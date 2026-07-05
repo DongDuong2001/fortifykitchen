@@ -8,8 +8,10 @@
     "build": "tsc",
     "type-check": "tsc --noEmit"
   },
-  "devDependencies": {
-    "@fortifykitchen/tsconfig": "workspace:*",
+  "dependencies": {
     "@fortifykitchen/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@fortifykitchen/tsconfig": "workspace:*"
   }
 }

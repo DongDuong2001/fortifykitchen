@@ -11,7 +11,9 @@ import { CustomersModule } from "./modules/customers/customers.module";
 import { DiscountsModule } from "./modules/discounts/discounts.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
+import { DeliveryModule } from "./modules/delivery/delivery.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { PrepListModule } from "./modules/prep-list/prep-list.module";
 
 @Module({
   imports: [
@@ -25,7 +27,9 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
     DiscountsModule,
     OrdersModule,
     SubscriptionsModule,
+    DeliveryModule,
     DashboardModule,
+    PrepListModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

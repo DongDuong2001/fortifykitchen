@@ -1,69 +1,98 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, ParseUUIDPipe, ForbiddenException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+} from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { OrdersService } from "../service/orders.service";
 import { CreateOrderDto } from "../dto/create-order.dto";
+import { UpdateOrderDto } from "../dto/update-order.dto";
+import { UpdateDeliveryStatusDto, UpdatePaymentStatusDto } from "../dto/update-order-status.dto";
+import { Order } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
-import { CurrentUser } from "../../../common/decorators/current-user.decorator";
-import { OrderStatus } from "@fortifykitchen/types";
 
+// Orders are staff-created on behalf of a customer — there is no customer
+// self-checkout in this product yet, so every route here is staff-only.
 @ApiTags("orders")
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles("ADMIN", "MANAGER", "STAFF")
 @ApiBearerAuth("JWT-auth")
 @Controller("orders")
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Post()
-  @Roles("CUSTOMER")
-  @ApiOperation({ summary: "Place a new meal/food order" })
-  @ApiResponse({ status: 201, description: "Order placed successfully." })
-  @ApiResponse({ status: 400, description: "Bad request / out-of-stock items" })
-  async create(@CurrentUser() user: { id: string }, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(user.id, dto);
-  }
-
-  @Get("me")
-  @Roles("CUSTOMER")
-  @ApiOperation({ summary: "Get order history for current logged-in customer" })
-  @ApiResponse({ status: 200, description: "Returns list of customer's orders." })
-  async findAllMyOrders(@CurrentUser() user: { id: string }) {
-    return this.ordersService.findAllByUserId(user.id);
-  }
-
   @Get()
-  @Roles("ADMIN", "MANAGER", "STAFF")
-  @ApiOperation({ summary: "Get all system orders (Admin/Staff only)" })
+  @ApiOperation({ summary: "Get all orders" })
   @ApiResponse({ status: 200, description: "Returns list of all orders." })
-  async findAll() {
+  async findAll(): Promise<Order[]> {
     return this.ordersService.findAll();
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get order details by ID" })
-  @ApiResponse({ status: 200, description: "Returns full order transaction details." })
-  @ApiResponse({ status: 403, description: "Forbidden - cannot access other users' orders" })
+  @ApiResponse({ status: 200, description: "Returns full order details." })
   @ApiResponse({ status: 404, description: "Order not found" })
-  async findOne(@CurrentUser() user: { id: string; role: string }, @Param("id", ParseUUIDPipe) id: string) {
-    const order = await this.ordersService.findOne(id);
-    // Customers can only view their own orders
-    if (user.role === "CUSTOMER") {
-      const myOrders = await this.ordersService.findAllByUserId(user.id);
-      const isMyOrder = myOrders.some((o) => o.id === id);
-      if (!isMyOrder) {
-        throw new ForbiddenException("You do not have permission to view this order");
-      }
-    }
-    return order;
+  async findOne(@Param("id", ParseUUIDPipe) id: string): Promise<Order> {
+    return this.ordersService.findOne(id);
   }
 
-  @Put(":id/status")
-  @Roles("ADMIN", "MANAGER", "STAFF")
-  @ApiOperation({ summary: "Update order status and trigger delivery/COD payment logic (Admin/Staff only)" })
-  @ApiResponse({ status: 200, description: "Order status successfully updated." })
+  @Post()
+  @ApiOperation({ summary: "Create a new order — server computes pricing via the discount engine" })
+  @ApiResponse({ status: 201, description: "Order created." })
+  @ApiResponse({ status: 400, description: "Bad request / unknown menu item" })
+  async create(@Body() dto: CreateOrderDto): Promise<Order> {
+    return this.ordersService.create(dto);
+  }
+
+  @Put(":id")
+  @ApiOperation({ summary: "Update an order — resends the full form, repriced from scratch" })
+  @ApiResponse({ status: 200, description: "Order updated." })
   @ApiResponse({ status: 404, description: "Order not found" })
-  async updateStatus(@Param("id", ParseUUIDPipe) id: string, @Body("status") status: OrderStatus) {
-    return this.ordersService.updateStatus(id, status);
+  async update(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderDto,
+  ): Promise<Order> {
+    return this.ordersService.update(id, dto);
+  }
+
+  @Patch(":id/delivery-status")
+  @ApiOperation({ summary: "Update an order's delivery/fulfillment status" })
+  @ApiResponse({ status: 200, description: "Delivery status updated." })
+  async updateDeliveryStatus(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDeliveryStatusDto,
+  ): Promise<Order> {
+    return this.ordersService.updateDeliveryStatus(id, dto.deliveryStatus);
+  }
+
+  @Patch(":id/payment-status")
+  @ApiOperation({ summary: "Update an order's payment status" })
+  @ApiResponse({ status: 200, description: "Payment status updated." })
+  async updatePaymentStatus(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+  ): Promise<Order> {
+    return this.ordersService.updatePaymentStatus(id, dto.paymentStatus);
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "MANAGER")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Delete an order" })
+  @ApiResponse({ status: 204, description: "Order deleted." })
+  @ApiResponse({ status: 404, description: "Order not found" })
+  async remove(@Param("id", ParseUUIDPipe) id: string): Promise<void> {
+    await this.ordersService.remove(id);
   }
 }

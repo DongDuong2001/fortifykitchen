@@ -1,0 +1,239 @@
+import type { DeliveryStatus, PaymentState, Protein } from "@fortifykitchen/types";
+
+/**
+ * Protein display names (Vietnamese) — ported from the original app's
+ * src/lib/menuData.js.
+ */
+export const PROTEIN_LABELS: Record<Protein, string> = {
+  CHICKEN: "Gà",
+  BEEF: "Bò",
+  SHRIMP: "Tôm",
+};
+
+/**
+ * Human display label for a menu item / line item, e.g. "Gà xá xíu (150g)".
+ * Ported from the original app's getMenuItemLabel() — used anywhere a
+ * protein+flavor+size combination needs a single readable string (order
+ * line items, subscription templates, the customer storefront menu grid).
+ */
+export function getMenuItemLabel(item: { protein: Protein; flavor: string; sizeGrams: number }): string {
+  const proteinLabel = PROTEIN_LABELS[item.protein] || item.protein;
+  return `${proteinLabel} ${item.flavor} (${item.sizeGrams}g)`;
+}
+
+/**
+ * Display labels for the Prisma PaymentState enum — the original app stored
+ * the Vietnamese string directly as the value ("Chưa thanh toán" etc); the
+ * new schema stores a stable English enum (UNPAID/DEPOSIT/PAID) instead, so
+ * the UI looks these up for display.
+ */
+export const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
+  UNPAID: "Chưa thanh toán",
+  DEPOSIT: "Đã cọc",
+  PAID: "Đã thanh toán",
+};
+
+export const PAYMENT_STATES: PaymentState[] = ["UNPAID", "DEPOSIT", "PAID"];
+
+/**
+ * Delivery status labels. The original app displayed the raw English enum
+ * values as-is (e.g. "Scheduled", "Prepping") — kept the same convention
+ * here for continuity, just title-cased from the Prisma enum keys.
+ */
+export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
+  SCHEDULED: "Scheduled",
+  PREPPING: "Prepping",
+  DELIVERED: "Delivered",
+  SKIPPED: "Skipped",
+  CANCELLED: "Cancelled",
+};
+
+export const DELIVERY_STATUSES: DeliveryStatus[] = [
+  "SCHEDULED",
+  "PREPPING",
+  "DELIVERED",
+  "SKIPPED",
+  "CANCELLED",
+];
+
+/**
+ * Subscription scheduling model.
+ *
+ * A subscription has two independent settings:
+ *  - planDurationDays: how long the package runs in total (e.g. a "monthly"
+ *    package = 30 days).
+ *  - deliveryIntervalDays: how often a delivery happens within that span
+ *    (e.g. every day = 1, every week = 7).
+ *
+ * The number of deliveries generated is derived from the two:
+ *   deliveries = floor(planDurationDays / deliveryIntervalDays), min 1.
+ *
+ * Example: a monthly (30-day) plan delivered daily (every 1 day) generates
+ * 30 deliveries, one per day. A weekly (7-day) plan delivered weekly
+ * (every 7 days) generates 1 delivery. A monthly plan delivered weekly
+ * generates 4.
+ */
+export const PLAN_DURATION_PRESETS = [
+  { days: 7, label: "Gói tuần (7 ngày)" },
+  { days: 14, label: "Gói 2 tuần (14 ngày)" },
+  { days: 30, label: "Gói tháng (30 ngày)" },
+  { days: 90, label: "Gói quý (90 ngày)" },
+] as const;
+
+export const DELIVERY_FREQUENCY_PRESETS = [
+  { days: 1, label: "Hàng ngày (mỗi 1 ngày)" },
+  { days: 2, label: "Mỗi 2 ngày" },
+  { days: 3, label: "Mỗi 3 ngày" },
+  { days: 7, label: "Hàng tuần (mỗi 7 ngày)" },
+  { days: 14, label: "Mỗi 2 tuần" },
+  { days: 30, label: "Hàng tháng (mỗi 30 ngày)" },
+] as const;
+
+/**
+ * Human label for an arbitrary interval in days, falling back to
+ * "Mỗi N ngày" for values with no dedicated preset (e.g. a custom 4-day
+ * interval typed in by the user).
+ */
+export function formatIntervalLabel(days: number): string {
+  if (days === 1) return "Hàng ngày";
+  if (days === 7) return "Hàng tuần";
+  if (days === 14) return "Mỗi 2 tuần";
+  if (days === 30) return "Hàng tháng";
+  return `Mỗi ${days} ngày`;
+}
+
+/** Human label for an arbitrary plan duration in days. */
+export function formatDurationLabel(days: number): string {
+  if (days === 7) return "Gói tuần (7 ngày)";
+  if (days === 14) return "Gói 2 tuần (14 ngày)";
+  if (days === 30) return "Gói tháng (30 ngày)";
+  if (days === 90) return "Gói quý (90 ngày)";
+  return `Gói ${days} ngày`;
+}
+
+/** Number of deliveries a plan duration + delivery interval produces. */
+export function computeDeliveryCount(
+  planDurationDays: number,
+  deliveryIntervalDays: number,
+): number {
+  if (!planDurationDays || !deliveryIntervalDays || deliveryIntervalDays <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.floor(planDurationDays / deliveryIntervalDays));
+}
+
+/**
+ * Given a start date, delivery interval, and number of deliveries, compute
+ * the ISO scheduled dates for the whole run — the same generation logic the
+ * original app used inline in SubscriptionsPage's handleCreate. Centralized
+ * here so the API (which actually creates the Delivery rows) and any
+ * frontend preview use identical math.
+ */
+export function generateDeliveryDates(
+  startDate: Date | string,
+  deliveryIntervalDays: number,
+  deliveriesPlanned: number,
+): string[] {
+  const start = new Date(startDate);
+  const dates: string[] = [];
+  for (let i = 0; i < deliveriesPlanned; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i * deliveryIntervalDays);
+    dates.push(d.toISOString().split("T")[0]);
+  }
+  return dates;
+}
+
+/** The last scheduled delivery date for a plan — startDate + (n-1) * interval. */
+export function computeScheduleEndDate(
+  startDate: Date | string,
+  deliveryIntervalDays: number,
+  deliveriesPlanned: number,
+): string | null {
+  if (deliveriesPlanned <= 0) return null;
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + (deliveriesPlanned - 1) * deliveryIntervalDays);
+  return d.toISOString().split("T")[0];
+}
+
+// ---------------------------------------------------------------------
+// Volume-based subscription scheduling
+//
+// A volume subscription doesn't fix a plan duration or delivery count up
+// front — the customer buys a total WEIGHT (across one or more protein
+// pools) and picks a cadence (deliveryAmountGrams delivered every
+// deliveryIntervalDays). The number of deliveries falls out of dividing
+// the total by the per-delivery amount, with the LAST delivery taking
+// whatever remainder is left (never requiring an even split).
+// ---------------------------------------------------------------------
+
+export const DELIVERY_AMOUNT_PRESETS_GRAMS = [500, 1000, 2000, 3000, 5000] as const;
+
+/** "1.5kg" / "500g" — used anywhere a gram amount needs a compact display. */
+export function formatGrams(grams: number): string {
+  if (grams >= 1000) {
+    const kg = grams / 1000;
+    return `${Number.isInteger(kg) ? kg : kg.toFixed(1)}kg`;
+  }
+  return `${grams}g`;
+}
+
+export interface VolumeScheduleEntry {
+  index: number;
+  date: string; // YYYY-MM-DD
+  grams: number; // target weight for this occurrence (last one = remainder)
+}
+
+/**
+ * Theoretical full schedule for a volume subscription — every occurrence
+ * from startDate until the total weight is exhausted, one entry per
+ * deliveryIntervalDays. Purely a projection/preview: the API only ever
+ * materializes real Delivery rows for occurrences landing within the next
+ * 7 days (see SubscriptionsService.syncUpcomingDeliveries), and after a
+ * postpone the *actual* on-disk dates diverge from this projection (which
+ * assumes no postpones) — this is for up-front previewing at creation time
+ * and for display estimates only.
+ */
+export function generateVolumeSchedule(
+  startDate: Date | string,
+  deliveryAmountGrams: number,
+  deliveryIntervalDays: number,
+  totalGrams: number,
+): VolumeScheduleEntry[] {
+  if (
+    !deliveryAmountGrams ||
+    deliveryAmountGrams <= 0 ||
+    !deliveryIntervalDays ||
+    deliveryIntervalDays <= 0 ||
+    !totalGrams ||
+    totalGrams <= 0
+  ) {
+    return [];
+  }
+
+  const entries: VolumeScheduleEntry[] = [];
+  const start = new Date(startDate);
+  let remaining = totalGrams;
+  let i = 0;
+  // Safety guard against pathological inputs (e.g. deliveryAmountGrams = 1
+  // against a multi-kg total) generating an unbounded loop.
+  const MAX_ENTRIES = 2000;
+
+  while (remaining > 0 && i < MAX_ENTRIES) {
+    const grams = Math.min(deliveryAmountGrams, remaining);
+    const d = new Date(start);
+    d.setDate(d.getDate() + i * deliveryIntervalDays);
+    entries.push({ index: i, date: d.toISOString().split("T")[0], grams });
+    remaining -= grams;
+    i += 1;
+  }
+
+  return entries;
+}
+
+/** Add N days to a date, returning a new Date (does not mutate the input). */
+export function addDays(date: Date | string, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}

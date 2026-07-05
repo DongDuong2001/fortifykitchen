@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, User } from "@fortifykitchen/types";
+import { getMenuItemLabel } from "@fortifykitchen/shared";
 
 interface CartItem {
   menuItem: MenuItem;
@@ -179,7 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     toast({
       title: "Added to Cart",
-      description: `${menuItem.name} added.`,
+      description: `${getMenuItemLabel(menuItem)} added.`,
       type: "success",
     });
   };

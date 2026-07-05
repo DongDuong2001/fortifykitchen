@@ -1,33 +1,56 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsBoolean, IsUUID } from "class-validator";
+import {
+  IsString,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  IsOptional,
+  IsBoolean,
+  IsUUID,
+  IsEnum,
+} from "class-validator";
+import { Protein } from "@fortifykitchen/database";
 
+// A sellable SKU: one protein + flavor + portion size combination
+// (e.g. chicken / xá xíu / 150g). Mirrors the MenuItem model in
+// packages/database/prisma/schema.prisma — price is whole VND, no subunit.
 export class CreateMenuItemDto {
-  @ApiProperty({ example: "Avocado & Salmon Bowl" })
+  @ApiProperty({ enum: Protein, example: "CHICKEN" })
+  @IsEnum(Protein)
+  protein!: Protein;
+
+  @ApiProperty({ example: "xá xíu" })
   @IsString()
   @IsNotEmpty()
-  name!: string;
+  flavor!: string;
 
-  @ApiProperty({ example: "Fresh avocado, smoked salmon, wild rice, and mixed greens with sesame dressing." })
-  @IsString()
-  @IsNotEmpty()
-  description!: string;
+  @ApiProperty({ example: 150 })
+  @IsInt()
+  @Min(1)
+  sizeGrams!: number;
 
-  @ApiProperty({ example: 120000 }) // Example in VND
-  @IsNumber()
+  @ApiProperty({ example: 25000, description: "Price in whole VND" })
+  @IsInt()
   @Min(0)
   price!: number;
-
-  @ApiProperty({ example: "https://example.com/salmon-bowl.jpg", required: false })
-  @IsString()
-  @IsOptional()
-  imageUrl?: string;
-
-  @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098" })
-  @IsUUID()
-  categoryId!: string;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()
   isAvailable?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 }

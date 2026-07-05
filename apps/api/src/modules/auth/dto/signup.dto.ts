@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsEmail, IsString, IsOptional, MinLength } from "class-validator";
 
 export class SignupDto {
   @ApiProperty({ example: "customer@example.com" })
@@ -19,19 +19,18 @@ export class SignupDto {
   @IsString()
   lastName!: string;
 
-  @ApiProperty({ example: "0901234567" })
+  @ApiPropertyOptional({ example: "0901234567" })
+  @IsOptional()
   @IsString()
-  phone!: string;
+  phone?: string;
 
-  @ApiProperty({ example: "123 Dong Khoi St, District 1" })
+  @ApiPropertyOptional({ example: "123 Dong Khoi St, District 1" })
+  @IsOptional()
   @IsString()
-  address!: string;
+  address?: string;
 
-  @ApiProperty({ example: "Ho Chi Minh City" })
+  @ApiPropertyOptional({ example: "zalo_username" })
+  @IsOptional()
   @IsString()
-  city!: string;
-
-  @ApiProperty({ example: "70000" })
-  @IsString()
-  postalCode!: string;
+  zalo?: string;
 }

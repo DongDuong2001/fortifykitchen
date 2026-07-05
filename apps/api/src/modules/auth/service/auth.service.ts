@@ -37,10 +37,10 @@ export class AuthService {
       await tx.customer.create({
         data: {
           userId: newUser.id,
+          name: `${signupDto.firstName} ${signupDto.lastName}`.trim(),
           phone: signupDto.phone,
           address: signupDto.address,
-          city: signupDto.city,
-          postalCode: signupDto.postalCode,
+          zalo: signupDto.zalo,
         },
       });
 
