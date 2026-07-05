@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/*
+ * "Mint Receipt" design system — from DESIGN.md.
+ * Thermal paper, mint stripe, tidy numbers. Flat on purpose: no gradients,
+ * a single accent color (tertiary mint) drives all interaction, and radii
+ * stay tight (2–8px) instead of the soft pill shapes of the old brand.
+ *
+ * Mapped onto the existing shadcn-style CSS-variable convention
+ * (--primary, --secondary, --accent, --muted, --border, --ring, etc.) so
+ * every component in packages/ui automatically inherits the palette.
+ *
+ * Palette: primary #1E241E (headline/core text), secondary #6C7A6F
+ * (borders/captions/metadata), tertiary #2FB67D (the sole interactive
+ * accent — reserved, never mixed with an alternate hue), neutral #F4F0E8
+ * (page foundation), surface #FFFFFF (cards).
+ */
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -20,66 +35,105 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  
+
+  /* Full brand ramp, rebased on the Mint Receipt primary (#1E241E), for
+     cases that need a specific shade rather than the semantic tokens above. */
+  --color-brand-50: #f4f5f4;
+  --color-brand-100: #e2e5e1;
+  --color-brand-200: #c3c9c1;
+  --color-brand-300: #96a094;
+  --color-brand-400: #66715f;
+  --color-brand-500: #1e241e;
+  --color-brand-600: #1a1f1a;
+  --color-brand-700: #151915;
+  --color-brand-800: #101310;
+  --color-brand-900: #0a0d0a;
+  --color-brand-950: #050605;
+
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), ui-monospace, "SF Mono", monospace;
+  --font-mono: var(--font-heading), ui-monospace, "SF Mono", monospace;
+
+  /* DESIGN.md's radius scale (sm 2px / md 4px / lg 8px) — override Tailwind's
+     built-in radius steps so existing rounded-xl / rounded-2xl / rounded-3xl
+     usages across the app collapse to this tight scale without needing a
+     find-and-replace through every page. */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+  --radius-3xl: 8px;
+  --radius-4xl: 8px;
+
+  /* Flatten Tailwind's built-in shadow-sm / shadow-md / etc. too, so inline
+     usages elsewhere in the app (not just packages/ui) read as hairlines
+     instead of soft drop shadows — consistent with "flat on purpose." */
+  --shadow-xs: 0 1px 0 rgba(30, 36, 30, 0.04);
+  --shadow-sm: 0 1px 0 rgba(30, 36, 30, 0.05);
+  --shadow-md: 0 1px 2px rgba(30, 36, 30, 0.06);
+  --shadow-lg: 0 1px 2px rgba(30, 36, 30, 0.08);
+  --shadow-xl: 0 1px 2px rgba(30, 36, 30, 0.08);
+  --shadow-2xl: 0 1px 2px rgba(30, 36, 30, 0.08);
 }
 
 :root {
-  --background: #fdfdfc;
-  --foreground: #0e120f;
-  --primary: #059669; /* Hunter Emerald to match branding */
-  --primary-foreground: #ffffff;
-  --secondary: #f4f5f2; /* Light Sage Tint */
-  --secondary-foreground: #0e120f;
-  --muted: #f8f9f6;
-  --muted-foreground: #5e6b61;
-  --accent: #d97706; /* Amber Gold highlight */
+  --background: #f4f0e8; /* neutral — the page foundation */
+  --foreground: #1e241e; /* primary — headlines and core text */
+  --primary: #2fb67d; /* tertiary — the sole driver for interaction */
+  --primary-foreground: #ffffff; /* on-primary */
+  --secondary: #e9e4d6; /* light neutral tint for secondary surfaces */
+  --secondary-foreground: #1e241e;
+  --muted: #eae5d9;
+  --muted-foreground: #6c7a6f; /* secondary — captions/metadata */
+  --accent: #2fb67d; /* same as primary — single-accent rule is load-bearing */
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #c1453a;
   --destructive-foreground: #ffffff;
-  --border: #e2e6e3;
-  --input: #cbd2ce;
-  --ring: #059669;
-  --card: #ffffff;
-  --card-foreground: #0e120f;
+  --border: #dcd6c6;
+  --input: #cfc8b8;
+  --ring: #2fb67d;
+  --card: #ffffff; /* surface */
+  --card-foreground: #1e241e;
   --popover: #ffffff;
-  --popover-foreground: #0e120f;
+  --popover-foreground: #1e241e;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #070a08; /* Deep Obsidian Slate */
-    --foreground: #f2f5f3; /* Warm Tinted White */
-    --primary: #10b981; /* Neon/Vibrant Emerald */
-    --primary-foreground: #070a08;
-    --secondary: #111a14;
-    --secondary-foreground: #f2f5f3;
-    --muted: #0d120f;
-    --muted-foreground: #84948a;
-    --accent: #f59e0b;
-    --accent-foreground: #070a08;
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
-    --border: #18221c;
-    --input: #233129;
-    --ring: #10b981;
-    --card: #0d120f;
-    --card-foreground: #f2f5f3;
-    --popover: #0d120f;
-    --popover-foreground: #f2f5f3;
-  }
-}
+/* No dark-mode variant on purpose: "Mint Receipt" is a light, paper-colored
+   design by definition (thermal receipt paper is white/cream, not black).
+   We intentionally do NOT follow prefers-color-scheme here — the design
+   should render the same regardless of the OS appearance setting. */
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
 }
 
+/* Flat, thermal-receipt shadows — DESIGN.md is explicit: "flat on purpose,"
+   no gradients, no soft glows. These exist mostly so markup that already
+   references .shadow-warm / .shadow-warm-lg doesn't need touching; they now
+   read as a hairline instead of a drop shadow. Borders carry definition. */
+.shadow-warm {
+  box-shadow: 0 1px 0 rgba(30, 36, 30, 0.05);
+}
+.shadow-warm-lg {
+  box-shadow: 0 1px 2px rgba(30, 36, 30, 0.08);
+}
+
+.transition-smooth {
+  transition: all 0.15s ease-out;
+}

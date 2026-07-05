@@ -37,7 +37,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       }
     } else {
-      this.logger.error("Unhandled Exception Occurred:", exception);
+      const stack = exception instanceof Error ? exception.stack : String(exception);
+      this.logger.error(`Unhandled Exception Occurred: ${stack}`);
       if (exception instanceof Error) {
         message = exception.message;
       }

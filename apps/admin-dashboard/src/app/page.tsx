@@ -14,8 +14,38 @@ import {
   Calendar,
   Tag,
   Loader2,
-  Lock,
+  Truck,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChefHat,
 } from "lucide-react";
+import {
+  PROTEIN_LABELS,
+  getMenuItemLabel,
+  calculateOrderTotal,
+  calculatePoolPricing,
+  formatIntervalLabel,
+  generateVolumeSchedule,
+  formatGrams,
+  DELIVERY_AMOUNT_PRESETS_GRAMS,
+  DELIVERY_FREQUENCY_PRESETS,
+} from "@fortifykitchen/shared";
+import type { Protein } from "@fortifykitchen/types";
+
+const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
+const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
+const DELIVERY_STATUS_OPTIONS = ["SCHEDULED", "PREPPING", "DELIVERED", "SKIPPED", "CANCELLED"] as const;
+
+// `new Date().toISOString().split("T")[0]` computes the UTC calendar date,
+// not the user's local one — for Vietnam (UTC+7) that's wrong for roughly
+// the first 7 hours of every local day (it shows yesterday). This builds
+// the date string from local Y/M/D getters instead.
+function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export default function AdminDashboard() {
   const [token, setToken] = React.useState<string | null>(null);
@@ -26,8 +56,21 @@ export default function AdminDashboard() {
   const [loginPass, setLoginPass] = React.useState("");
   const [isLoggingIn, setIsLoggingIn] = React.useState(false);
 
-  // Section State: "dashboard" | "orders" | "menu" | "subscriptions" | "discounts"
-  const [section, setSection] = React.useState<"dashboard" | "orders" | "menu" | "subscriptions" | "discounts">("dashboard");
+  // Section State
+  const [section, setSection] = React.useState<
+    "dashboard" | "orders" | "menu" | "subscriptions" | "deliveries" | "customers" | "discounts" | "prep-list"
+  >("dashboard");
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+  // Prep List state
+  const [prepDate, setPrepDate] = React.useState(getLocalDateString());
+  const [prepData, setPrepData] = React.useState<{
+    prepItems: { protein: Protein; flavor: string; sizeGrams: number; portions: number; totalGrams: number }[];
+    totalPortions: number;
+    totalGrams: number;
+  }>({ prepItems: [], totalPortions: 0, totalGrams: 0 });
+  const [isPrepLoading, setIsPrepLoading] = React.useState(false);
+  const [prepError, setPrepError] = React.useState<string | null>(null);
 
   // Dashboard Stats & Lists
   const [stats, setStats] = React.useState<any>({
@@ -41,17 +84,59 @@ export default function AdminDashboard() {
   const [menuItems, setMenuItems] = React.useState<any[]>([]);
   const [categories, setCategories] = React.useState<any[]>([]);
   const [subscriptions, setSubscriptions] = React.useState<any[]>([]);
+  const [deliveries, setDeliveries] = React.useState<any[]>([]); // unified Order+Subscription entries
+  const [deliveryView, setDeliveryView] = React.useState<"all" | "upcoming">("all");
+  const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"week" | "month">("week");
+  const [upcomingGroups, setUpcomingGroups] = React.useState<any[]>([]);
+  const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
 
   // Loading States
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // --- Customers form state ---
+  const [customerModal, setCustomerModal] = React.useState<"create" | "edit" | null>(null);
+  const [editingCustomerId, setEditingCustomerId] = React.useState<string | null>(null);
+  const [customerName, setCustomerName] = React.useState("");
+  const [customerPhone, setCustomerPhone] = React.useState("");
+  const [customerZalo, setCustomerZalo] = React.useState("");
+  const [customerAddress, setCustomerAddress] = React.useState("");
+  const [customerNotes, setCustomerNotes] = React.useState("");
+
+  // --- Order form state ---
+  const [orderModal, setOrderModal] = React.useState<"create" | "edit" | null>(null);
+  const [editingOrderId, setEditingOrderId] = React.useState<string | null>(null);
+  const [orderCustomerId, setOrderCustomerId] = React.useState("");
+  const [orderDeliveryDate, setOrderDeliveryDate] = React.useState(getLocalDateString());
+  const [orderPaymentStatus, setOrderPaymentStatus] = React.useState<(typeof PAYMENT_STATE_OPTIONS)[number]>("UNPAID");
+  const [orderLineItems, setOrderLineItems] = React.useState<any[]>([]);
+  const [orderSelectedMenuItemId, setOrderSelectedMenuItemId] = React.useState("");
+  const [orderAddQty, setOrderAddQty] = React.useState(1);
+
+  // --- Subscription form state (volume-based: one or more protein pools +
+  // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
+  const [subModal, setSubModal] = React.useState<"create" | null>(null);
+  const [subDetailId, setSubDetailId] = React.useState<string | null>(null);
+  const [subDetailDeliveries, setSubDetailDeliveries] = React.useState<any[]>([]);
+  const [isSubDetailLoading, setIsSubDetailLoading] = React.useState(false);
+  const [topUpModal, setTopUpModal] = React.useState<{ subId: string; protein: Protein; grams: number } | null>(null);
+  const [subCustomerId, setSubCustomerId] = React.useState("");
+  const [subPackageName, setSubPackageName] = React.useState("");
+  const [subPools, setSubPools] = React.useState<{ protein: Protein; kg: number }[]>([]);
+  const [subPoolProtein, setSubPoolProtein] = React.useState<Protein>("CHICKEN");
+  const [subPoolKg, setSubPoolKg] = React.useState(10);
+  const [subDeliveryAmountGrams, setSubDeliveryAmountGrams] = React.useState(1000);
+  const [subDeliveryIntervalDays, setSubDeliveryIntervalDays] = React.useState(1);
+  const [subStartDate, setSubStartDate] = React.useState(getLocalDateString());
+  const [subPaymentStatus, setSubPaymentStatus] = React.useState<(typeof PAYMENT_STATE_OPTIONS)[number]>("UNPAID");
+
   // Form Modals State
   const [menuModal, setMenuModal] = React.useState<"create" | "edit" | null>(null);
   const [editingMenuItemId, setEditingMenuItemId] = React.useState<string | null>(null);
-  const [menuItemName, setMenuItemName] = React.useState("");
-  const [menuItemDesc, setMenuItemDesc] = React.useState("");
-  const [menuItemPrice, setMenuItemPrice] = React.useState(100000);
+  const [menuItemProtein, setMenuItemProtein] = React.useState<Protein>("CHICKEN");
+  const [menuItemFlavor, setMenuItemFlavor] = React.useState("");
+  const [menuItemSizeGrams, setMenuItemSizeGrams] = React.useState(150);
+  const [menuItemPrice, setMenuItemPrice] = React.useState(25000);
   const [menuItemImage, setMenuItemImage] = React.useState("");
   const [menuItemCatId, setMenuItemCatId] = React.useState("");
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
@@ -87,10 +172,35 @@ export default function AdminDashboard() {
           setStats(result.data);
         }
       } else if (section === "orders") {
-        const res = await fetch(`${API_URL}/orders`, { headers });
+        const [resOrders, resCustomers, resMenu] = await Promise.all([
+          fetch(`${API_URL}/orders`, { headers }),
+          fetch(`${API_URL}/customers`, { headers }),
+          fetch(`${API_URL}/menu/admin`, { headers }),
+        ]);
+        if (resOrders.ok) setOrders((await resOrders.json()).data || []);
+        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu.ok) {
+          const menuData = (await resMenu.json()).data || [];
+          setMenuItems(menuData);
+          if (menuData.length > 0) setOrderSelectedMenuItemId((prev) => prev || menuData[0].id);
+        }
+      } else if (section === "customers") {
+        const res = await fetch(`${API_URL}/customers`, { headers });
         if (res.ok) {
           const result = await res.json();
-          setOrders(result.data || []);
+          setCustomers(result.data || []);
+        }
+      } else if (section === "deliveries") {
+        // Pull the rolling 7-day-ahead window forward before displaying,
+        // so newly-due subscription occurrences show up without staff
+        // having to wait for some external cron to run.
+        await fetch(`${API_URL}/subscriptions/sync-deliveries`, { method: "POST", headers });
+        if (deliveryView === "upcoming") {
+          const res = await fetch(`${API_URL}/deliveries/upcoming?groupBy=${deliveryGroupBy}`, { headers });
+          if (res.ok) setUpcomingGroups((await res.json()).data || []);
+        } else {
+          const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
+          if (res.ok) setDeliveries((await res.json()).data || []);
         }
       } else if (section === "menu") {
         const [resMenu, resCat] = await Promise.all([
@@ -107,10 +217,16 @@ export default function AdminDashboard() {
           }
         }
       } else if (section === "subscriptions") {
-        const res = await fetch(`${API_URL}/subscriptions`, { headers });
-        if (res.ok) {
-          const result = await res.json();
-          setSubscriptions(result.data || []);
+        const [resSubs, resCustomers, resMenu] = await Promise.all([
+          fetch(`${API_URL}/subscriptions`, { headers }),
+          fetch(`${API_URL}/customers`, { headers }),
+          fetch(`${API_URL}/menu/admin`, { headers }),
+        ]);
+        if (resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
+        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu.ok) {
+          const menuData = (await resMenu.json()).data || [];
+          setMenuItems(menuData);
         }
       } else if (section === "discounts") {
         const res = await fetch(`${API_URL}/discounts`, { headers });
@@ -124,7 +240,7 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL]);
+  }, [token, section, API_URL, deliveryView, deliveryGroupBy]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -132,6 +248,39 @@ export default function AdminDashboard() {
       loadData();
     }
   }, [token, section, loadData]);
+
+  // Prep List: refetches on its own whenever the section is active or the
+  // selected date changes (a second dimension loadData() doesn't handle).
+  React.useEffect(() => {
+    if (!token || section !== "prep-list") return;
+    let cancelled = false;
+    (async () => {
+      setIsPrepLoading(true);
+      setPrepError(null);
+      try {
+        const res = await fetch(`${API_URL}/prep-list?date=${prepDate}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok) {
+          setPrepData(result?.data || { prepItems: [], totalPortions: 0, totalGrams: 0 });
+        } else {
+          console.error("Prep list request failed", res.status, result);
+          setPrepError(result?.message || `Request failed (HTTP ${res.status})`);
+          setPrepData({ prepItems: [], totalPortions: 0, totalGrams: 0 });
+        }
+      } catch (e) {
+        console.error("Error fetching prep list", e);
+        if (!cancelled) setPrepError("Network error — is the API reachable?");
+      } finally {
+        if (!cancelled) setIsPrepLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, section, prepDate, API_URL]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,20 +323,364 @@ export default function AdminDashboard() {
     localStorage.removeItem("fka_user");
   };
 
-  // Manage Order Statuses (e.g. COD collections)
-  const handleUpdateOrderStatus = async (orderId: string, status: string) => {
+  const authHeaders = React.useCallback(
+    () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` }),
+    [token],
+  );
+
+  const handleUpdateOrderDeliveryStatus = async (orderId: string, deliveryStatus: string) => {
     try {
-      const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(`${API_URL}/orders/${orderId}/delivery-status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ deliveryStatus }),
+      });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUpdateOrderPaymentStatus = async (orderId: string, paymentStatus: string) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/payment-status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ paymentStatus }),
+      });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Xóa đơn hàng này?")) return;
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}`, { method: "DELETE", headers: authHeaders() });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Customers CRUD ---
+  const resetCustomerForm = () => {
+    setEditingCustomerId(null);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerZalo("");
+    setCustomerAddress("");
+    setCustomerNotes("");
+  };
+
+  const handleEditCustomerTrigger = (c: any) => {
+    setEditingCustomerId(c.id);
+    setCustomerName(c.name || "");
+    setCustomerPhone(c.phone || "");
+    setCustomerZalo(c.zalo || "");
+    setCustomerAddress(c.address || "");
+    setCustomerNotes(c.notes || "");
+    setCustomerModal("edit");
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: customerName,
+        phone: customerPhone || undefined,
+        zalo: customerZalo || undefined,
+        address: customerAddress || undefined,
+        notes: customerNotes || undefined,
+      };
+      const url = customerModal === "edit" ? `${API_URL}/customers/${editingCustomerId}` : `${API_URL}/customers`;
+      const method = customerModal === "edit" ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
+      if (res.ok) {
+        setCustomerModal(null);
+        resetCustomerForm();
+        loadData();
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to save customer");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    if (!confirm("Xóa khách hàng này? Đơn hàng/gói đăng ký liên quan sẽ không bị xóa.")) return;
+    try {
+      const res = await fetch(`${API_URL}/customers/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Order line-item builder (shared UX pattern with Subscriptions) ---
+  const addOrderLineItem = () => {
+    const menuItem = menuItems.find((m) => m.id === orderSelectedMenuItemId);
+    if (!menuItem || orderAddQty <= 0) return;
+    setOrderLineItems((prev) => {
+      const existing = prev.find((l) => l.menuItemId === orderSelectedMenuItemId);
+      if (existing) {
+        return prev.map((l) => (l.menuItemId === orderSelectedMenuItemId ? { ...l, qty: l.qty + orderAddQty } : l));
+      }
+      return [
+        ...prev,
+        {
+          menuItemId: menuItem.id,
+          protein: menuItem.protein,
+          flavor: menuItem.flavor,
+          sizeGrams: menuItem.sizeGrams,
+          unitPrice: menuItem.price,
+          qty: orderAddQty,
         },
+      ];
+    });
+    setOrderAddQty(1);
+  };
+
+  const orderPricing = orderLineItems.length > 0 ? calculateOrderTotal(orderLineItems) : null;
+
+  const resetOrderForm = () => {
+    setEditingOrderId(null);
+    setOrderCustomerId("");
+    setOrderDeliveryDate(getLocalDateString());
+    setOrderPaymentStatus("UNPAID");
+    setOrderLineItems([]);
+  };
+
+  const handleEditOrderTrigger = (o: any) => {
+    setEditingOrderId(o.id);
+    setOrderCustomerId(o.customerId || "");
+    setOrderDeliveryDate(o.deliveryDate?.split("T")[0] || getLocalDateString());
+    setOrderPaymentStatus(o.paymentStatus || "UNPAID");
+    setOrderLineItems((o.items || []).map((i: any) => ({ ...i })));
+    setOrderModal("edit");
+  };
+
+  const handleSaveOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderCustomerId) { alert("Vui lòng chọn khách hàng"); return; }
+    if (orderLineItems.length === 0) { alert("Vui lòng thêm ít nhất 1 món"); return; }
+    try {
+      const payload = {
+        customerId: orderCustomerId,
+        deliveryDate: orderDeliveryDate,
+        paymentStatus: orderPaymentStatus,
+        items: orderLineItems.map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),
+      };
+      const url = orderModal === "edit" ? `${API_URL}/orders/${editingOrderId}` : `${API_URL}/orders`;
+      const method = orderModal === "edit" ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
+      if (res.ok) {
+        setOrderModal(null);
+        resetOrderForm();
+        loadData();
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to save order");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // --- Subscription pool builder + schedule/price preview ---
+  const addSubPool = () => {
+    if (subPoolKg <= 0) return;
+    setSubPools((prev) => {
+      const existing = prev.find((p) => p.protein === subPoolProtein);
+      if (existing) {
+        return prev.map((p) => (p.protein === subPoolProtein ? { ...p, kg: p.kg + subPoolKg } : p));
+      }
+      return [...prev, { protein: subPoolProtein, kg: subPoolKg }];
+    });
+    setSubPoolKg(10);
+  };
+
+  const subTotalGrams = subPools.reduce((sum, p) => sum + p.kg * 1000, 0);
+  const subSchedulePreview =
+    subTotalGrams > 0 && subDeliveryAmountGrams > 0 && subDeliveryIntervalDays > 0
+      ? generateVolumeSchedule(subStartDate, subDeliveryAmountGrams, subDeliveryIntervalDays, subTotalGrams)
+      : [];
+  const subPricing =
+    subPools.length > 0
+      ? calculatePoolPricing(
+          subPools.map((p) => ({ protein: p.protein, totalGrams: p.kg * 1000 })),
+          menuItems.filter((m) => m.isAvailable),
+        )
+      : null;
+
+  const resetSubForm = () => {
+    setSubCustomerId("");
+    setSubPackageName("");
+    setSubPools([]);
+    setSubPoolProtein("CHICKEN");
+    setSubPoolKg(10);
+    setSubDeliveryAmountGrams(1000);
+    setSubDeliveryIntervalDays(1);
+    setSubStartDate(getLocalDateString());
+    setSubPaymentStatus("UNPAID");
+  };
+
+  const handleCreateSubscription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subCustomerId) { alert("Vui lòng chọn khách hàng"); return; }
+    if (!subPackageName.trim()) { alert("Vui lòng nhập tên gói"); return; }
+    if (subPools.length === 0) { alert("Vui lòng thêm ít nhất 1 loại protein"); return; }
+    try {
+      const payload = {
+        customerId: subCustomerId,
+        packageName: subPackageName,
+        pools: subPools.map((p) => ({ protein: p.protein, totalGrams: Math.round(p.kg * 1000) })),
+        deliveryAmountGrams: subDeliveryAmountGrams,
+        deliveryIntervalDays: subDeliveryIntervalDays,
+        startDate: subStartDate,
+        paymentStatus: subPaymentStatus,
+      };
+      const res = await fetch(`${API_URL}/subscriptions`, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
+      if (res.ok) {
+        setSubModal(null);
+        resetSubForm();
+        loadData();
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to create subscription");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateSubStatus = async (subId: string, status: string) => {
+    try {
+      const res = await fetch(`${API_URL}/subscriptions/${subId}`, {
+        method: "PUT",
+        headers: authHeaders(),
         body: JSON.stringify({ status }),
       });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteSubscription = async (subId: string) => {
+    if (!confirm("Xóa gói đăng ký này? Toàn bộ lịch giao hàng sẽ bị xóa.")) return;
+    try {
+      const res = await fetch(`${API_URL}/subscriptions/${subId}`, { method: "DELETE", headers: authHeaders() });
+      if (res.ok) loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOpenSubDetail = async (subId: string) => {
+    setSubDetailId(subId);
+    setIsSubDetailLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/subscriptions/${subId}/deliveries`, { headers: authHeaders() });
+      if (res.ok) setSubDetailDeliveries((await res.json()).data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubDetailLoading(false);
+    }
+  };
+
+  const handleTopUpPool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topUpModal) return;
+    try {
+      const res = await fetch(`${API_URL}/subscriptions/${topUpModal.subId}/top-up`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ protein: topUpModal.protein, grams: Math.round(topUpModal.grams) }),
+      });
       if (res.ok) {
+        setTopUpModal(null);
         loadData();
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to top up pool");
       }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // --- Deliveries (unified Order + Subscription entries) ---
+  // Subscription-generated entries route through /deliveries/:id/..., while
+  // one-off Order entries route through /orders/:id/delivery-status — the
+  // unified list is tagged by `source` so we can dispatch correctly.
+  const handleUpdateUnifiedStatus = async (entry: any, status: string) => {
+    try {
+      if (entry.source === "ORDER") {
+        const res = await fetch(`${API_URL}/orders/${entry.id}/delivery-status`, {
+          method: "PATCH",
+          headers: authHeaders(),
+          body: JSON.stringify({ deliveryStatus: status }),
+        });
+        if (res.ok) loadData();
+      } else {
+        const res = await fetch(`${API_URL}/deliveries/${entry.id}/status`, {
+          method: "PATCH",
+          headers: authHeaders(),
+          body: JSON.stringify({ status }),
+        });
+        if (res.ok) loadData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkDelivered = async (entry: any) => {
+    if (!confirm("Xác nhận đã giao? Số lượng sẽ được trừ vào gói đăng ký.")) return;
+    if (entry.source === "ORDER") {
+      return handleUpdateUnifiedStatus(entry, "DELIVERED");
+    }
+    try {
+      const res = await fetch(`${API_URL}/deliveries/${entry.id}/deliver`, { method: "POST", headers: authHeaders() });
+      if (res.ok) loadData();
+      else {
+        const error = await res.json();
+        alert(error.message || "Failed to mark delivered");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePostponeDelivery = async (entry: any) => {
+    if (entry.source !== "SUBSCRIPTION") return;
+    if (!confirm("Hoãn lần giao này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.")) return;
+    try {
+      const res = await fetch(`${API_URL}/deliveries/${entry.id}/postpone`, { method: "POST", headers: authHeaders() });
+      if (res.ok) loadData();
+      else {
+        const error = await res.json();
+        alert(error.message || "Failed to postpone delivery");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteDelivery = async (entry: any) => {
+    if (entry.source === "ORDER") {
+      alert("Xóa đơn hàng lẻ trong tab Orders dispatcher.");
+      return;
+    }
+    if (!confirm("Xóa lần giao này?")) return;
+    try {
+      const res = await fetch(`${API_URL}/deliveries/${entry.id}`, { method: "DELETE", headers: authHeaders() });
+      if (res.ok) loadData();
     } catch (e) {
       console.error(e);
     }
@@ -198,11 +691,12 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       const payload = {
-        name: menuItemName,
-        description: menuItemDesc,
+        protein: menuItemProtein,
+        flavor: menuItemFlavor,
+        sizeGrams: Number(menuItemSizeGrams),
         price: Number(menuItemPrice),
         imageUrl: menuItemImage || undefined,
-        categoryId: menuItemCatId,
+        categoryId: menuItemCatId || undefined,
         isAvailable: menuItemAvailable,
       };
 
@@ -249,20 +743,22 @@ export default function AdminDashboard() {
 
   const handleEditMenuItemTrigger = (item: any) => {
     setEditingMenuItemId(item.id);
-    setMenuItemName(item.name);
-    setMenuItemDesc(item.description);
+    setMenuItemProtein(item.protein);
+    setMenuItemFlavor(item.flavor);
+    setMenuItemSizeGrams(item.sizeGrams);
     setMenuItemPrice(item.price);
     setMenuItemImage(item.imageUrl || "");
-    setMenuItemCatId(item.categoryId);
+    setMenuItemCatId(item.categoryId || "");
     setMenuItemAvailable(item.isAvailable);
     setMenuModal("edit");
   };
 
   const resetMenuForm = () => {
     setEditingMenuItemId(null);
-    setMenuItemName("");
-    setMenuItemDesc("");
-    setMenuItemPrice(100000);
+    setMenuItemProtein("CHICKEN");
+    setMenuItemFlavor("");
+    setMenuItemSizeGrams(150);
+    setMenuItemPrice(25000);
     setMenuItemImage("");
     setMenuItemAvailable(true);
   };
@@ -325,10 +821,8 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
         <div className="w-full max-w-md border border-border bg-card shadow-xl rounded-2xl p-8 space-y-6">
           <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground mx-auto shadow-md">
-              <Lock className="h-5 w-5" />
-            </div>
-            <h1 className="text-xl font-bold font-heading">Administrative console</h1>
+            <img src="/logo.png" alt="Fortify Kitchen" className="h-14 w-14 rounded-md object-contain mx-auto" />
+            <h1 className="text-xl font-semibold font-heading">Administrative console</h1>
             <p className="text-xs text-muted-foreground">Sign in to manage orders, subscriptions, and menu items.</p>
           </div>
 
@@ -371,13 +865,12 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row transition-colors duration-200">
       {/* 1. SIDEBAR */}
+      {sidebarOpen && (
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-card flex flex-col shrink-0">
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              <Utensils className="h-4.5 w-4.5" />
-            </div>
-            <span className="font-bold tracking-tight font-heading text-sm">Fortify Console</span>
+            <img src="/logo.png" alt="Fortify Kitchen" className="h-8 w-8 rounded-md object-contain" />
+            <span className="font-semibold tracking-tight font-heading text-sm">Fortify Console</span>
           </div>
           <button
             onClick={handleLogout}
@@ -390,9 +883,12 @@ export default function AdminDashboard() {
         <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
           {[
             { id: "dashboard", label: "Dashboard Overview", icon: LayoutDashboard },
+            { id: "customers", label: "Customers", icon: Users },
             { id: "orders", label: "Orders dispatcher", icon: ShoppingBag },
             { id: "menu", label: "Menu Catalog Manager", icon: Utensils },
-            { id: "subscriptions", label: "Subscriber Directory", icon: Calendar },
+            { id: "subscriptions", label: "Subscriptions", icon: Calendar },
+            { id: "deliveries", label: "Deliveries", icon: Truck },
+            { id: "prep-list", label: "Prep List", icon: ChefHat },
             { id: "discounts", label: "Promotional Codes", icon: Tag },
           ].map((item) => (
             <button
@@ -423,14 +919,24 @@ export default function AdminDashboard() {
           </div>
         </div>
       </aside>
+      )}
 
       {/* 2. MAIN WORKSPACE */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
-        <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6">
-          <h2 className="font-extrabold tracking-tight font-heading text-base capitalize">
-            {section.replace("-", " ")}
-          </h2>
+        <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors cursor-pointer shrink-0"
+              title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </button>
+            <h2 className="font-extrabold tracking-tight font-heading text-base capitalize truncate">
+              {section.replace("-", " ")}
+            </h2>
+          </div>
           <div className="text-xs text-muted-foreground font-semibold flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Live Database Connected (Vietnam Mode)
@@ -451,17 +957,53 @@ export default function AdminDashboard() {
                 <div className="space-y-8 animate-in fade-in duration-200">
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: DollarSign, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
-                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: Calendar, color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
-                      { label: "Total Customers", value: stats.totalCustomers, icon: Users, color: "text-purple-500 bg-purple-500/10 border-purple-500/20" },
-                      { label: "Total Food Orders", value: stats.totalOrders, icon: ShoppingBag, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: DollarSign },
+                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: Calendar },
+                      { label: "Total Customers", value: stats.totalCustomers, icon: Users },
+                      { label: "Total Food Orders", value: stats.totalOrders, icon: ShoppingBag },
                     ].map((item, idx) => (
-                      <div key={idx} className="border border-border bg-card rounded-2xl p-6 flex items-center justify-between shadow-sm">
+                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</span>
-                          <div className="text-xl font-extrabold font-heading">{item.value}</div>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
-                        <div className={`p-3 rounded-full border ${item.color}`}>
+                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Volume-subscription specific KPIs */}
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        label: "Outstanding Volume (kg)",
+                        value: formatGrams(stats.outstandingVolumeGrams || 0),
+                        icon: Truck,
+                      },
+                      {
+                        label: "Nearing Depletion",
+                        value: stats.subscriptionsNearingDepletion || 0,
+                        icon: ChefHat,
+                      },
+                      {
+                        label: "Delivered This Month",
+                        value: formatGrams(stats.gramsDeliveredThisMonth || 0),
+                        icon: Calendar,
+                      },
+                      {
+                        label: "Deliveries This Week",
+                        value: stats.deliveriesThisWeek || 0,
+                        icon: ShoppingBag,
+                      },
+                    ].map((item, idx) => (
+                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <div className="text-xl font-semibold font-heading">{item.value}</div>
+                        </div>
+                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
                           <item.icon className="h-5 w-5" />
                         </div>
                       </div>
@@ -485,10 +1027,10 @@ export default function AdminDashboard() {
                           {stats.recentOrders?.map((o: any) => (
                             <tr key={o.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold">{o.customerName}</td>
-                              <td className="py-3.5 font-semibold text-primary">{formatVND(o.totalAmount)}</td>
+                              <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                  {o.status}
+                                  {o.deliveryStatus}
                                 </span>
                               </td>
                               <td className="py-3.5 text-muted-foreground">
@@ -505,72 +1047,305 @@ export default function AdminDashboard() {
 
               {/* SECTION B: ORDERS DISPATCHER */}
               {section === "orders" && (
-                <div className="border border-border bg-card rounded-2xl p-6 shadow-sm animate-in fade-in duration-200">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead>
-                        <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                          <th className="pb-3 font-semibold">Order ID</th>
-                          <th className="pb-3 font-semibold">Customer Details</th>
-                          <th className="pb-3 font-semibold">Address / Notes</th>
-                          <th className="pb-3 font-semibold">Amount / Method</th>
-                          <th className="pb-3 font-semibold">Order Status</th>
-                          <th className="pb-3 font-semibold text-center">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orders.map((o) => (
-                          <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
-                            <td className="py-4 font-mono text-[10px] font-semibold text-muted-foreground max-w-[80px] truncate" title={o.id}>
-                              {o.id}
-                            </td>
-                            <td className="py-4">
-                              <div className="font-bold">{o.customerName}</div>
-                              <div className="text-[10px] text-muted-foreground">{o.customerPhone}</div>
-                            </td>
-                            <td className="py-4 max-w-[200px]">
-                              <div className="truncate" title={o.deliveryAddress}>{o.deliveryAddress}</div>
-                              {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
-                            </td>
-                            <td className="py-4">
-                              <div className="font-bold text-primary">{formatVND(o.totalAmount)}</div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {o.payment?.method} ({o.payment?.status})
-                              </div>
-                            </td>
-                            <td className="py-4">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                {o.status}
-                              </span>
-                            </td>
-                            <td className="py-4">
-                              <div className="flex justify-center gap-1.5">
-                                <button
-                                  onClick={() => handleUpdateOrderStatus(o.id, "CONFIRMED")}
-                                  className="py-1 px-2 border border-border bg-background hover:bg-muted text-[10px] font-bold rounded cursor-pointer"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateOrderStatus(o.id, "PREPARING")}
-                                  className="py-1 px-2 border border-border bg-background hover:bg-muted text-[10px] font-bold rounded cursor-pointer"
-                                >
-                                  Prep
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateOrderStatus(o.id, "DELIVERED")}
-                                  className="py-1 px-2 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-[10px] font-bold rounded cursor-pointer"
-                                  title="Mark Delivered & Collect COD Cash"
-                                >
-                                  COD Deliver
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold font-heading">Orders ({orders.length})</h3>
+                    <button
+                      onClick={() => { resetOrderForm(); setOrderModal("create"); }}
+                      className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Tạo đơn hàng
+                    </button>
                   </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                            <th className="pb-3 font-semibold">Ngày giao</th>
+                            <th className="pb-3 font-semibold">Khách hàng</th>
+                            <th className="pb-3 font-semibold">Số phần</th>
+                            <th className="pb-3 font-semibold">Tổng tiền</th>
+                            <th className="pb-3 font-semibold">Thanh toán</th>
+                            <th className="pb-3 font-semibold">Giao hàng</th>
+                            <th className="pb-3 font-semibold text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders.map((o) => (
+                            <tr key={o.id} className="border-b border-border/20 last:border-0 align-top">
+                              <td className="py-4 text-muted-foreground">
+                                {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
+                              </td>
+                              <td className="py-4">
+                                <div className="font-bold">{o.customerName}</div>
+                                {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
+                              </td>
+                              <td className="py-4 text-muted-foreground">
+                                {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
+                              </td>
+                              <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
+                              <td className="py-4">
+                                <select
+                                  value={o.paymentStatus}
+                                  onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                >
+                                  {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </td>
+                              <td className="py-4">
+                                <select
+                                  value={o.deliveryStatus}
+                                  onChange={(e) => handleUpdateOrderDeliveryStatus(o.id, e.target.value)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                >
+                                  {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </td>
+                              <td className="py-4">
+                                <div className="flex justify-center gap-2">
+                                  <button
+                                    onClick={() => handleEditOrderTrigger(o)}
+                                    className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteOrder(o.id)}
+                                    className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: CUSTOMERS */}
+              {section === "customers" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold font-heading">Customers ({customers.length})</h3>
+                    <button
+                      onClick={() => { resetCustomerForm(); setCustomerModal("create"); }}
+                      className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Thêm khách hàng
+                    </button>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                            <th className="pb-3 font-semibold">Tên</th>
+                            <th className="pb-3 font-semibold">SĐT</th>
+                            <th className="pb-3 font-semibold">Zalo</th>
+                            <th className="pb-3 font-semibold">Địa chỉ</th>
+                            <th className="pb-3 font-semibold text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customers.map((c) => (
+                            <tr key={c.id} className="border-b border-border/20 last:border-0">
+                              <td className="py-3.5 font-bold">{c.name}</td>
+                              <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
+                              <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
+                              <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
+                              <td className="py-3.5">
+                                <div className="flex justify-center gap-2">
+                                  <button
+                                    onClick={() => handleEditCustomerTrigger(c)}
+                                    className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCustomer(c.id)}
+                                    className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: DELIVERIES */}
+              {section === "deliveries" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <h3 className="text-sm font-bold font-heading">
+                      Deliveries {deliveryView === "all" ? `(${deliveries.length})` : ""}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <div className="flex rounded-md border border-border overflow-hidden text-[10px] font-bold">
+                        <button
+                          onClick={() => setDeliveryView("all")}
+                          className={`px-3 py-1.5 cursor-pointer ${deliveryView === "all" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+                        >
+                          Tất cả
+                        </button>
+                        <button
+                          onClick={() => setDeliveryView("upcoming")}
+                          className={`px-3 py-1.5 cursor-pointer border-l border-border ${deliveryView === "upcoming" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+                        >
+                          Sắp tới
+                        </button>
+                      </div>
+                      {deliveryView === "upcoming" && (
+                        <select
+                          value={deliveryGroupBy}
+                          onChange={(e) => setDeliveryGroupBy(e.target.value as "week" | "month")}
+                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                        >
+                          <option value="week">Theo tuần</option>
+                          <option value="month">Theo tháng</option>
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  {deliveryView === "all" ? (
+                    <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                              <th className="pb-3 font-semibold">Ngày giao</th>
+                              <th className="pb-3 font-semibold">Loại</th>
+                              <th className="pb-3 font-semibold">Khách hàng</th>
+                              <th className="pb-3 font-semibold">Gói / Món</th>
+                              <th className="pb-3 font-semibold">Khối lượng</th>
+                              <th className="pb-3 font-semibold">Trạng thái</th>
+                              <th className="pb-3 font-semibold text-center">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {deliveries.map((d) => (
+                              <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
+                                <td className="py-3.5 text-muted-foreground">
+                                  {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
+                                </td>
+                                <td className="py-3.5">
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                      d.source === "SUBSCRIPTION"
+                                        ? "bg-primary/10 text-primary border-primary/20"
+                                        : "bg-muted text-muted-foreground border-border"
+                                    }`}
+                                  >
+                                    {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 font-bold">{d.customerName}</td>
+                                <td className="py-3.5 text-primary font-semibold">
+                                  {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                </td>
+                                <td className="py-3.5 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                <td className="py-3.5">
+                                  <select
+                                    value={d.status}
+                                    onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                    className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                  >
+                                    {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <div className="flex justify-center items-center gap-2">
+                                    {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                      <button
+                                        onClick={() => handleMarkDelivered(d)}
+                                        title="Xác nhận đã giao"
+                                        className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                      >
+                                        Đã giao
+                                      </button>
+                                    )}
+                                    {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                      <button
+                                        onClick={() => handlePostponeDelivery(d)}
+                                        title="Hoãn lần giao này (bảo lưu số lượng)"
+                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                      >
+                                        Hoãn
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteDelivery(d)}
+                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {upcomingGroups.length === 0 ? (
+                        <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                          Không có lịch giao sắp tới
+                        </div>
+                      ) : (
+                        upcomingGroups.map((group) => (
+                          <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">{group.key}</h4>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {group.count} lần giao · {formatGrams(group.totalGrams)}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {group.entries.map((d: any) => (
+                                <div
+                                  key={`${d.source}-${d.id}`}
+                                  className="flex items-center justify-between text-xs py-2 border-b border-border/20 last:border-0"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-muted-foreground font-mono shrink-0">
+                                      {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
+                                    </span>
+                                    <span
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+                                        d.source === "SUBSCRIPTION"
+                                          ? "bg-primary/10 text-primary border-primary/20"
+                                          : "bg-muted text-muted-foreground border-border"
+                                      }`}
+                                    >
+                                      {d.source === "SUBSCRIPTION" ? "Gói" : "Đơn"}
+                                    </span>
+                                    <span className="font-bold truncate">{d.customerName}</span>
+                                  </div>
+                                  <span className="font-mono text-muted-foreground shrink-0">{formatGrams(d.totalGrams)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -590,109 +1365,275 @@ export default function AdminDashboard() {
                     </button>
                   </div>
 
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {menuItems.map((item) => (
-                      <div key={item.id} className="border border-border bg-card rounded-2xl p-5 flex flex-col justify-between hover:border-primary/30 transition-colors">
-                        <div>
-                          <div className="flex justify-between items-start gap-4">
-                            <h4 className="font-bold font-heading text-sm truncate">{item.name}</h4>
-                            <span className="text-xs font-bold text-primary shrink-0">{formatVND(item.price)}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{item.description}</p>
-                          <div className="mt-3 flex items-center gap-2">
-                            <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
-                            <span className="text-[10px] text-muted-foreground font-semibold">
-                              {item.isAvailable ? "Available" : "Out of Stock"}
-                            </span>
-                          </div>
+                  {PROTEIN_OPTIONS.filter((p) => menuItems.some((item) => item.protein === p)).map((protein) => {
+                    const items = menuItems
+                      .filter((item) => item.protein === protein)
+                      .sort((a, b) => a.flavor.localeCompare(b.flavor) || a.sizeGrams - b.sizeGrams);
+                    return (
+                      <div key={protein} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                            {PROTEIN_LABELS[protein]}
+                          </h4>
+                          <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                          <div className="flex-1 border-t border-border/60" />
                         </div>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                          {items.map((item) => (
+                            <div key={item.id} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
+                              <div>
+                                <div className="flex justify-between items-start gap-3">
+                                  <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
+                                  <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                                  {item.sizeGrams}g
+                                  {item.description ? ` · ${item.description}` : ""}
+                                </p>
+                                <div className="mt-2.5 flex items-center gap-2">
+                                  <span className={`h-2 w-2 rounded-full ${item.isAvailable ? "bg-emerald-500" : "bg-red-500"}`} />
+                                  <span className="text-[10px] text-muted-foreground font-semibold">
+                                    {item.isAvailable ? "Available" : "Out of Stock"}
+                                  </span>
+                                </div>
+                              </div>
 
-                        <div className="flex gap-2 pt-4 border-t border-border/30 mt-4">
-                          <button
-                            onClick={() => handleEditMenuItemTrigger(item)}
-                            className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer"
-                          >
-                            <Edit2 className="h-3 w-3" /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteMenuItem(item.id)}
-                            className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-lg cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                              <div className="flex gap-2 pt-3 border-t border-border/30 mt-3">
+                                <button
+                                  onClick={() => handleEditMenuItemTrigger(item)}
+                                  className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
+                                >
+                                  <Edit2 className="h-3 w-3" /> Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMenuItem(item.id)}
+                                  className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* SECTION D: SUBSCRIBER DIRECTORY */}
               {section === "subscriptions" && (
-                <div className="border border-border bg-card rounded-2xl p-6 shadow-sm animate-in fade-in duration-200">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead>
-                        <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                          <th className="pb-3 font-semibold">Subscriber</th>
-                          <th className="pb-3 font-semibold">Phone Number</th>
-                          <th className="pb-3 font-semibold">Frequency Plan</th>
-                          <th className="pb-3 font-semibold">Cycle price</th>
-                          <th className="pb-3 font-semibold">Next Delivery</th>
-                          <th className="pb-3 font-semibold">Schedule Status</th>
-                          <th className="pb-3 font-semibold text-center">Manage</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {subscriptions.map((sub) => (
-                          <tr key={sub.id} className="border-b border-border/20 last:border-0">
-                            <td className="py-3.5 font-bold">{sub.customerName || "Customer"}</td>
-                            <td className="py-3.5 text-muted-foreground">{sub.customerPhone}</td>
-                            <td className="py-3.5">
-                              <span className="text-[10px] font-extrabold tracking-wider bg-muted py-0.5 px-2 rounded border border-border">
-                                {sub.frequency}
-                              </span>
-                            </td>
-                            <td className="py-3.5 font-bold text-primary">{formatVND(sub.pricePerCycle)}</td>
-                            <td className="py-3.5 text-muted-foreground">
-                              {new Date(sub.nextDeliveryDate).toLocaleDateString("vi-VN")}
-                            </td>
-                            <td className="py-3.5">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                  sub.status === "ACTIVE"
-                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                    : "bg-amber-50 border-amber-200 text-amber-700"
-                                }`}
-                              >
-                                {sub.status}
-                              </span>
-                            </td>
-                            <td className="py-3.5 text-center">
-                              <button
-                                onClick={() => {
-                                  const next = sub.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-                                  handleUpdateOrderStatus(sub.id, next); // updates subscription status
-                                  // Wait, updateOrderStatus updates orders, we need updateSub status:
-                                  fetch(`${API_URL}/subscriptions/${sub.id}/status`, {
-                                    method: "PUT",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      Authorization: `Bearer ${token}`,
-                                    },
-                                    body: JSON.stringify({ status: next }),
-                                  }).then(() => loadData());
-                                }}
-                                className="py-1 px-2 border.border bg-background hover:bg-muted text-[10px] font-bold rounded cursor-pointer"
-                              >
-                                {sub.status === "ACTIVE" ? "Pause" : "Resume"}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold font-heading">Subscriptions ({subscriptions.length})</h3>
+                    <button
+                      onClick={() => { resetSubForm(); setSubModal("create"); }}
+                      className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Tạo gói đăng ký
+                    </button>
                   </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {subscriptions.map((sub) => {
+                      const totalRemaining = (sub.pools || []).reduce((s: number, p: any) => s + p.remainingGrams, 0);
+                      const totalPurchased = (sub.pools || []).reduce((s: number, p: any) => s + p.totalGrams, 0);
+                      const pct = totalPurchased > 0 ? Math.round((totalRemaining / totalPurchased) * 100) : 0;
+                      return (
+                        <div key={sub.id} className="border border-border bg-card rounded-2xl p-5 space-y-4 shadow-sm">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-bold font-heading truncate">{sub.packageName}</h4>
+                              <p className="text-xs text-muted-foreground truncate">{sub.customerName || "Customer"}</p>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${
+                                sub.status === "ACTIVE"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : sub.status === "COMPLETED"
+                                    ? "bg-primary/10 border-primary/20 text-primary"
+                                    : "bg-amber-50 border-amber-200 text-amber-700"
+                              }`}
+                            >
+                              {sub.status}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {(sub.pools || []).map((p: any) => {
+                              const poolPct = p.totalGrams > 0 ? Math.max(0, Math.min(100, (p.remainingGrams / p.totalGrams) * 100)) : 0;
+                              return (
+                                <div key={p.id} className="space-y-1">
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="font-semibold">{PROTEIN_LABELS[p.protein as Protein] || p.protein}</span>
+                                    <span className="font-mono text-muted-foreground">
+                                      {formatGrams(p.remainingGrams)} / {formatGrams(p.totalGrams)} còn lại
+                                    </span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full bg-primary rounded-full" style={{ width: `${poolPct}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                            <div>
+                              Giao {formatGrams(sub.deliveryAmountGrams)} / {formatIntervalLabel(sub.deliveryIntervalDays)}
+                            </div>
+                            <div className="text-right font-bold text-primary">{formatVND(sub.totalPrice)}</div>
+                            <div>Thanh toán: {sub.paymentStatus}</div>
+                            <div className="text-right">
+                              {sub.postponedCount > 0 ? `Đã hoãn ${sub.postponedCount} lần` : `${pct}% còn lại`}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pt-3 border-t border-border/30">
+                            <button
+                              onClick={() => handleOpenSubDetail(sub.id)}
+                              className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md cursor-pointer"
+                            >
+                              Chi tiết
+                            </button>
+                            <button
+                              onClick={() => setTopUpModal({ subId: sub.id, protein: sub.pools?.[0]?.protein || "CHICKEN", grams: 5000 })}
+                              className="flex-1 py-1.5 border border-primary/30 text-primary hover:bg-primary/10 text-[10px] font-bold rounded-md cursor-pointer"
+                            >
+                              Mua thêm
+                            </button>
+                            <button
+                              onClick={() => handleUpdateSubStatus(sub.id, sub.status === "ACTIVE" ? "PAUSED" : "ACTIVE")}
+                              className="py-1.5 px-3 border border-border bg-background hover:bg-muted text-[10px] font-bold rounded-md cursor-pointer"
+                            >
+                              {sub.status === "ACTIVE" ? "Tạm dừng" : "Tiếp tục"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubscription(sub.id)}
+                              className="py-1.5 px-2 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {subscriptions.length === 0 && (
+                      <div className="lg:col-span-2 border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                        Chưa có gói đăng ký nào
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: PREP LIST */}
+              {section === "prep-list" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                        <ChefHat className="h-4 w-4 text-primary" />
+                        Prep List
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">Tổng hợp nguyên liệu cần chuẩn bị</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Ngày:</label>
+                      <input
+                        type="date"
+                        value={prepDate}
+                        onChange={(e) => setPrepDate(e.target.value)}
+                        className="bg-background border border-border focus:border-primary text-xs py-2 px-3 rounded-md outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {prepError && (
+                    <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-xs font-medium">
+                      {prepError}
+                    </div>
+                  )}
+
+                  {isPrepLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <span className="text-xs text-muted-foreground">Đang tổng hợp...</span>
+                    </div>
+                  ) : prepData.prepItems.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg py-20 text-center">
+                      <ChefHat className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground font-medium">Không có gì cần chuẩn bị</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ngày {prepDate} không có đơn hàng hoặc giao hàng nào
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="border border-border bg-card rounded-lg p-5">
+                          <div className="text-3xl font-bold font-heading text-primary">{prepData.totalPortions}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Tổng phần</div>
+                        </div>
+                        <div className="border border-border bg-card rounded-lg p-5">
+                          <div className="text-3xl font-bold font-heading text-primary">
+                            {(prepData.totalGrams / 1000).toFixed(1)} kg
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">Tổng khối lượng</div>
+                        </div>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="bg-muted/50 border-b border-border">
+                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground">Món</th>
+                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-center">Phần</th>
+                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-right">Tổng gram</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {prepData.prepItems.map((item, i) => (
+                                <tr key={i} className="border-b border-border/40 last:border-0 hover:bg-primary/5 transition-colors">
+                                  <td className="px-4 py-3 font-semibold">
+                                    <span
+                                      className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                                        item.protein === "CHICKEN"
+                                          ? "bg-amber-400"
+                                          : item.protein === "BEEF"
+                                            ? "bg-red-400"
+                                            : "bg-pink-400"
+                                      }`}
+                                    />
+                                    {PROTEIN_LABELS[item.protein] || item.protein} {item.flavor}
+                                    <span className="text-muted-foreground ml-1">({item.sizeGrams}g)</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md font-bold font-mono">
+                                      {item.portions}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold font-mono">
+                                    {item.totalGrams.toLocaleString()}g
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t-2 border-primary/30 bg-primary/5">
+                                <td className="px-4 py-3 font-bold">Tổng cộng</td>
+                                <td className="px-4 py-3 text-center font-bold font-mono">{prepData.totalPortions}</td>
+                                <td className="px-4 py-3 text-right font-bold font-mono">
+                                  {prepData.totalGrams.toLocaleString()}g
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -830,27 +1771,43 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleSaveMenuItem} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dish Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Clean Tofu Quinoa Bowl"
-                  value={menuItemName}
-                  onChange={(e) => setMenuItemName(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Protein</label>
+                  <select
+                    value={menuItemProtein}
+                    onChange={(e) => setMenuItemProtein(e.target.value as Protein)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    {PROTEIN_OPTIONS.map((p) => (
+                      <option key={p} value={p}>
+                        {PROTEIN_LABELS[p]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size (grams)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={menuItemSizeGrams}
+                    onChange={(e) => setMenuItemSizeGrams(Number(e.target.value))}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Description</label>
-                <textarea
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Flavor</label>
+                <input
+                  type="text"
                   required
-                  rows={3}
-                  placeholder="Ingredients and macros profile details..."
-                  value={menuItemDesc}
-                  onChange={(e) => setMenuItemDesc(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                  placeholder="e.g. xá xíu"
+                  value={menuItemFlavor}
+                  onChange={(e) => setMenuItemFlavor(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
                 />
               </div>
 
@@ -867,12 +1824,13 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Category</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Category (optional)</label>
                   <select
                     value={menuItemCatId}
                     onChange={(e) => setMenuItemCatId(e.target.value)}
                     className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
                   >
+                    <option value="">—</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -919,6 +1877,504 @@ export default function AdminDashboard() {
                   className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
                 >
                   Save Dish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER CREATE/EDIT DIALOG MODAL */}
+      {customerModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setCustomerModal(null)} />
+          <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
+            <div className="text-center">
+              <h3 className="text-lg font-bold font-heading">
+                {customerModal === "create" ? "Thêm khách hàng" : "Sửa thông tin khách hàng"}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSaveCustomer} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tên khách hàng</label>
+                <input
+                  type="text"
+                  required
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">SĐT</label>
+                  <input
+                    type="text"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Zalo</label>
+                  <input
+                    type="text"
+                    value={customerZalo}
+                    onChange={(e) => setCustomerZalo(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Địa chỉ</label>
+                <input
+                  type="text"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ghi chú</label>
+                <textarea
+                  value={customerNotes}
+                  onChange={(e) => setCustomerNotes(e.target.value)}
+                  rows={2}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomerModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                >
+                  Lưu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER CREATE/EDIT DIALOG MODAL */}
+      {orderModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderModal(null)} />
+          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8">
+            <div className="text-center">
+              <h3 className="text-lg font-bold font-heading">
+                {orderModal === "create" ? "Tạo đơn hàng" : "Sửa đơn hàng"}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSaveOrder} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Khách hàng</label>
+                  <select
+                    required
+                    value={orderCustomerId}
+                    onChange={(e) => setOrderCustomerId(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    <option value="">Chọn khách hàng</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ngày giao</label>
+                  <input
+                    type="date"
+                    required
+                    value={orderDeliveryDate}
+                    onChange={(e) => setOrderDeliveryDate(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái thanh toán</label>
+                <select
+                  value={orderPaymentStatus}
+                  onChange={(e) => setOrderPaymentStatus(e.target.value as any)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                >
+                  {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="border border-border rounded-xl p-4 space-y-3">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Món ăn</label>
+                <div className="flex gap-2">
+                  <select
+                    value={orderSelectedMenuItemId}
+                    onChange={(e) => setOrderSelectedMenuItemId(e.target.value)}
+                    className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    <option value="">Chọn món</option>
+                    {menuItems.map((m) => (
+                      <option key={m.id} value={m.id}>{getMenuItemLabel(m)} — {formatVND(m.price)}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={orderAddQty}
+                    onChange={(e) => setOrderAddQty(Number(e.target.value))}
+                    className="w-20 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={addOrderLineItem}
+                    className="bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold px-4 rounded-lg border border-border cursor-pointer"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                {orderLineItems.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {orderLineItems.map((l, idx) => (
+                      <div key={idx} className="flex justify-between text-xs items-center">
+                        <span>{PROTEIN_LABELS[l.protein as Protein] || l.protein} {l.flavor} ({l.sizeGrams}g) × {l.qty}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{formatVND(l.unitPrice * l.qty)}</span>
+                          <button
+                            type="button"
+                            onClick={() => setOrderLineItems((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {orderPricing && (
+                  <div className="pt-2 border-t border-border/50 space-y-1 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tạm tính</span>
+                      <span>{formatVND(orderPricing.lineSubtotal)}</span>
+                    </div>
+                    {orderPricing.orderDiscountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Giảm giá</span>
+                        <span>-{formatVND(orderPricing.orderDiscountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-primary text-sm pt-1">
+                      <span>Tổng cộng</span>
+                      <span>{formatVND(orderPricing.finalTotal)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                >
+                  Lưu đơn hàng
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION CREATE DIALOG MODAL */}
+      {subModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setSubModal(null)} />
+          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8">
+            <div className="text-center">
+              <h3 className="text-lg font-bold font-heading">Tạo gói đăng ký</h3>
+            </div>
+
+            <form onSubmit={handleCreateSubscription} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Khách hàng</label>
+                  <select
+                    required
+                    value={subCustomerId}
+                    onChange={(e) => setSubCustomerId(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    <option value="">Chọn khách hàng</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tên gói</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Gói tăng cơ 30 ngày"
+                    value={subPackageName}
+                    onChange={(e) => setSubPackageName(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="border border-border rounded-xl p-4 space-y-3">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Khối lượng mua theo protein (kg)
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={subPoolProtein}
+                    onChange={(e) => setSubPoolProtein(e.target.value as Protein)}
+                    className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    {PROTEIN_OPTIONS.map((p) => (
+                      <option key={p} value={p}>{PROTEIN_LABELS[p]}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={subPoolKg}
+                    onChange={(e) => setSubPoolKg(Number(e.target.value))}
+                    className="w-24 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={addSubPool}
+                    className="bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold px-4 rounded-lg border border-border cursor-pointer"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                {subPools.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {subPools.map((p, idx) => (
+                      <div key={idx} className="flex justify-between text-xs items-center">
+                        <span>{PROTEIN_LABELS[p.protein]} — {p.kg}kg</span>
+                        <button
+                          type="button"
+                          onClick={() => setSubPools((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {subPricing && subPricing.missingProteins.length > 0 && (
+                  <p className="text-[11px] text-red-500">
+                    Chưa có món khả dụng cho: {subPricing.missingProteins.join(", ")}
+                  </p>
+                )}
+                {subPricing && subPricing.missingProteins.length === 0 && subPools.length > 0 && (
+                  <div className="pt-2 border-t border-border/50 space-y-1 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tạm tính ({(subTotalGrams / 1000).toFixed(1)}kg)</span>
+                      <span>{formatVND(subPricing.lineSubtotal)}</span>
+                    </div>
+                    {subPricing.orderDiscountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Giảm giá trọn gói</span>
+                        <span>-{formatVND(subPricing.orderDiscountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-primary text-sm pt-1">
+                      <span>Tổng giá gói</span>
+                      <span>{formatVND(subPricing.finalTotal)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mỗi lần giao</label>
+                  <select
+                    value={subDeliveryAmountGrams}
+                    onChange={(e) => setSubDeliveryAmountGrams(Number(e.target.value))}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    {DELIVERY_AMOUNT_PRESETS_GRAMS.map((g) => (
+                      <option key={g} value={g}>{formatGrams(g)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tần suất giao</label>
+                  <select
+                    value={subDeliveryIntervalDays}
+                    onChange={(e) => setSubDeliveryIntervalDays(Number(e.target.value))}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    {DELIVERY_FREQUENCY_PRESETS.map((p) => (
+                      <option key={p.days} value={p.days}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ngày bắt đầu</label>
+                  <input
+                    type="date"
+                    required
+                    value={subStartDate}
+                    onChange={(e) => setSubStartDate(e.target.value)}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              {subSchedulePreview.length > 0 && (
+                <div className="text-[11px] text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                  Lịch giao dự kiến: <span className="font-bold text-foreground">{subSchedulePreview.length}</span> lần giao,
+                  mỗi {formatIntervalLabel(subDeliveryIntervalDays)} — kết thúc khoảng{" "}
+                  <span className="font-bold text-foreground">
+                    {new Date(subSchedulePreview[subSchedulePreview.length - 1].date).toLocaleDateString("vi-VN")}
+                  </span>
+                  . Chỉ 7 ngày đầu được tạo lịch giao ngay, phần còn lại tự động bổ sung dần.
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái thanh toán</label>
+                <select
+                  value={subPaymentStatus}
+                  onChange={(e) => setSubPaymentStatus(e.target.value as any)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                >
+                  {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSubModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                >
+                  Tạo gói đăng ký
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION DETAIL MODAL — delivery history for one subscription */}
+      {subDetailId && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setSubDetailId(null)} />
+          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-4 my-8">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold font-heading">Lịch sử giao hàng</h3>
+              <button onClick={() => setSubDetailId(null)} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+                Đóng
+              </button>
+            </div>
+            {isSubDetailLoading ? (
+              <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+            ) : subDetailDeliveries.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">Chưa có lần giao nào được tạo</p>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                {subDetailDeliveries.map((d: any) => (
+                  <div key={d.id} className="border border-border rounded-lg p-3 text-xs space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{new Date(d.scheduledDate).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-muted">{d.status}</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {d.items.map((i: any) => `${PROTEIN_LABELS[i.protein as Protein] || i.protein} ${i.flavor} (${i.sizeGrams}g) ×${i.qty}`).join(", ")}
+                    </div>
+                    {d.notes && <div className="text-[10px] text-muted-foreground whitespace-pre-line">{d.notes}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TOP-UP POOL MODAL */}
+      {topUpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setTopUpModal(null)} />
+          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+            <h3 className="text-sm font-bold font-heading">Mua thêm khối lượng</h3>
+            <form onSubmit={handleTopUpPool} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Protein</label>
+                <select
+                  value={topUpModal.protein}
+                  onChange={(e) => setTopUpModal({ ...topUpModal, protein: e.target.value as Protein })}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                >
+                  {PROTEIN_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{PROTEIN_LABELS[p]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Thêm bao nhiêu kg</label>
+                <input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  value={topUpModal.grams / 1000}
+                  onChange={(e) => setTopUpModal({ ...topUpModal, grams: Number(e.target.value) * 1000 })}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTopUpModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer"
+                >
+                  Xác nhận
                 </button>
               </div>
             </form>

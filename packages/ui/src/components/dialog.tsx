@@ -45,13 +45,13 @@ export function Dialog({
       {/* Content Container */}
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg transform overflow-hidden rounded-lg bg-card p-6 shadow-xl transition-all border border-border animate-in fade-in-50 zoom-in-95 duration-200",
+          "relative z-10 w-full max-w-lg transform overflow-hidden rounded-3xl bg-card p-6 shadow-warm-lg transition-smooth border border-border animate-in fade-in-50 zoom-in-95 duration-200",
           className
         )}
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+          className="absolute right-4 top-4 rounded-full p-1 opacity-70 ring-offset-background transition-smooth hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
@@ -59,7 +59,7 @@ export function Dialog({
 
         {(title || description) && (
           <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-4">
-            {title && <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>}
+            {title && <h2 className="text-lg font-heading font-semibold leading-none tracking-tight">{title}</h2>}
             {description && <p className="text-sm text-muted-foreground">{description}</p>}
           </div>
         )}

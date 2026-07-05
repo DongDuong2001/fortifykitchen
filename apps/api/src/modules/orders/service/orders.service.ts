@@ -1,269 +1,215 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateOrderDto } from "../dto/create-order.dto";
-import { OrderStatus, PaymentStatus } from "@fortifykitchen/types";
-import { Decimal } from "@fortifykitchen/database";
+import { UpdateOrderDto } from "../dto/update-order.dto";
+import { calculateOrderTotal } from "@fortifykitchen/shared";
+import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
+import { DeliveryStatus, PaymentState } from "@fortifykitchen/database";
 
 @Injectable()
 export class OrdersService {
   constructor(private readonly db: DatabaseService) {}
 
-  async create(userId: string, dto: CreateOrderDto) {
-    // 1. Find Customer
-    const customer = await this.db.client.customer.findUnique({
-      where: { userId },
-    });
-    if (!customer) {
-      throw new NotFoundException(`Customer profile not found for user ID ${userId}`);
-    }
-
-    // 2. Fetch Menu Items and Calculate Prices
-    let subtotal = 0;
-    const itemsWithPrice: { menuItemId: string; quantity: number; price: Decimal; notes?: string }[] = [];
-
-    for (const itemDto of dto.items) {
-      const menuItem = await this.db.client.menuItem.findUnique({
-        where: { id: itemDto.menuItemId },
-      });
-      if (!menuItem || !menuItem.isAvailable) {
-        throw new BadRequestException(`Menu item ${itemDto.menuItemId} is not available`);
+  // Looks up each menuItemId's current protein/flavor/size/price and builds
+  // the LineItem[] shape the shared discount engine expects — the server
+  // is the source of truth for pricing, never the client.
+  private async buildLineItems(items: { menuItemId: string; qty: number }[]): Promise<LineItem[]> {
+    const lineItems: LineItem[] = [];
+    for (const { menuItemId, qty } of items) {
+      const menuItem = await this.db.client.menuItem.findUnique({ where: { id: menuItemId } });
+      if (!menuItem) {
+        throw new BadRequestException(`Menu item ${menuItemId} not found`);
       }
-
-      const price = Number(menuItem.price);
-      subtotal += price * itemDto.quantity;
-
-      itemsWithPrice.push({
+      lineItems.push({
         menuItemId: menuItem.id,
-        quantity: itemDto.quantity,
-        price: menuItem.price, // Decimal
-        notes: itemDto.notes,
+        protein: menuItem.protein as LineItem["protein"],
+        flavor: menuItem.flavor,
+        sizeGrams: menuItem.sizeGrams,
+        unitPrice: menuItem.price,
+        qty,
       });
     }
+    return lineItems;
+  }
 
-    // 3. Handle Discount Code if provided
-    let discountAmount = 0;
-    if (dto.discountCode) {
-      const discount = await this.db.client.discount.findUnique({
-        where: { code: dto.discountCode.toUpperCase() },
-      });
-
-      if (discount && discount.isActive && new Date() >= discount.startsAt && new Date() <= discount.endsAt) {
-        const amt = Number(discount.amount);
-        if (discount.type === "PERCENTAGE") {
-          discountAmount = (subtotal * amt) / 100;
-        } else {
-          discountAmount = amt;
-        }
-      }
+  async create(dto: CreateOrderDto): Promise<Order> {
+    const customer = await this.db.client.customer.findUnique({ where: { id: dto.customerId } });
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    const deliveryFee = 30000; // 30,000 VND standard delivery fee in Vietnam
-    const totalAmount = Math.max(0, subtotal - discountAmount + deliveryFee);
+    const lineItems = await this.buildLineItems(dto.items);
+    const pricing = calculateOrderTotal(lineItems);
 
-    // 4. Create in Transaction
-    const order = await this.db.client.$transaction(async (tx) => {
-      const newOrder = await tx.order.create({
-        data: {
-          customerId: customer.id,
-          status: "PENDING",
-          totalAmount: new Decimal(totalAmount),
-          deliveryAddress: dto.deliveryAddress,
-          deliveryFee: new Decimal(deliveryFee),
-          notes: dto.notes,
-          items: {
-            create: itemsWithPrice.map((item) => ({
-              menuItemId: item.menuItemId,
-              quantity: item.quantity,
-              price: item.price,
-              notes: item.notes,
-            })),
-          },
+    const order = await this.db.client.order.create({
+      data: {
+        customerId: customer.id,
+        customerName: customer.name,
+        deliveryDate: new Date(dto.deliveryDate),
+        paymentStatus: dto.paymentStatus ?? PaymentState.UNPAID,
+        deliveryStatus: DeliveryStatus.SCHEDULED,
+        subtotal: Math.round(pricing.lineSubtotal),
+        discountAmount: Math.round(pricing.orderDiscountAmount),
+        total: Math.round(pricing.finalTotal),
+        notes: dto.notes,
+        items: {
+          create: lineItems.map((l) => ({
+            menuItemId: l.menuItemId,
+            protein: l.protein,
+            flavor: l.flavor,
+            sizeGrams: l.sizeGrams,
+            unitPrice: l.unitPrice,
+            qty: l.qty,
+          })),
         },
-        include: {
-          items: {
-            include: {
-              menuItem: true,
-            },
-          },
-        },
-      });
-
-      // Create initial Payment record
-      await tx.payment.create({
-        data: {
-          orderId: newOrder.id,
-          amount: new Decimal(totalAmount),
-          method: dto.paymentMethod,
-          status: "PENDING",
-        },
-      });
-
-      // Create Delivery tracker
-      await tx.delivery.create({
-        data: {
-          orderId: newOrder.id,
-          status: "PENDING",
-          estimatedTime: new Date(Date.now() + 45 * 60 * 1000), // Estimated 45 minutes from now
-        },
-      });
-
-      return newOrder;
+      },
+      include: { items: true },
     });
 
     return this.mapOrder(order);
   }
 
-  async findAll(): Promise<any[]> {
+  async findAll(): Promise<Order[]> {
     const orders = await this.db.client.order.findMany({
-      include: {
-        items: { include: { menuItem: true } },
-        payments: true,
-        delivery: true,
-        customer: { include: { user: true } },
-      },
-      orderBy: { createdAt: "desc" },
+      include: { items: true },
+      orderBy: { deliveryDate: "desc" },
     });
-    return orders.map(this.mapOrderAdmin);
+    return orders.map((o) => this.mapOrder(o));
   }
 
-  async findAllByUserId(userId: string): Promise<any[]> {
-    const customer = await this.db.client.customer.findUnique({
-      where: { userId },
-    });
-    if (!customer) return [];
-
-    const orders = await this.db.client.order.findMany({
-      where: { customerId: customer.id },
-      include: {
-        items: { include: { menuItem: true } },
-        payments: true,
-        delivery: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return orders.map(this.mapOrder);
-  }
-
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string): Promise<Order> {
     const order = await this.db.client.order.findUnique({
       where: { id },
-      include: {
-        items: { include: { menuItem: true } },
-        payments: true,
-        delivery: true,
-        customer: { include: { user: true } },
-      },
+      include: { items: true },
     });
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    return this.mapOrderAdmin(order);
+    return this.mapOrder(order);
   }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<any> {
-    const order = await this.db.client.order.findUnique({
-      where: { id },
-      include: { payments: true, delivery: true },
-    });
+  // Edits resend the full form and get repriced from scratch — old line
+  // items are dropped and replaced rather than diffed, since orders are
+  // small (a handful of line items) and this keeps the pricing engine as
+  // the single source of truth with no partial-update drift.
+  async update(id: string, dto: UpdateOrderDto): Promise<Order> {
+    await this.findOne(id);
 
-    if (!order) {
-      throw new NotFoundException(`Order with ID ${id} not found`);
+    const customer = await this.db.client.customer.findUnique({ where: { id: dto.customerId } });
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    return this.db.client.$transaction(async (tx) => {
-      // 1. Update Order Status
-      const updatedOrder = await tx.order.update({
+    const lineItems = await this.buildLineItems(dto.items);
+    const pricing = calculateOrderTotal(lineItems);
+
+    const order = await this.db.client.$transaction(async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: id } });
+      return tx.order.update({
         where: { id },
-        data: { status },
-        include: {
-          items: { include: { menuItem: true } },
-          payments: true,
-          delivery: true,
-          customer: { include: { user: true } },
-        },
-      });
-
-      // 2. Update Delivery tracker status
-      if (updatedOrder.delivery) {
-        await tx.delivery.update({
-          where: { orderId: id },
-          data: {
-            status,
-            actualTime: status === "DELIVERED" ? new Date() : undefined,
+        data: {
+          customerId: customer.id,
+          customerName: customer.name,
+          deliveryDate: new Date(dto.deliveryDate),
+          paymentStatus: dto.paymentStatus ?? PaymentState.UNPAID,
+          subtotal: Math.round(pricing.lineSubtotal),
+          discountAmount: Math.round(pricing.orderDiscountAmount),
+          total: Math.round(pricing.finalTotal),
+          notes: dto.notes,
+          items: {
+            create: lineItems.map((l) => ({
+              menuItemId: l.menuItemId,
+              protein: l.protein,
+              flavor: l.flavor,
+              sizeGrams: l.sizeGrams,
+              unitPrice: l.unitPrice,
+              qty: l.qty,
+            })),
           },
-        });
-      }
-
-      // 3. For CASH_ON_DELIVERY: If order status changes to DELIVERED, automatically change payment status to COMPLETED
-      const codPayment = updatedOrder.payments.find((p) => p.method === ("CASH_ON_DELIVERY" as any));
-      if (status === "DELIVERED" && codPayment && codPayment.status === "PENDING") {
-        await tx.payment.update({
-          where: { id: codPayment.id },
-          data: { status: "COMPLETED" as PaymentStatus },
-        });
-      }
-
-      // Re-fetch updated payments
-      const finalPayments = await tx.payment.findMany({ where: { orderId: id } });
-      const finalDelivery = await tx.delivery.findUnique({ where: { orderId: id } });
-
-      return this.mapOrderAdmin({
-        ...updatedOrder,
-        payments: finalPayments,
-        delivery: finalDelivery,
+        },
+        include: { items: true },
       });
     });
+
+    return this.mapOrder(order);
   }
 
-  private mapOrder(order: any): any {
+  async updateDeliveryStatus(id: string, deliveryStatus: DeliveryStatus): Promise<Order> {
+    await this.findOne(id);
+    const order = await this.db.client.order.update({
+      where: { id },
+      data: { deliveryStatus },
+      include: { items: true },
+    });
+    return this.mapOrder(order);
+  }
+
+  async updatePaymentStatus(id: string, paymentStatus: PaymentState): Promise<Order> {
+    await this.findOne(id);
+    const order = await this.db.client.order.update({
+      where: { id },
+      data: { paymentStatus },
+      include: { items: true },
+    });
+    return this.mapOrder(order);
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.findOne(id);
+    await this.db.client.order.delete({ where: { id } });
+  }
+
+  private mapOrder(order: {
+    id: string;
+    customerId: string | null;
+    customerName: string;
+    deliveryDate: Date;
+    paymentStatus: string;
+    deliveryStatus: string;
+    subtotal: number;
+    discountAmount: number;
+    total: number;
+    notes: string | null;
+    items: Array<{
+      id: string;
+      orderId: string;
+      menuItemId: string | null;
+      protein: string;
+      flavor: string;
+      sizeGrams: number;
+      unitPrice: number;
+      qty: number;
+    }>;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Order {
     return {
       id: order.id,
-      customerId: order.customerId,
-      status: order.status,
-      totalAmount: Number(order.totalAmount),
-      deliveryAddress: order.deliveryAddress,
-      deliveryFee: Number(order.deliveryFee),
-      notes: order.notes,
+      customerId: order.customerId ?? undefined,
+      customerName: order.customerName,
+      deliveryDate: order.deliveryDate,
+      paymentStatus: order.paymentStatus as Order["paymentStatus"],
+      deliveryStatus: order.deliveryStatus as Order["deliveryStatus"],
+      subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
+      total: order.total,
+      notes: order.notes ?? undefined,
+      items: order.items.map(
+        (i): OrderItem => ({
+          id: i.id,
+          orderId: i.orderId,
+          menuItemId: i.menuItemId ?? undefined,
+          protein: i.protein as OrderItem["protein"],
+          flavor: i.flavor,
+          sizeGrams: i.sizeGrams,
+          unitPrice: i.unitPrice,
+          qty: i.qty,
+        }),
+      ),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
-      items: order.items.map((i: any) => ({
-        id: i.id,
-        menuItemId: i.menuItemId,
-        quantity: i.quantity,
-        price: Number(i.price),
-        notes: i.notes,
-        menuItem: i.menuItem ? { ...i.menuItem, price: Number(i.menuItem.price) } : undefined,
-      })),
-      payment: order.payments?.[0]
-        ? {
-            id: order.payments[0].id,
-            amount: Number(order.payments[0].amount),
-            method: order.payments[0].method,
-            status: order.payments[0].status,
-            transactionId: order.payments[0].transactionId,
-          }
-        : undefined,
-      delivery: order.delivery
-        ? {
-            id: order.delivery.id,
-            status: order.delivery.status,
-            estimatedTime: order.delivery.estimatedTime,
-            actualTime: order.delivery.actualTime,
-          }
-        : undefined,
     };
   }
-
-  private mapOrderAdmin = (order: any): any => {
-    return {
-      ...this.mapOrder(order),
-      customerName: order.customer?.user
-        ? `${order.customer.user.firstName} ${order.customer.user.lastName}`
-        : undefined,
-      customerPhone: order.customer?.phone,
-    };
-  };
 }

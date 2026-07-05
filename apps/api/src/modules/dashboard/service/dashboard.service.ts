@@ -1,52 +1,120 @@
 import { Injectable } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
+import { PaymentState } from "@fortifykitchen/database";
 
 @Injectable()
 export class DashboardService {
   constructor(private readonly db: DatabaseService) {}
 
   async getStats() {
-    // 1. Total Customers
     const totalCustomers = await this.db.client.customer.count();
 
-    // 2. Active Subscriptions
     const activeSubscriptions = await this.db.client.subscription.count({
       where: { status: "ACTIVE" },
     });
 
-    // 3. Total Orders
     const totalOrders = await this.db.client.order.count();
 
-    // 4. Total Revenue (sum of completed payments)
-    const completedPayments = await this.db.client.payment.findMany({
-      where: { status: "COMPLETED" },
-      select: { amount: true },
-    });
-    const totalRevenue = completedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    // Revenue = paid orders + paid subscriptions. There's no separate
+    // Payment ledger in the current flow — paymentStatus lives directly on
+    // Order/Subscription (see schema.prisma's PaymentState comment).
+    const [paidOrders, paidSubscriptions] = await Promise.all([
+      this.db.client.order.findMany({
+        where: { paymentStatus: PaymentState.PAID },
+        select: { total: true },
+      }),
+      this.db.client.subscription.findMany({
+        where: { paymentStatus: PaymentState.PAID },
+        select: { totalPrice: true },
+      }),
+    ]);
+    const totalRevenue =
+      paidOrders.reduce((sum, o) => sum + o.total, 0) +
+      paidSubscriptions.reduce((sum, s) => sum + s.totalPrice, 0);
 
-    // 5. Recent Orders
     const recentOrdersRaw = await this.db.client.order.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
-      include: {
-        customer: { include: { user: true } },
-      },
     });
 
     const recentOrders = recentOrdersRaw.map((o) => ({
       id: o.id,
-      customerName: o.customer?.user ? `${o.customer.user.firstName} ${o.customer.user.lastName}` : "Unknown",
-      totalAmount: Number(o.totalAmount),
-      status: o.status,
+      customerName: o.customerName,
+      total: o.total,
+      deliveryStatus: o.deliveryStatus,
+      paymentStatus: o.paymentStatus,
+      deliveryDate: o.deliveryDate,
       createdAt: o.createdAt,
     }));
+
+    // Deliveries due in the next 7 days (subscription deliveries + one-off
+    // orders combined) — matches the original dashboard's reorder alerts,
+    // extended to cover both delivery kinds now that the Deliveries tab
+    // shows them together.
+    const today = new Date();
+    const in7Days = new Date(Date.now() + 7 * 86_400_000);
+    const [subDeliveriesThisWeek, ordersThisWeek] = await Promise.all([
+      this.db.client.delivery.count({
+        where: {
+          scheduledDate: { gte: today, lte: in7Days },
+          status: { in: ["SCHEDULED", "PREPPING"] },
+        },
+      }),
+      this.db.client.order.count({
+        where: {
+          deliveryDate: { gte: today, lte: in7Days },
+          deliveryStatus: { in: ["SCHEDULED", "PREPPING"] },
+        },
+      }),
+    ]);
+    const deliveriesThisWeek = subDeliveriesThisWeek + ordersThisWeek;
+
+    const unpaidOrders = await this.db.client.order.count({
+      where: { paymentStatus: { not: PaymentState.PAID } },
+    });
+
+    // Volume-subscription specific stats.
+    const activePools = await this.db.client.subscriptionPool.findMany({
+      where: { subscription: { status: "ACTIVE" } },
+      select: { subscriptionId: true, protein: true, totalGrams: true, remainingGrams: true },
+    });
+    const outstandingVolumeGrams = activePools.reduce((sum, p) => sum + p.remainingGrams, 0);
+
+    // "Nearing depletion" = an active subscription where every pool has
+    // <=10% of its purchased weight left (i.e. about to need a top-up or
+    // wind down) — surfaced so staff can proactively reach out.
+    const poolsBySubscription = new Map<string, typeof activePools>();
+    for (const pool of activePools) {
+      if (!poolsBySubscription.has(pool.subscriptionId)) poolsBySubscription.set(pool.subscriptionId, []);
+      poolsBySubscription.get(pool.subscriptionId)!.push(pool);
+    }
+    let subscriptionsNearingDepletion = 0;
+    for (const pools of poolsBySubscription.values()) {
+      const allLow = pools.every((p) => p.totalGrams === 0 || p.remainingGrams / p.totalGrams <= 0.1);
+      if (allLow) subscriptionsNearingDepletion += 1;
+    }
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const deliveredThisMonth = await this.db.client.delivery.findMany({
+      where: { status: "DELIVERED", updatedAt: { gte: startOfMonth } },
+      include: { items: true },
+    });
+    const gramsDeliveredThisMonth = deliveredThisMonth.reduce(
+      (sum, d) => sum + d.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
+      0,
+    );
 
     return {
       totalCustomers,
       activeSubscriptions,
       totalOrders,
       totalRevenue,
+      deliveriesThisWeek,
+      unpaidOrders,
       recentOrders,
+      outstandingVolumeGrams,
+      subscriptionsNearingDepletion,
+      gramsDeliveredThisMonth,
     };
   }
 }
