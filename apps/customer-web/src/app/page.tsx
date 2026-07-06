@@ -816,7 +816,7 @@ export default function CustomerPortal() {
     }));
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
       {/* 1. HEADER */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -2615,6 +2615,52 @@ export default function CustomerPortal() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border flex justify-around py-3 px-2 shadow-2xl">
+        <button
+          onClick={() => setActiveTab("menu")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "menu" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faUtensils} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_menu")}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("order-now")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative ${
+            activeTab === "order-now" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faShoppingBag} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_order")}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("subscriptions")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "subscriptions" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faCalendarAlt} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_sub")}</span>
+        </button>
+        <button
+          onClick={() => {
+            if (user) {
+              setActiveTab("dashboard");
+            } else {
+              setAuthModal("login");
+            }
+          }}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "dashboard" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faUser} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{user ? t("nav_dashboard") : t("btn_signin")}</span>
+        </button>
+      </div>
     </div>
   );
 }
