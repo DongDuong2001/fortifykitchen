@@ -1084,6 +1084,18 @@ export default function AdminDashboard() {
   // Create or Update Menu Item
   const handleSaveMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The Save button is disabled while menuItemUploading is true, but that
+    // only blocks a click on the button itself — pressing Enter in any text
+    // field inside the form still fires this submit handler natively,
+    // bypassing the disabled button entirely. Without this guard, an
+    // Enter-key submit mid-upload sends the payload with imageUrl still
+    // empty (the upload hasn't resolved into menuItemImage yet), silently
+    // saving the item with no image even though the upload itself succeeds
+    // moments later.
+    if (menuItemUploading) {
+      toast({ title: "Đang tải ảnh lên, vui lòng đợi trước khi lưu.", type: "default" });
+      return;
+    }
     try {
       const payload = {
         protein: menuItemProtein,
@@ -1113,11 +1125,20 @@ export default function AdminDashboard() {
         resetMenuForm();
         loadData();
       } else {
-        const error = await res.json();
-        toast({ title: error.message || "Failed to save menu item", type: "error" });
+        let message = "Failed to save menu item";
+        try {
+          const error = await res.json();
+          message = error.message || message;
+        } catch {
+          // Response body wasn't JSON (e.g. proxy/server error page) —
+          // fall back to the status text so the admin still sees *something*.
+          message = `${message} (${res.status} ${res.statusText})`;
+        }
+        toast({ title: message, type: "error" });
       }
     } catch (err) {
       console.error(err);
+      toast({ title: "Lỗi kết nối khi lưu món ăn", type: "error" });
     }
   };
 
@@ -1192,10 +1213,17 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        // Every API response is wrapped by the global TransformInterceptor
+        // as { success, message, data: <result> } — the upload controller's
+        // actual { url, publicId } return value lives at .data, not at the
+        // top level. Reading .url directly here was always undefined,
+        // silently leaving menuItemImage unset (the visible preview was
+        // just the local blob URL, unrelated to this).
+        const body = await res.json();
+        const url = body?.data?.url;
         // data.url is the Cloudinary secure_url — store it so it's sent
         // in the menu-item create/update payload.
-        setMenuItemImage(data.url);
+        setMenuItemImage(url);
       } else {
         const error = await res.json();
         toast({ title: error.message || "Upload ảnh thất bại", type: "error" });
