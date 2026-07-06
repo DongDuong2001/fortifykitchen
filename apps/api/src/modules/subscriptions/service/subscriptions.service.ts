@@ -27,13 +27,29 @@ export class SubscriptionsService {
       throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    // Merge duplicate protein entries the client might send, so "CHICKEN
-    // 10kg" + "CHICKEN 20kg" in one payload becomes a single 30kg pool.
-    const poolTotals = new Map<Protein, number>();
+    // Flatten to one (protein, sizeGrams, qty) entry per portion selection,
+    // merging duplicates the client might send, so "CHICKEN 150g x30" sent
+    // twice in one payload becomes a single x60 entry. Each protein's pool
+    // is the sum of grams (sizeGrams * qty) across all its portion sizes.
+    const portionTotals = new Map<string, { protein: Protein; sizeGrams: number; qty: number }>();
     for (const p of dto.pools) {
-      poolTotals.set(p.protein, (poolTotals.get(p.protein) ?? 0) + p.totalGrams);
+      for (const portion of p.portions) {
+        const key = `${p.protein}:${portion.sizeGrams}`;
+        const existing = portionTotals.get(key);
+        if (existing) {
+          existing.qty += portion.qty;
+        } else {
+          portionTotals.set(key, { protein: p.protein, sizeGrams: portion.sizeGrams, qty: portion.qty });
+        }
+      }
     }
-    const pools = Array.from(poolTotals.entries()).map(([protein, totalGrams]) => ({ protein, totalGrams }));
+    const portions = Array.from(portionTotals.values());
+
+    const poolGrams = new Map<Protein, number>();
+    for (const portion of portions) {
+      poolGrams.set(portion.protein, (poolGrams.get(portion.protein) ?? 0) + portion.sizeGrams * portion.qty);
+    }
+    const pools = Array.from(poolGrams.entries()).map(([protein, totalGrams]) => ({ protein, totalGrams }));
     const totalGrams = pools.reduce((sum, p) => sum + p.totalGrams, 0);
 
     const availableMenuItems = await this.db.client.menuItem.findMany({
@@ -41,10 +57,10 @@ export class SubscriptionsService {
       select: { protein: true, price: true, sizeGrams: true },
     });
 
-    const pricing = calculatePoolPricing(pools, availableMenuItems);
-    if (pricing.missingProteins.length > 0) {
+    const pricing = calculatePoolPricing(portions, availableMenuItems);
+    if (pricing.missingCombos.length > 0) {
       throw new BadRequestException(
-        `Không có món nào khả dụng cho: ${pricing.missingProteins.join(", ")} — vui lòng thêm món trong Thực đơn trước khi bán theo cân nặng cho protein này.`,
+        `Không có món nào khả dụng cho: ${pricing.missingCombos.join(", ")} — vui lòng thêm món trong Thực đơn trước khi bán theo phần cho size này.`,
       );
     }
     const totalPrice = dto.totalPrice ?? Math.round(pricing.finalTotal);

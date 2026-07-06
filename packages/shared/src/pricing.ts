@@ -110,48 +110,50 @@ export function calculateOrderTotal(lineItems: LineItem[]): OrderTotalResult {
 
 /**
  * Prices a volume subscription's protein pools by reusing the exact same
- * discount engine as one-off orders. Each pool doesn't have a single
- * "unit price" the way a MenuItem does (the customer buys a raw weight,
- * flavor is chosen later) — so we derive a representative price-per-gram
- * for the protein from the average of its available menu items, then feed
- * calculateOrderTotal a synthetic 1-line-item-per-pool LineItem list
- * (sizeGrams=1, qty=totalGrams) so the existing >=1000g-per-protein 10%
- * rule and the order-level spend-tier discount both apply exactly as they
- * do for regular orders — bulk-buying a pool is, after all, exactly the
- * kind of purchase those discounts were designed to reward.
+ * discount engine as one-off orders. The customer picks a portion SIZE
+ * (e.g. 150g, 250g — a real MenuItem SKU) and a portion COUNT for each
+ * protein they buy, e.g. "30 portions of 150g chicken + 20 portions of
+ * 250g chicken" — not a raw kilogram figure. Each (protein, sizeGrams)
+ * combo is priced at that exact MenuItem's real unit price × qty, then fed
+ * into calculateOrderTotal as ordinary line items, so the existing
+ * >=1000g-per-protein 10% rule and the order-level spend-tier discount
+ * both apply exactly as they do for regular orders — bulk-buying a pool
+ * is, after all, exactly the kind of purchase those discounts were
+ * designed to reward. Flavor is still chosen per-delivery, not here.
  */
-export interface PoolPricingInput {
+export interface PoolPortionInput {
   protein: import("@fortifykitchen/types").Protein;
-  totalGrams: number;
+  sizeGrams: number;
+  qty: number;
 }
 
 export function calculatePoolPricing(
-  pools: PoolPricingInput[],
+  portions: PoolPortionInput[],
   availableMenuItems: { protein: string; price: number; sizeGrams: number }[],
-): OrderTotalResult & { missingProteins: string[] } {
-  const missingProteins: string[] = [];
-  const syntheticLineItems: LineItem[] = [];
+): OrderTotalResult & { missingCombos: string[] } {
+  const missingCombos: string[] = [];
+  const lineItems: LineItem[] = [];
 
-  for (const pool of pools) {
-    const itemsForProtein = availableMenuItems.filter((m) => m.protein === pool.protein);
-    if (itemsForProtein.length === 0) {
-      missingProteins.push(pool.protein);
+  for (const portion of portions) {
+    const menuItem = availableMenuItems.find(
+      (m) => m.protein === portion.protein && m.sizeGrams === portion.sizeGrams,
+    );
+    if (!menuItem) {
+      missingCombos.push(`${portion.protein} ${portion.sizeGrams}g`);
       continue;
     }
-    const avgPricePerGram =
-      itemsForProtein.reduce((sum, m) => sum + m.price / m.sizeGrams, 0) / itemsForProtein.length;
 
-    syntheticLineItems.push({
-      protein: pool.protein,
-      flavor: "(bulk pool)",
-      sizeGrams: 1,
-      unitPrice: Math.round(avgPricePerGram),
-      qty: pool.totalGrams,
+    lineItems.push({
+      protein: portion.protein,
+      flavor: "(gói khối lượng)",
+      sizeGrams: portion.sizeGrams,
+      unitPrice: menuItem.price,
+      qty: portion.qty,
     });
   }
 
-  const result = calculateOrderTotal(syntheticLineItems);
-  return { ...result, missingProteins };
+  const result = calculateOrderTotal(lineItems);
+  return { ...result, missingCombos };
 }
 
 /**

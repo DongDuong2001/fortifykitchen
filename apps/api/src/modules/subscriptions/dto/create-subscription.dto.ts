@@ -15,18 +15,36 @@ import {
 import { Type } from "class-transformer";
 import { PaymentState, Protein } from "@fortifykitchen/database";
 
-// One protein "pool" being purchased in bulk, e.g. { protein: CHICKEN,
-// totalGrams: 30000 } = 30kg of chicken. The specific flavor is chosen per
-// delivery later, not here — see DeliveryItem.
+// One portion-size purchase, e.g. { sizeGrams: 150, qty: 30 } = 30 portions
+// of 150g each (4,500g total). This is a real MenuItem SKU size, priced at
+// that SKU's actual unit price — not an average price-per-gram.
+class SubscriptionPortionDto {
+  @ApiProperty({ example: 150, description: "Portion size in grams, matching an existing MenuItem sizeGrams" })
+  @IsInt()
+  @Min(1)
+  sizeGrams!: number;
+
+  @ApiProperty({ example: 30, description: "Number of portions of this size" })
+  @IsInt()
+  @Min(1)
+  qty!: number;
+}
+
+// One protein "pool" being purchased in bulk, made up of one or more
+// portion-size selections, e.g. { protein: CHICKEN, portions: [{sizeGrams:
+// 150, qty: 30}, {sizeGrams: 250, qty: 20}] }. The specific flavor is
+// chosen per delivery later, not here — see DeliveryItem.
 class SubscriptionPoolDto {
   @ApiProperty({ enum: Protein, example: "CHICKEN" })
   @IsEnum(Protein)
   protein!: Protein;
 
-  @ApiProperty({ example: 30000, description: "Total grams purchased for this protein" })
-  @IsInt()
-  @Min(1)
-  totalGrams!: number;
+  @ApiProperty({ type: [SubscriptionPortionDto], description: "Portion sizes + counts purchased for this protein" })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => SubscriptionPortionDto)
+  portions!: SubscriptionPortionDto[];
 }
 
 // Volume-based subscription: the customer buys a total weight per protein
