@@ -17,7 +17,8 @@ export default [
         Buffer: "readonly",
         console: "readonly",
         setTimeout: "readonly",
-        clearTimeout: "readonly"
+        clearTimeout: "readonly",
+        Express: "readonly"
       }
     },
     plugins: {
