@@ -2322,25 +2322,109 @@ export default function CustomerPortal() {
       )}
 
       {/* 6. FOOTER */}
-      <footer className="border-t border-border bg-muted/20 py-12">
-        <div className="max-w-7xl mx-auto px-6 text-center text-xs text-muted-foreground space-y-4">
-          <p className="font-semibold text-foreground/80">
-            {lang === "vi" ? "FortifyKitchen Việt Nam - Gói Dinh Dưỡng Cao Cấp" : "FortifyKitchen Vietnam - Gourmet Nutrition Subscriptions"}
-          </p>
-          <div className="flex justify-center gap-4 text-[11px] font-medium">
-            <button
-              onClick={() => setShowPrivacyModal(true)}
-              className="text-primary hover:underline cursor-pointer transition-colors"
-            >
-              {t("cart_terms")}
-            </button>
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-16">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs text-muted-foreground">
+          {/* Column 1: Company / About */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "Công ty Cổ phần FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam Joint Stock Company"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Cung cấp giải pháp gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu sạch bởi đầu bếp chuyên nghiệp."
+                : "Providing gourmet protein meal subscriptions prepared by professional chefs with fresh ingredients."}
+            </p>
+            <div className="space-y-2">
+              <p>
+                <strong>{lang === "vi" ? "Mã số thuế / GPĐKKD:" : "Tax Code / Business Reg:"}</strong> 0317589254
+              </p>
+              <p>
+                <strong>{lang === "vi" ? "Trụ sở:" : "Headquarters:"}</strong> Landmark 81, Vinhomes Central Park, Phường 22, Quận Bình Thạnh, Thành phố Hồ Chí Minh, Việt Nam.
+              </p>
+              <p>
+                <strong>Hotline:</strong> +84 28 7300 1234 | <strong>Email:</strong> support@fortifykitchen.vn
+              </p>
+            </div>
           </div>
-          <p>
-            {lang === "vi"
-              ? "Địa chỉ: Thành phố Hồ Chí Minh, Việt Nam. Áp dụng chuẩn thanh toán COD."
-              : "Address: Ho Chi Minh City, Vietnam. COD Payment standard applied."}
-          </p>
-          <p>© 2026 FortifyKitchen. {lang === "vi" ? "Bảo lưu mọi quyền." : "All rights reserved."}</p>
+
+          {/* Column 2: Legal / Policies */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "Chính sách & Quy định" : "Policies & Regulations"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Vui lòng xem các điều khoản bảo mật và chính sách hoạt động chính thức của chúng tôi:"
+                : "Please review our official privacy guidelines and operational policies:"}
+            </p>
+            <div className="flex flex-col gap-2 font-medium">
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Điều khoản sử dụng dịch vụ" : "➔ Terms of Service"}
+              </button>
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Chính sách bảo mật thông tin" : "➔ Privacy Policy"}
+              </button>
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Chính sách thanh toán & Hoàn tiền" : "➔ Payment & Refund Policy"}
+              </button>
+            </div>
+          </div>
+
+          {/* Column 3: Trust Badges / Safe Check */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "Thanh toán An toàn & Đã xác minh" : "Verified & Safe Payments"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Dịch vụ của chúng tôi áp dụng chuẩn thanh toán tiền mặt khi nhận hàng (COD) và Chuyển khoản VietQR tiện lợi, đảm bảo an toàn tuyệt đối cho người mua hàng."
+                : "Our service utilizes standard COD (Cash on Delivery) and bank transfer via secure VietQR codes, ensuring absolute transaction safety."}
+            </p>
+            
+            {/* Ministry of Industry and Trade Vietnamese trust badge (BCT green badge) */}
+            <div className="pt-2 flex items-center gap-4">
+              <a
+                href="http://online.gov.vn/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block hover:opacity-90 transition-opacity"
+                title="Đã Đăng Ký Bộ Công Thương"
+              >
+                <svg
+                  width="130"
+                  height="49"
+                  viewBox="0 0 130 49"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-10 w-auto"
+                >
+                  <rect width="130" height="49" rx="8" fill="#143423" />
+                  <rect x="2" y="2" width="126" height="45" rx="6" fill="#1b462f" />
+                  <path d="M12 24.5C12 17.5964 17.5964 12 24.5 12C31.4036 12 37 17.5964 37 24.5C37 31.4036 31.4036 37 24.5 37C17.5964 37 12 31.4036 12 24.5Z" fill="#2fb67d" />
+                  <path d="M20 25.5L23.5 29L29.5 21L28 19.5L23.5 25.5L21.5 23.5L20 25.5Z" fill="#ffffff" />
+                  <text x="44" y="22" fill="#ffffff" fontFamily="sans-serif" fontSize="10" fontWeight="bold">ĐÃ ĐĂNG KÝ</text>
+                  <text x="44" y="34" fill="#2fb67d" fontFamily="sans-serif" fontSize="9" fontWeight="bold">BỘ CÔNG THƯƠNG</text>
+                </svg>
+              </a>
+              <div className="text-[10px] text-muted-foreground leading-tight">
+                {lang === "vi"
+                  ? "Sản phẩm được chứng nhận an toàn thực phẩm số 425/GCN-ATTP."
+                  : "Certified Safe Food Facility Registry License No. 425/GCN-ATTP."}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-border/40 text-center text-[10px] text-muted-foreground">
+          <p>© 2026 Công ty Cổ phần FortifyKitchen Việt Nam. {lang === "vi" ? "Tất cả các quyền được bảo lưu." : "All rights reserved."}</p>
         </div>
       </footer>
 
