@@ -7,7 +7,7 @@ import { normalizePhone } from "../../../common/utils/phone.util";
 import { parsePagination } from "../../../common/utils/pagination.util";
 import { calculateOrderTotal } from "@fortifykitchen/shared";
 import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
-import { DeliveryStatus, PaymentState, OrderFulfillmentType, Prisma } from "@fortifykitchen/database";
+import { DeliveryStatus, PaymentState, OrderFulfillmentType, PaymentMethod, Prisma } from "@fortifykitchen/database";
 
 @Injectable()
 export class OrdersService {
@@ -112,10 +112,36 @@ export class OrdersService {
     return map;
   }
 
-  async create(dto: CreateOrderDto): Promise<Order> {
-    const customer = await this.db.client.customer.findUnique({ where: { id: dto.customerId } });
+  async create(dto: CreateOrderDto, userId?: string, userRole?: string): Promise<Order> {
+    let customerId = dto.customerId;
+
+    if (userRole === "CUSTOMER" && userId) {
+      const customer = await this.db.client.customer.findFirst({ where: { userId } });
+      if (!customer) {
+        throw new NotFoundException(`Customer profile not found for user ID ${userId}`);
+      }
+      customerId = customer.id;
+    } else {
+      if (!customerId) {
+        throw new BadRequestException("Field 'customerId' is required");
+      }
+      const customer = await this.db.client.customer.findUnique({ where: { id: customerId } });
+      if (!customer) {
+        throw new NotFoundException(`Customer with ID ${customerId} not found`);
+      }
+    }
+
+    const customer = await this.db.client.customer.findUnique({ where: { id: customerId } });
     if (!customer) {
-      throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+
+    // Update customer address if it is not set on customer profile
+    if (dto.deliveryAddress && !customer.address) {
+      await this.db.client.customer.update({
+        where: { id: customer.id },
+        data: { address: dto.deliveryAddress },
+      });
     }
 
     return this.createForCustomer(
@@ -124,6 +150,8 @@ export class OrdersService {
       dto.deliveryDate,
       dto.paymentStatus,
       dto.notes,
+      dto.paymentMethod,
+      dto.deliveryAddress ?? customer.address ?? undefined,
     );
   }
 
@@ -134,8 +162,6 @@ export class OrdersService {
   // the staff-facing create() above — same rules apply regardless of who's
   // placing the order.
   async createPublic(dto: CreatePublicOrderDto): Promise<Order> {
-    // Normalize so "0987 654 321" and "+84987654321" resolve to the same
-    // customer instead of silently creating a duplicate — see phone.util.ts.
     const phone = normalizePhone(dto.phone);
     let customer = await this.db.client.customer.findFirst({ where: { phone } });
     if (!customer) {
@@ -143,19 +169,24 @@ export class OrdersService {
         data: { name: dto.name, phone, address: dto.address },
       });
     } else if (dto.address && !customer.address) {
-      // Fill in an address we didn't have yet; never overwrite one already on file.
       customer = await this.db.client.customer.update({
         where: { id: customer.id },
         data: { address: dto.address },
       });
     }
 
-    // Fallback date only matters if the order turns out SCHEDULED (some
-    // item was short) — default to tomorrow so it's never in the past.
     const fallbackDeliveryDate =
       dto.deliveryDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    return this.createForCustomer(customer, dto.items, fallbackDeliveryDate, undefined, dto.notes);
+    return this.createForCustomer(
+      customer,
+      dto.items,
+      fallbackDeliveryDate,
+      undefined,
+      dto.notes,
+      dto.paymentMethod,
+      dto.address,
+    );
   }
 
   // Order history for the customer-web "My Orders" view — same phone-based
@@ -177,13 +208,13 @@ export class OrdersService {
     deliveryDateInput: string,
     paymentStatus: PaymentState | undefined,
     notes: string | undefined,
+    paymentMethod?: PaymentMethod,
+    deliveryAddress?: string,
   ): Promise<Order> {
     const lineItems = await this.buildLineItems(items);
     const pricing = calculateOrderTotal(lineItems);
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
-    // IMMEDIATE orders are ready today, no scheduling needed — force the
-    // delivery date to today regardless of what was submitted.
     const deliveryDate =
       fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
 
@@ -200,6 +231,8 @@ export class OrdersService {
           paymentStatus: paymentStatus ?? PaymentState.UNPAID,
           deliveryStatus: DeliveryStatus.SCHEDULED,
           fulfillmentType,
+          paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
+          deliveryAddress,
           subtotal: Math.round(pricing.lineSubtotal),
           discountAmount: Math.round(pricing.orderDiscountAmount),
           total: Math.round(pricing.finalTotal),
@@ -220,6 +253,17 @@ export class OrdersService {
     });
 
     return this.mapOrder(order);
+  }
+
+  async findForUser(userId: string): Promise<Order[]> {
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) return [];
+    const orders = await this.db.client.order.findMany({
+      where: { customerId: customer.id },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return orders.map((o) => this.mapOrder(o));
   }
 
   async findAll(page?: string, limit?: string): Promise<Order[]> {
@@ -409,6 +453,8 @@ export class OrdersService {
     paymentStatus: string;
     deliveryStatus: string;
     fulfillmentType: string;
+    paymentMethod: string;
+    deliveryAddress: string | null;
     subtotal: number;
     discountAmount: number;
     total: number;
@@ -434,6 +480,8 @@ export class OrdersService {
       paymentStatus: order.paymentStatus as Order["paymentStatus"],
       deliveryStatus: order.deliveryStatus as Order["deliveryStatus"],
       fulfillmentType: order.fulfillmentType as Order["fulfillmentType"],
+      paymentMethod: order.paymentMethod as Order["paymentMethod"],
+      deliveryAddress: order.deliveryAddress ?? undefined,
       subtotal: order.subtotal,
       discountAmount: order.discountAmount,
       total: order.total,

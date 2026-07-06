@@ -20,6 +20,7 @@ import { Customer } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 
 // Staff-only directory — customers have no login/self-service today (see
 // packages/database's schema.prisma comment on the Customer model).
@@ -38,6 +39,14 @@ export class CustomersController {
   @ApiResponse({ status: 200, description: "Returns the customer directory." })
   async findAll(@Query("page") page?: string, @Query("limit") limit?: string): Promise<Customer[]> {
     return this.customersService.findAll(page, limit);
+  }
+
+  @Get("me")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({ summary: "Get current customer profile" })
+  @ApiResponse({ status: 200, description: "Returns own customer profile." })
+  async findMe(@CurrentUser() user: any): Promise<Customer> {
+    return this.customersService.findByUserId(user.id);
   }
 
   @Get(":id")

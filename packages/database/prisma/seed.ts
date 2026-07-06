@@ -198,6 +198,8 @@ async function main() {
         deliveryDate: o.deliveryDate,
         paymentStatus: o.paymentStatus,
         deliveryStatus: o.deliveryStatus,
+        paymentMethod: "CASH_ON_DELIVERY",
+        deliveryAddress: o.customer.address,
         subtotal,
         discountAmount: 0,
         total: subtotal,
@@ -327,6 +329,20 @@ async function main() {
   });
 
   console.log("Seeded 3 test volume subscriptions (with delivery history for one).");
+
+  // --- Seed default discount codes ------------------------------------------
+  await prisma.discount.deleteMany({});
+  const welcomeDiscount = await prisma.discount.create({
+    data: {
+      code: "WELCOME10",
+      type: "PERCENTAGE",
+      amount: 10,
+      isActive: true,
+      startsAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // yesterday
+      endsAt: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000), // 10 years later
+    },
+  });
+  console.log(`Seeded default discount code: ${welcomeDiscount.code}`);
 }
 
 main()
