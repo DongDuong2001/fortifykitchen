@@ -13,9 +13,12 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "lucide-react": "^0.468.0",
-    "framer-motion": "^11.13.1",
+    "@fortawesome/fontawesome-svg-core": "^7.3.0",
+    "@fortawesome/free-solid-svg-icons": "^7.3.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.13.1",
+    "lucide-react": "^0.468.0",
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
