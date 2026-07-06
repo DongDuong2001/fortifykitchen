@@ -63,6 +63,12 @@ function getLocalDateString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+// Whether a date (string or Date) falls on today's local calendar day —
+// backs the Orders tab's "Sắp tới" (upcoming) filter mode.
+function isToday(date: string | Date): boolean {
+  return getLocalDateString(new Date(date)) === getLocalDateString();
+}
+
 // Single shared grouping routine used everywhere a list of dated entries
 // (orders, subscription-generated deliveries, or the two merged) needs to
 // be bucketed by day / ISO week / month. Having exactly one implementation
@@ -355,18 +361,45 @@ export default function AdminDashboard() {
   const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
+  // Typeable date filter — a plain "YYYY-MM-DD" string that drives an
+  // <input type="date">. Defaults to today so the Orders view opens showing
+  // just what's due today; typing/picking any other date narrows to that
+  // exact day; clearing it (via the "Tất cả" button) shows every date.
+  const [orderDateFilter, setOrderDateFilter] = React.useState(getLocalDateString());
+  // Extra quick mode alongside the date input — "Sắp tới" (upcoming) shows
+  // everything that isn't today (future or overdue), ignoring the specific
+  // date picked above. Picking a date (or "Tất cả") switches back to "date".
+  const [orderDateMode, setOrderDateMode] = React.useState<"date" | "upcoming">("date");
+
+  // --- Orders from Subscriptions: its own independent workflow view +
+  // filters, separate from the one-off Orders filters above — filtering or
+  // switching tabs on one table no longer touches the other.
+  const [subOrderViewTab, setSubOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
+  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
+  const [subOrderSearch, setSubOrderSearch] = React.useState("");
+  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(getLocalDateString());
+  const [subOrderDateMode, setSubOrderDateMode] = React.useState<"date" | "upcoming">("date");
+
+  // Deliveries tab: same typeable date filter, applied to both "Tất cả" and
+  // "Sắp tới" views (see matchesDeliveryFilters). Defaults to empty — those
+  // two views already have their own today/upcoming scoping, so the date
+  // filter here is an optional extra narrowing rather than a default.
+  const [deliveryDateFilter, setDeliveryDateFilter] = React.useState("");
 
   // Jump back to page 1 whenever a filter/tab/search change would otherwise
   // leave the paginated table showing a stale, filter-mismatched page.
   React.useEffect(() => {
     setOrdersPage(1);
+  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
+
+  React.useEffect(() => {
     setSubOrdersPage(1);
-  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch]);
+  }, [subOrderViewTab, subOrderStatusFilter, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
 
   React.useEffect(() => {
     setDeliveriesAllPage(1);
     setDeliveriesUpcomingPage(1);
-  }, [deliverySourceFilter, deliveryStatusFilter, deliverySearch, deliveryGroupBy]);
+  }, [deliverySourceFilter, deliveryStatusFilter, deliverySearch, deliveryGroupBy, deliveryDateFilter]);
 
   // --- Subscription form state (volume-based: one or more protein pools +
   // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
@@ -1252,6 +1285,15 @@ export default function AdminDashboard() {
       if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
       if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
       if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+      // "Sắp tới" (upcoming) mode ignores the date input and shows
+      // everything not today (future or overdue); otherwise fall back to
+      // the typeable date filter — empty string means "Tất cả" (no date
+      // narrowing), any other value matches only that exact calendar day.
+      if (orderDateMode === "upcoming") {
+        if (isToday(o.deliveryDate)) return false;
+      } else if (orderDateFilter && getLocalDateString(new Date(o.deliveryDate)) !== orderDateFilter) {
+        return false;
+      }
       return true;
     })
     .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
@@ -1262,18 +1304,25 @@ export default function AdminDashboard() {
   const ordersTotalPages = Math.ceil(orderDayGroups.length / CARD_PAGE_SIZE) || 1;
   const pagedOrderDayGroups = paginate(orderDayGroups, clampPage(ordersPage, ordersTotalPages), CARD_PAGE_SIZE);
 
-  // Orders tab: subscription-generated deliveries filtered by the same
-  // Current/Completed/Cancelled tab + search box used for one-off orders,
-  // so switching tabs/searching behaves consistently across both groups.
+  // Orders from Subscriptions: filtered by its own independent
+  // Current/Completed/Cancelled tab + search + status filter — entirely
+  // separate from the one-off Orders filters above.
   const filteredSubscriptionOrders = subscriptionOrders
     .filter((d) => {
-      if (orderViewTab === "completed") return d.status === "DELIVERED";
-      if (orderViewTab === "cancelled") return d.status === "CANCELLED";
+      if (subOrderViewTab === "completed") return d.status === "DELIVERED";
+      if (subOrderViewTab === "cancelled") return d.status === "CANCELLED";
       if (d.status === "DELIVERED" || d.status === "CANCELLED") return false;
-      if (orderStatusFilter !== "ALL" && d.status !== orderStatusFilter) return false;
-      if (orderSearch.trim() && !d.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+      if (subOrderStatusFilter !== "ALL" && d.status !== subOrderStatusFilter) return false;
+      if (subOrderSearch.trim() && !d.customerName?.toLowerCase().includes(subOrderSearch.trim().toLowerCase())) return false;
+      if (subOrderDateMode === "upcoming") {
+        if (isToday(d.scheduledDate)) return false;
+      } else if (subOrderDateFilter && getLocalDateString(new Date(d.scheduledDate)) !== subOrderDateFilter) {
+        return false;
+      }
       return true;
     })
+    // Sorted ascending by scheduled date (oldest first) before being
+    // bucketed into day-groups below, matching the one-off Orders sort.
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
   const subOrderDayGroups = groupEntriesByDate(filteredSubscriptionOrders, (d) => d.scheduledDate, "day");
   const subOrdersTotalPages = Math.ceil(subOrderDayGroups.length / CARD_PAGE_SIZE) || 1;
@@ -1287,6 +1336,9 @@ export default function AdminDashboard() {
     if (deliverySourceFilter !== "ALL" && d.source !== deliverySourceFilter) return false;
     if (deliveryStatusFilter !== "ALL" && d.status !== deliveryStatusFilter) return false;
     if (deliverySearch.trim() && !d.customerName?.toLowerCase().includes(deliverySearch.trim().toLowerCase())) return false;
+    // Typeable date filter — empty means no date narrowing; applies
+    // identically to both "Tất cả" and "Sắp tới" views.
+    if (deliveryDateFilter && getLocalDateString(new Date(d.scheduledDate)) !== deliveryDateFilter) return false;
     return true;
   };
 
@@ -1666,12 +1718,34 @@ export default function AdminDashboard() {
                 <div className="space-y-6 animate-in fade-in duration-200">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-bold font-heading">Orders ({orders.length})</h3>
-                    <button
-                      onClick={() => { resetOrderForm(); setOrderModal("create"); }}
-                      className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> Tạo đơn hàng
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={orderDateFilter}
+                        onChange={(e) => { setOrderDateFilter(e.target.value); setOrderDateMode("date"); }}
+                        className="text-[11px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                      />
+                      {orderDateFilter && orderDateMode === "date" && (
+                        <button
+                          onClick={() => setOrderDateFilter("")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted cursor-pointer"
+                        >
+                          Tất cả
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setOrderDateMode(orderDateMode === "upcoming" ? "date" : "upcoming")}
+                        className={`text-[10px] font-bold px-3 py-1.5 rounded-md border cursor-pointer ${orderDateMode === "upcoming" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-muted"}`}
+                      >
+                        Sắp tới
+                      </button>
+                      <button
+                        onClick={() => { resetOrderForm(); setOrderModal("create"); }}
+                        className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" /> Tạo đơn hàng
+                      </button>
+                    </div>
                   </div>
 
                   {/* Current / Completed / Cancelled — accepting an order
@@ -1881,7 +1955,77 @@ export default function AdminDashboard() {
                     <h3 className="text-sm font-bold font-heading">
                       Orders from Subscriptions ({filteredSubscriptionOrders.length})
                     </h3>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={subOrderDateFilter}
+                        onChange={(e) => { setSubOrderDateFilter(e.target.value); setSubOrderDateMode("date"); }}
+                        className="text-[11px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                      />
+                      {subOrderDateFilter && subOrderDateMode === "date" && (
+                        <button
+                          onClick={() => setSubOrderDateFilter("")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted cursor-pointer"
+                        >
+                          Tất cả
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSubOrderDateMode(subOrderDateMode === "upcoming" ? "date" : "upcoming")}
+                        className={`text-[10px] font-bold px-3 py-1.5 rounded-md border cursor-pointer ${subOrderDateMode === "upcoming" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-muted"}`}
+                      >
+                        Sắp tới
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Independent Current / Completed / Cancelled tab for
+                      subscription-generated orders — separate state from
+                      the one-off Orders tabs above, so switching one
+                      doesn't affect the other. */}
+                  <div className="flex gap-2 border-b border-border">
+                    {(
+                      [
+                        { id: "current", label: "Current" },
+                        { id: "completed", label: "Completed" },
+                        { id: "cancelled", label: "Cancelled" },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setSubOrderViewTab(tab.id)}
+                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
+                          subOrderViewTab === tab.id
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {subOrderViewTab === "current" && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search customer..."
+                        value={subOrderSearch}
+                        onChange={(e) => setSubOrderSearch(e.target.value)}
+                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                      />
+                      <select
+                        value={subOrderStatusFilter}
+                        onChange={(e) => setSubOrderStatusFilter(e.target.value as typeof subOrderStatusFilter)}
+                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                      >
+                        <option value="ALL">All statuses</option>
+                        <option value="SCHEDULED">Ordered</option>
+                        <option value="PREPPING">Preparing</option>
+                        <option value="SKIPPED">Skipped</option>
+                      </select>
+                    </div>
+                  )}
 
                   {subOrderDayGroups.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
@@ -2115,6 +2259,20 @@ export default function AdminDashboard() {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                    <input
+                      type="date"
+                      value={deliveryDateFilter}
+                      onChange={(e) => setDeliveryDateFilter(e.target.value)}
+                      className="text-[11px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                    />
+                    {deliveryDateFilter && (
+                      <button
+                        onClick={() => setDeliveryDateFilter("")}
+                        className="text-[10px] font-bold px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted cursor-pointer"
+                      >
+                        Bỏ lọc ngày
+                      </button>
+                    )}
                   </div>
 
                   {deliveryView === "all" ? (
