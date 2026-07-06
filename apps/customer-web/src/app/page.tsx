@@ -478,6 +478,7 @@ export default function CustomerPortal() {
   // Menu Catalog State
   const [menuItems, setMenuItems] = React.useState<MenuItem[]>([]);
   const [selectedProtein, setSelectedProtein] = React.useState<Protein | "">("");
+  const [selectedProteinOrderNow, setSelectedProteinOrderNow] = React.useState<Protein | "">("");
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
   // User Dashboard State
@@ -689,6 +690,9 @@ export default function CustomerPortal() {
   // resolve IMMEDIATE server-side (barring a stock race with another
   // customer, which the server handles by falling back to SCHEDULED).
   const readyNowItems = menuItems.filter((m) => (m.stockQuantity ?? 0) > 0);
+  const filteredReadyNowItems = selectedProteinOrderNow
+    ? readyNowItems.filter((item) => item.protein === selectedProteinOrderNow)
+    : readyNowItems;
 
   const addToOrderNowCart = (item: MenuItem) => {
     setOrderNowCart((prev) => {
@@ -1213,20 +1217,54 @@ export default function CustomerPortal() {
             ) : (
               <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-4">
+                  {/* Protein Filter for Order Now */}
+                  <div className="flex flex-wrap gap-2 mb-4 bg-muted/20 p-2 rounded-xl border border-border/40">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProteinOrderNow("")}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        selectedProteinOrderNow === ""
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {t("filter_all")}
+                    </button>
+                    {["BEEF", "CHICKEN", "SHRIMP", "PORK", "FISH", "VEGAN"].map((protein) => {
+                      // Only show categories that have items in stock
+                      const hasItems = readyNowItems.some((m) => m.protein === protein);
+                      if (!hasItems) return null;
+                      return (
+                        <button
+                          key={protein}
+                          type="button"
+                          onClick={() => setSelectedProteinOrderNow(protein as any)}
+                          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            selectedProteinOrderNow === protein
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "bg-transparent text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {t(`filter_${protein}` as any)}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {isLoadingMenu ? (
                     <div className="flex justify-center py-16">
                       <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : readyNowItems.length === 0 ? (
+                  ) : filteredReadyNowItems.length === 0 ? (
                     <div className="text-center py-16 border border-dashed border-border rounded-xl">
                       <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay." : "No ready dishes currently available."}
+                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay trong danh mục này." : "No ready dishes currently available in this category."}
                       </p>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {groupByFlavor(readyNowItems).map((dish) => {
+                      {groupByFlavor(filteredReadyNowItems).map((dish) => {
                         const dishKey = `${dish.protein}::${dish.flavor}`;
                         const selected = getSelectedSize(dish);
                         const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
