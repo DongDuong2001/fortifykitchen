@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { useApp } from "../providers/app-context";
@@ -32,123 +32,123 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
-// Order status labels for the customer-facing "Track my order" lookup —
+// Order status labels for the customer-facing "Track my order" lookup â€”
 // same underlying DeliveryStatus enum the admin Orders tab uses
 // (SCHEDULED/PREPPING/DELIVERED/SKIPPED/CANCELLED), just worded for a
 // customer audience in Vietnamese.
 const DICTIONARY = {
   vi: {
     // Navigation
-    nav_menu: "Thực đơn",
+    nav_menu: "Thá»±c Ä‘Æ¡n",
     nav_order: "Giao ngay",
-    nav_sub: "Gói Hội viên",
-    nav_dashboard: "Cá nhân",
-    btn_signin: "Đăng nhập",
-    btn_logout: "Đăng xuất",
+    nav_sub: "GÃ³i Há»™i viÃªn",
+    nav_dashboard: "CÃ¡ nhÃ¢n",
+    btn_signin: "ÄÄƒng nháº­p",
+    btn_logout: "ÄÄƒng xuáº¥t",
 
     // Menu
-    menu_title: "Thực đơn Dinh dưỡng",
-    menu_subtitle: "Thực đơn giàu Protein chuẩn Gourmet được thiết kế bởi đầu bếp chuyên nghiệp để tối ưu mục tiêu dinh dưỡng của bạn.",
-    filter_all: "Tất cả",
-    filter_BEEF: "Thịt Bò",
-    filter_CHICKEN: "Thịt Gà",
-    filter_SHRIMP: "Tôm",
-    filter_PORK: "Thịt Heo",
-    filter_FISH: "Thịt Cá",
-    filter_VEGAN: "Món Chay",
-    unit_stock: "sẵn có",
-    btn_add_cart: "Thêm vào giỏ",
-    btn_out_of_stock: "Hết hàng",
+    menu_title: "Thá»±c Ä‘Æ¡n Dinh dÆ°á»¡ng",
+    menu_subtitle: "Thá»±c Ä‘Æ¡n giÃ u Protein chuáº©n Gourmet Ä‘Æ°á»£c thiáº¿t káº¿ bá»Ÿi Ä‘áº§u báº¿p chuyÃªn nghiá»‡p Ä‘á»ƒ tá»‘i Æ°u má»¥c tiÃªu dinh dÆ°á»¡ng cá»§a báº¡n.",
+    filter_all: "Táº¥t cáº£",
+    filter_BEEF: "Thá»‹t BÃ²",
+    filter_CHICKEN: "Thá»‹t GÃ ",
+    filter_SHRIMP: "TÃ´m",
+    filter_PORK: "Thá»‹t Heo",
+    filter_FISH: "Thá»‹t CÃ¡",
+    filter_VEGAN: "MÃ³n Chay",
+    unit_stock: "sáºµn cÃ³",
+    btn_add_cart: "ThÃªm vÃ o giá»",
+    btn_out_of_stock: "Háº¿t hÃ ng",
     protein_level: "Protein",
 
     // Subscriptions
-    sub_title: "Gói Hội viên Protein",
-    sub_subtitle: "Đăng ký gói hội viên định kỳ để nhận hạn mức Protein với mức chiết khấu cực tốt, linh hoạt điều phối giao bữa ăn hàng tuần.",
-    sub_days: "ngày",
-    sub_credit: "Hạn mức Protein",
-    sub_pricing: "Giá trị gói",
-    sub_per_kg: "Tương đương",
-    sub_accepts: "Chấp nhận COD",
-    btn_subscribe: "Đăng ký gói hội viên",
-    txt_sub_disclaim: "Gói hội viên định kỳ sẽ được kích hoạt bởi nhân viên của chúng tôi sau khi xác minh thông tin. Vui lòng liên hệ hotline để được hỗ trợ nhanh nhất.",
+    sub_title: "GÃ³i Há»™i viÃªn Protein",
+    sub_subtitle: "ÄÄƒng kÃ½ gÃ³i há»™i viÃªn Ä‘á»‹nh ká»³ Ä‘á»ƒ nháº­n háº¡n má»©c Protein vá»›i má»©c chiáº¿t kháº¥u cá»±c tá»‘t, linh hoáº¡t Ä‘iá»u phá»‘i giao bá»¯a Äƒn hÃ ng tuáº§n.",
+    sub_days: "ngÃ y",
+    sub_credit: "Háº¡n má»©c Protein",
+    sub_pricing: "GiÃ¡ trá»‹ gÃ³i",
+    sub_per_kg: "TÆ°Æ¡ng Ä‘Æ°Æ¡ng",
+    sub_accepts: "Cháº¥p nháº­n COD",
+    btn_subscribe: "ÄÄƒng kÃ½ gÃ³i há»™i viÃªn",
+    txt_sub_disclaim: "GÃ³i há»™i viÃªn Ä‘á»‹nh ká»³ sáº½ Ä‘Æ°á»£c kÃ­ch hoáº¡t bá»Ÿi nhÃ¢n viÃªn cá»§a chÃºng tÃ´i sau khi xÃ¡c minh thÃ´ng tin. Vui lÃ²ng liÃªn há»‡ hotline Ä‘á»ƒ Ä‘Æ°á»£c há»— trá»£ nhanh nháº¥t.",
 
     // Cart Drawer
-    cart_title: "Giỏ hàng của bạn",
-    cart_empty: "Giỏ hàng của bạn đang trống.",
-    cart_subtotal: "Tạm tính",
-    cart_discount: "Giảm giá",
-    cart_shipping: "Phí vận chuyển",
-    cart_total: "Tổng thanh toán",
-    cart_coupon: "Mã giảm giá",
-    cart_apply: "Áp dụng",
-    cart_applied: "Đã áp dụng mã",
-    cart_invalid_coupon: "Mã giảm giá không hợp lệ",
-    cart_notes: "Ghi chú đơn hàng",
-    cart_payment: "Phương thức thanh toán",
-    cart_cod: "Thanh toán khi nhận hàng (COD)",
-    cart_vietqr: "VietQR Chuyển khoản (Có mã QR)",
-    cart_address: "Địa chỉ nhận hàng",
-    cart_province: "Tỉnh / Thành phố",
-    cart_ward: "Phường / Xã",
-    cart_street: "Số nhà, tên đường...",
-    cart_agree: "Tôi đồng ý với",
-    cart_terms: "Điều khoản sử dụng & Chính sách bảo mật",
-    btn_checkout: "Đặt hàng ngay",
+    cart_title: "Giá» hÃ ng cá»§a báº¡n",
+    cart_empty: "Giá» hÃ ng cá»§a báº¡n Ä‘ang trá»‘ng.",
+    cart_subtotal: "Táº¡m tÃ­nh",
+    cart_discount: "Giáº£m giÃ¡",
+    cart_shipping: "PhÃ­ váº­n chuyá»ƒn",
+    cart_total: "Tá»•ng thanh toÃ¡n",
+    cart_coupon: "MÃ£ giáº£m giÃ¡",
+    cart_apply: "Ãp dá»¥ng",
+    cart_applied: "ÄÃ£ Ã¡p dá»¥ng mÃ£",
+    cart_invalid_coupon: "MÃ£ giáº£m giÃ¡ khÃ´ng há»£p lá»‡",
+    cart_notes: "Ghi chÃº Ä‘Æ¡n hÃ ng",
+    cart_payment: "PhÆ°Æ¡ng thá»©c thanh toÃ¡n",
+    cart_cod: "Thanh toÃ¡n khi nháº­n hÃ ng (COD)",
+    cart_vietqr: "VietQR Chuyá»ƒn khoáº£n (CÃ³ mÃ£ QR)",
+    cart_address: "Äá»‹a chá»‰ nháº­n hÃ ng",
+    cart_province: "Tá»‰nh / ThÃ nh phá»‘",
+    cart_ward: "PhÆ°á»ng / XÃ£",
+    cart_street: "Sá»‘ nhÃ , tÃªn Ä‘Æ°á»ng...",
+    cart_agree: "TÃ´i Ä‘á»“ng Ã½ vá»›i",
+    cart_terms: "Äiá»u khoáº£n sá»­ dá»¥ng & ChÃ­nh sÃ¡ch báº£o máº­t",
+    btn_checkout: "Äáº·t hÃ ng ngay",
 
     // Order Success Modal
-    success_title: "Đặt hàng thành công!",
-    success_desc: "Cảm ơn bạn đã lựa chọn Fortify Kitchen.",
-    success_cod_desc: "Đơn hàng của bạn đã được ghi nhận thành công và sẽ được giao sớm nhất có thể. Vui lòng thanh toán tiền mặt khi nhận hàng.",
-    success_vietqr_desc: "Vui lòng quét mã QR dưới đây hoặc chuyển khoản ngân hàng để thanh toán cho đơn hàng.",
-    bank_name: "Ngân hàng",
-    bank_acc: "Số tài khoản",
-    bank_holder: "Chủ tài khoản",
-    bank_amount: "Số tiền",
-    bank_memo: "Nội dung chuyển khoản",
-    btn_done: "Tôi đã chuyển khoản / Đóng",
+    success_title: "Äáº·t hÃ ng thÃ nh cÃ´ng!",
+    success_desc: "Cáº£m Æ¡n báº¡n Ä‘Ã£ lá»±a chá»n Fortify Kitchen.",
+    success_cod_desc: "ÄÆ¡n hÃ ng cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c ghi nháº­n thÃ nh cÃ´ng vÃ  sáº½ Ä‘Æ°á»£c giao sá»›m nháº¥t cÃ³ thá»ƒ. Vui lÃ²ng thanh toÃ¡n tiá»n máº·t khi nháº­n hÃ ng.",
+    success_vietqr_desc: "Vui lÃ²ng quÃ©t mÃ£ QR dÆ°á»›i Ä‘Ã¢y hoáº·c chuyá»ƒn khoáº£n ngÃ¢n hÃ ng Ä‘á»ƒ thanh toÃ¡n cho Ä‘Æ¡n hÃ ng.",
+    bank_name: "NgÃ¢n hÃ ng",
+    bank_acc: "Sá»‘ tÃ i khoáº£n",
+    bank_holder: "Chá»§ tÃ i khoáº£n",
+    bank_amount: "Sá»‘ tiá»n",
+    bank_memo: "Ná»™i dung chuyá»ƒn khoáº£n",
+    btn_done: "TÃ´i Ä‘Ã£ chuyá»ƒn khoáº£n / ÄÃ³ng",
 
     // Auth & Modals
-    auth_login_title: "Đăng nhập tài khoản",
-    auth_register_title: "Đăng ký thành viên mới",
-    auth_desc: "Tham gia Fortify Kitchen để đặt món và theo dõi gói hội viên dễ dàng.",
-    auth_coupon_hint: "🎁 Đăng ký tài khoản ngay hôm nay để nhận mã giảm giá WELCOME10 giảm 10% cho đơn hàng đầu tiên!",
-    auth_email: "Địa chỉ Email",
-    auth_password: "Mật khẩu",
-    auth_first: "Tên",
-    auth_last: "Họ",
-    auth_phone: "Số điện thoại",
-    auth_address: "Địa chỉ giao hàng",
-    btn_submit_login: "Đăng nhập",
-    btn_submit_register: "Đăng ký & Đồng ý Điều khoản",
-    auth_toggle_to_register: "Chưa có tài khoản? Đăng ký ngay",
-    auth_toggle_to_login: "Đã có tài khoản? Đăng nhập ngay",
+    auth_login_title: "ÄÄƒng nháº­p tÃ i khoáº£n",
+    auth_register_title: "ÄÄƒng kÃ½ thÃ nh viÃªn má»›i",
+    auth_desc: "Tham gia Fortify Kitchen Ä‘á»ƒ Ä‘áº·t mÃ³n vÃ  theo dÃµi gÃ³i há»™i viÃªn dá»… dÃ ng.",
+    auth_coupon_hint: "ðŸŽ ÄÄƒng kÃ½ tÃ i khoáº£n ngay hÃ´m nay Ä‘á»ƒ nháº­n mÃ£ giáº£m giÃ¡ WELCOME10 giáº£m 10% cho Ä‘Æ¡n hÃ ng Ä‘áº§u tiÃªn!",
+    auth_email: "Äá»‹a chá»‰ Email",
+    auth_password: "Máº­t kháº©u",
+    auth_first: "TÃªn",
+    auth_last: "Há»",
+    auth_phone: "Sá»‘ Ä‘iá»‡n thoáº¡i",
+    auth_address: "Äá»‹a chá»‰ giao hÃ ng",
+    btn_submit_login: "ÄÄƒng nháº­p",
+    btn_submit_register: "ÄÄƒng kÃ½ & Äá»“ng Ã½ Äiá»u khoáº£n",
+    auth_toggle_to_register: "ChÆ°a cÃ³ tÃ i khoáº£n? ÄÄƒng kÃ½ ngay",
+    auth_toggle_to_login: "ÄÃ£ cÃ³ tÃ i khoáº£n? ÄÄƒng nháº­p ngay",
 
     // Dashboard
-    dash_title: "Bảng điều khiển cá nhân",
-    dash_subtitle: "Quản lý đơn hàng, theo dõi giao hàng và số dư gói hội viên của bạn.",
-    dash_orders_title: "Lịch sử đơn hàng",
-    dash_orders_empty: "Bạn chưa có đơn hàng nào.",
-    dash_subs_title: "Gói hội viên đang hoạt động",
-    dash_subs_empty: "Bạn chưa đăng ký gói hội viên nào.",
-    dash_balance: "Số dư Protein",
-    dash_status: "Trạng thái",
-    dash_delivery_date: "Ngày giao",
-    dash_payment: "Thanh toán",
-    order_id: "Mã đơn hàng",
-    status_label: "Trạng thái giao",
-    order_title: "Sẵn sàng giao ngay",
-    order_subtitle: "Đặt món ăn dinh dưỡng chế biến sẵn, giao nóng hổi trong 30-45 phút, không cần đăng ký tài khoản.",
-    txt_order_ready: "Đơn hàng giao ngay của bạn đã được tiếp nhận và đang được đầu bếp chuẩn bị.",
-    txt_order_scheduled: "Đơn hàng của bạn đã được lên lịch thành công.",
-    txt_total: "Tổng cộng",
-    btn_order_more: "Đặt thêm món",
-    txt_your_order: "Đơn hàng của bạn",
-    txt_empty_cart: "Giỏ hàng giao nhanh của bạn đang trống.",
-    placeholder_name: "Họ và tên của bạn",
-    placeholder_phone: "Số điện thoại của bạn",
-    placeholder_notes: "Ghi chú (tùy chọn)",
-    payment_cod: "Tiền mặt (COD)",
-    payment_vietqr: "VietQR chuyển khoản",
+    dash_title: "Báº£ng Ä‘iá»u khiá»ƒn cÃ¡ nhÃ¢n",
+    dash_subtitle: "Quáº£n lÃ½ Ä‘Æ¡n hÃ ng, theo dÃµi giao hÃ ng vÃ  sá»‘ dÆ° gÃ³i há»™i viÃªn cá»§a báº¡n.",
+    dash_orders_title: "Lá»‹ch sá»­ Ä‘Æ¡n hÃ ng",
+    dash_orders_empty: "Báº¡n chÆ°a cÃ³ Ä‘Æ¡n hÃ ng nÃ o.",
+    dash_subs_title: "GÃ³i há»™i viÃªn Ä‘ang hoáº¡t Ä‘á»™ng",
+    dash_subs_empty: "Báº¡n chÆ°a Ä‘Äƒng kÃ½ gÃ³i há»™i viÃªn nÃ o.",
+    dash_balance: "Sá»‘ dÆ° Protein",
+    dash_status: "Tráº¡ng thÃ¡i",
+    dash_delivery_date: "NgÃ y giao",
+    dash_payment: "Thanh toÃ¡n",
+    order_id: "MÃ£ Ä‘Æ¡n hÃ ng",
+    status_label: "Tráº¡ng thÃ¡i giao",
+    order_title: "Sáºµn sÃ ng giao ngay",
+    order_subtitle: "Äáº·t mÃ³n Äƒn dinh dÆ°á»¡ng cháº¿ biáº¿n sáºµn, giao nÃ³ng há»•i trong 30-45 phÃºt, khÃ´ng cáº§n Ä‘Äƒng kÃ½ tÃ i khoáº£n.",
+    txt_order_ready: "ÄÆ¡n hÃ ng giao ngay cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c tiáº¿p nháº­n vÃ  Ä‘ang Ä‘Æ°á»£c Ä‘áº§u báº¿p chuáº©n bá»‹.",
+    txt_order_scheduled: "ÄÆ¡n hÃ ng cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c lÃªn lá»‹ch thÃ nh cÃ´ng.",
+    txt_total: "Tá»•ng cá»™ng",
+    btn_order_more: "Äáº·t thÃªm mÃ³n",
+    txt_your_order: "ÄÆ¡n hÃ ng cá»§a báº¡n",
+    txt_empty_cart: "Giá» hÃ ng giao nhanh cá»§a báº¡n Ä‘ang trá»‘ng.",
+    placeholder_name: "Há» vÃ  tÃªn cá»§a báº¡n",
+    placeholder_phone: "Sá»‘ Ä‘iá»‡n thoáº¡i cá»§a báº¡n",
+    placeholder_notes: "Ghi chÃº (tÃ¹y chá»n)",
+    payment_cod: "Tiá»n máº·t (COD)",
+    payment_vietqr: "VietQR chuyá»ƒn khoáº£n",
   },
   en: {
     // Navigation
@@ -224,7 +224,7 @@ const DICTIONARY = {
     auth_login_title: "Sign In to Your Profile",
     auth_register_title: "Register a New Profile",
     auth_desc: "Join Fortify Kitchen to place orders and manage meals.",
-    auth_coupon_hint: "🎁 Register today to receive coupon WELCOME10 for 10% off your first order!",
+    auth_coupon_hint: "ðŸŽ Register today to receive coupon WELCOME10 for 10% off your first order!",
     auth_email: "Email Address",
     auth_password: "Password",
     auth_first: "First Name",
@@ -267,11 +267,11 @@ const DICTIONARY = {
 
 const ORDER_STATUS_LABELS: Record<"vi" | "en", Record<string, string>> = {
   vi: {
-    SCHEDULED: "Đã đặt",
-    PREPPING: "Đang chuẩn bị",
-    DELIVERED: "Hoàn thành",
-    SKIPPED: "Đã bỏ qua",
-    CANCELLED: "Đã huỷ",
+    SCHEDULED: "ÄÃ£ Ä‘áº·t",
+    PREPPING: "Äang chuáº©n bá»‹",
+    DELIVERED: "HoÃ n thÃ nh",
+    SKIPPED: "ÄÃ£ bá» qua",
+    CANCELLED: "ÄÃ£ huá»·",
   },
   en: {
     SCHEDULED: "Scheduled",
@@ -300,7 +300,7 @@ export default function CustomerPortal() {
   } = useApp();
   const { toast } = useToast();
 
-  // In-app replacement for window.confirm — used for the one destructive
+  // In-app replacement for window.confirm â€” used for the one destructive
   // customer-facing action (postponing a subscription delivery) instead of
   // a native browser dialog.
   const [confirmState, setConfirmState] = React.useState<{
@@ -320,12 +320,12 @@ export default function CustomerPortal() {
   // Tab State: "menu" | "order-now" | "subscriptions" | "dashboard"
   const [activeTab, setActiveTab] = React.useState<"menu" | "order-now" | "subscriptions" | "dashboard">("menu");
 
-  // "Order Now" — in-stock items only, ready today with no login required.
+  // "Order Now" â€” in-stock items only, ready today with no login required.
   // This is a separate, self-contained flow from the regular cart/checkout
   // above (which requires an account) since in-stock orders should be as
   // frictionless as possible: just name + phone + address, like the
   // subscription phone-lookup view. Server still re-verifies stock and
-  // decides IMMEDIATE vs SCHEDULED — this is just what the UI shows before
+  // decides IMMEDIATE vs SCHEDULED â€” this is just what the UI shows before
   // submitting.
   const [orderNowCart, setOrderNowCart] = React.useState<{ menuItem: MenuItem; qty: number }[]>([]);
   const [orderNowName, setOrderNowName] = React.useState("");
@@ -416,18 +416,18 @@ export default function CustomerPortal() {
     }
   }, [checkoutProvince, checkoutWard, checkoutStreet]);
 
-  // "Track my order" — self-serve status check by phone number, the
+  // "Track my order" â€” self-serve status check by phone number, the
   // customer-facing counterpart to the admin's Accept/Complete workflow.
   // There's no SMS/push notification service connected yet, so this lookup
-  // is how a customer finds out their order moved to "Đang chuẩn bị" or
-  // "Hoàn thành" rather than a message arriving automatically.
+  // is how a customer finds out their order moved to "Äang chuáº©n bá»‹" or
+  // "HoÃ n thÃ nh" rather than a message arriving automatically.
   const [trackPhone, setTrackPhone] = React.useState("");
   const [trackedOrders, setTrackedOrders] = React.useState<any[]>([]);
   const [isTrackingLoading, setIsTrackingLoading] = React.useState(false);
   const [trackingError, setTrackingError] = React.useState<string | null>(null);
   const [hasTracked, setHasTracked] = React.useState(false);
 
-  // My Subscription (volume-based) lookup state — subscriptions are set up
+  // My Subscription (volume-based) lookup state â€” subscriptions are set up
   // by staff (see /subscriptions being ADMIN/MANAGER/STAFF-only), so
   // there's no self-checkout here yet. This is a read + postpone view keyed
   // off the phone number staff already have on file, since there's no
@@ -612,7 +612,7 @@ export default function CustomerPortal() {
   };
 
   // Volume subscriptions are set up by staff (see the admin dashboard's
-  // Subscriptions tab) — there's no self-checkout for a brand new
+  // Subscriptions tab) â€” there's no self-checkout for a brand new
   // subscription here yet. This looks up existing ones by phone number
   // (no customer login system exists on the new backend) so a customer can
   // check their remaining balance and postpone today's delivery themselves.
@@ -628,12 +628,12 @@ export default function CustomerPortal() {
       if (res.ok) {
         setMyPoolSubscriptions(result?.data || []);
       } else {
-        setLookupError(result?.message || "Không thể tra cứu lúc này");
+        setLookupError(result?.message || "KhÃ´ng thá»ƒ tra cá»©u lÃºc nÃ y");
         setMyPoolSubscriptions([]);
       }
     } catch (err) {
       console.error(err);
-      setLookupError("Lỗi kết nối — vui lòng thử lại");
+      setLookupError("Lá»—i káº¿t ná»‘i â€” vui lÃ²ng thá»­ láº¡i");
     } finally {
       setIsLookupLoading(false);
     }
@@ -641,7 +641,7 @@ export default function CustomerPortal() {
 
   const handlePostponeMyDelivery = (deliveryId: string) => {
     requestConfirm(
-      "Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.",
+      "HoÃ£n láº§n giao nÃ y? Sá»‘ lÆ°á»£ng sáº½ Ä‘Æ°á»£c báº£o lÆ°u, lá»‹ch giao sau Ä‘Ã³ sáº½ dá»i láº¡i má»™t chu ká»³.",
       async () => {
         try {
           const res = await fetch(
@@ -652,7 +652,7 @@ export default function CustomerPortal() {
             handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
           } else {
             const result = await res.json().catch(() => null);
-            toast({ title: result?.message || "Không thể hoãn lần giao này", type: "error" });
+            toast({ title: result?.message || "KhÃ´ng thá»ƒ hoÃ£n láº§n giao nÃ y", type: "error" });
           }
         } catch (err) {
           console.error(err);
@@ -682,10 +682,10 @@ export default function CustomerPortal() {
   };
 
   const formatVND = (num: number) => {
-    return `${num.toLocaleString()} ₫`;
+    return `${num.toLocaleString()} â‚«`;
   };
 
-  // Items with live stock ready right now — the storefront's Order Now tab
+  // Items with live stock ready right now â€” the storefront's Order Now tab
   // only ever shows these, so a normal Order Now checkout should always
   // resolve IMMEDIATE server-side (barring a stock race with another
   // customer, which the server handles by falling back to SCHEDULED).
@@ -739,11 +739,11 @@ export default function CustomerPortal() {
         setOrderNowResult(result.data);
         setOrderNowCart([]);
       } else {
-        setOrderNowError(result?.message || "Không thể đặt hàng lúc này");
+        setOrderNowError(result?.message || "KhÃ´ng thá»ƒ Ä‘áº·t hÃ ng lÃºc nÃ y");
       }
     } catch (err) {
       console.error(err);
-      setOrderNowError("Lỗi kết nối — vui lòng thử lại");
+      setOrderNowError("Lá»—i káº¿t ná»‘i â€” vui lÃ²ng thá»­ láº¡i");
     } finally {
       setIsSubmittingOrderNow(false);
     }
@@ -761,12 +761,12 @@ export default function CustomerPortal() {
       if (res.ok) {
         setTrackedOrders(result?.data || []);
       } else {
-        setTrackingError(result?.message || "Không thể tra cứu lúc này");
+        setTrackingError(result?.message || "KhÃ´ng thá»ƒ tra cá»©u lÃºc nÃ y");
         setTrackedOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setTrackingError("Lỗi kết nối — vui lòng thử lại");
+      setTrackingError("Lá»—i káº¿t ná»‘i â€” vui lÃ²ng thá»­ láº¡i");
     } finally {
       setIsTrackingLoading(false);
     }
@@ -780,7 +780,7 @@ export default function CustomerPortal() {
     menuItems.some((item) => item.protein === p)
   );
 
-  // Groups same-flavor menu items (e.g. "Gà xá xíu 150g" + "Gà xá xíu 250g")
+  // Groups same-flavor menu items (e.g. "GÃ  xÃ¡ xÃ­u 150g" + "GÃ  xÃ¡ xÃ­u 250g")
   // into one dish card with a portion-size toggle, instead of listing each
   // size as its own separate card. `sizeFilter` lets a caller (Order Now)
   // restrict which underlying MenuItems count toward a group, e.g. only
@@ -799,7 +799,7 @@ export default function CustomerPortal() {
   }
 
   // Which size (menuItemId) is currently selected per dish group, keyed by
-  // "protein::flavor" — defaults to the smallest available size when unset.
+  // "protein::flavor" â€” defaults to the smallest available size when unset.
   const [selectedSizeByDish, setSelectedSizeByDish] = React.useState<Record<string, string>>({});
 
   function getSelectedSize(dish: { protein: Protein; flavor: string; sizes: MenuItem[] }): MenuItem {
@@ -943,18 +943,18 @@ export default function CustomerPortal() {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full border border-border bg-muted/40 text-xs text-primary font-semibold">
                 <FontAwesomeIcon icon={faMagic} className="h-3.5 w-3.5" />
-                {lang === "vi" ? "Giao cơm & Gói hội viên dinh dưỡng cao cấp tại Việt Nam" : "Vietnam's Premium Meal Delivery & Subscription"}
+                {lang === "vi" ? "Giao cÆ¡m & GÃ³i há»™i viÃªn dinh dÆ°á»¡ng cao cáº¥p táº¡i Viá»‡t Nam" : "Vietnam's Premium Meal Delivery & Subscription"}
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-heading leading-tight">
                 {lang === "vi" ? (
-                  <>Tiếp năng lượng với <span className="text-primary">Dinh dưỡng Gourmet</span></>
+                  <>Tiáº¿p nÄƒng lÆ°á»£ng vá»›i <span className="text-primary">Dinh dÆ°á»¡ng Gourmet</span></>
                 ) : (
                   <>Fuel Your Body with <span className="text-primary">Gourmet Nutrition</span></>
                 )}
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground max-w-xl">
                 {lang === "vi"
-                  ? "Salad hữu cơ, cơm tô giàu protein và nước ép tươi được chuẩn bị bởi đầu bếp chuyên nghiệp, giao tận nơi tại TP. Hồ Chí Minh. Thanh toán linh hoạt bằng Tiền mặt (COD) hoặc Chuyển khoản."
+                  ? "Salad há»¯u cÆ¡, cÆ¡m tÃ´ giÃ u protein vÃ  nÆ°á»›c Ã©p tÆ°Æ¡i Ä‘Æ°á»£c chuáº©n bá»‹ bá»Ÿi Ä‘áº§u báº¿p chuyÃªn nghiá»‡p, giao táº­n nÆ¡i táº¡i TP. Há»“ ChÃ­ Minh. Thanh toÃ¡n linh hoáº¡t báº±ng Tiá»n máº·t (COD) hoáº·c Chuyá»ƒn khoáº£n."
                   : "Expertly crafted organic salads, high-protein bowls, and fresh cold-pressed juices delivered straight to your door in Ho Chi Minh City. Pay easily via Cash on Delivery (COD) or Transfer."}
               </p>
               <div className="flex gap-4">
@@ -962,13 +962,13 @@ export default function CustomerPortal() {
                   onClick={() => setActiveTab("menu")}
                   className="bg-primary text-primary-foreground font-semibold px-8 py-3.5 rounded-md hover:bg-primary/90 transition-all cursor-pointer text-sm"
                 >
-                  {lang === "vi" ? "Khám phá Thực đơn" : "Explore Menu"}
+                  {lang === "vi" ? "KhÃ¡m phÃ¡ Thá»±c Ä‘Æ¡n" : "Explore Menu"}
                 </button>
                 <button
                   onClick={() => setActiveTab("subscriptions")}
                   className="border border-border bg-muted/20 hover:bg-muted font-semibold px-8 py-3.5 rounded-md transition-all cursor-pointer text-sm"
                 >
-                  {lang === "vi" ? "Xem các Gói hội viên" : "Meal Subscription plans"}
+                  {lang === "vi" ? "Xem cÃ¡c GÃ³i há»™i viÃªn" : "Meal Subscription plans"}
                 </button>
               </div>
             </div>
@@ -977,11 +977,11 @@ export default function CustomerPortal() {
               <div className="text-center space-y-2 p-8 z-10">
                 <FontAwesomeIcon icon={faUtensils} className="h-16 w-16 text-primary mx-auto opacity-70" />
                 <h3 className="text-lg font-bold font-heading">
-                  {lang === "vi" ? "Nguyên liệu Sạch & Tươi ngon" : "Clean & Fresh Ingredients Only"}
+                  {lang === "vi" ? "NguyÃªn liá»‡u Sáº¡ch & TÆ°Æ¡i ngon" : "Clean & Fresh Ingredients Only"}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                   {lang === "vi"
-                    ? "Mỗi bữa ăn được đóng gói hút chân không và làm lạnh để giữ trọn vẹn dinh dưỡng."
+                    ? "Má»—i bá»¯a Äƒn Ä‘Æ°á»£c Ä‘Ã³ng gÃ³i hÃºt chÃ¢n khÃ´ng vÃ  lÃ m láº¡nh Ä‘á»ƒ giá»¯ trá»n váº¹n dinh dÆ°á»¡ng."
                     : "Every meal is vacuum-packed and chilled to preserve high nutrient profiles."}
                 </p>
               </div>
@@ -1038,14 +1038,14 @@ export default function CustomerPortal() {
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <FontAwesomeIcon icon={faSpinner} className="h-10 w-10 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground font-semibold">
-                  {lang === "vi" ? "Đang tải thực đơn dinh dưỡng..." : "Loading nutritious menu..."}
+                  {lang === "vi" ? "Äang táº£i thá»±c Ä‘Æ¡n dinh dÆ°á»¡ng..." : "Loading nutritious menu..."}
                 </span>
               </div>
             ) : filteredMenu.length === 0 ? (
               <div className="text-center py-20 border border-dashed border-border rounded-xl">
                 <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground font-medium">
-                  {lang === "vi" ? "Không tìm thấy món ăn nào trong danh mục này." : "No menu items found in this category."}
+                  {lang === "vi" ? "KhÃ´ng tÃ¬m tháº¥y mÃ³n Äƒn nÃ o trong danh má»¥c nÃ y." : "No menu items found in this category."}
                 </p>
               </div>
             ) : (
@@ -1136,7 +1136,7 @@ export default function CustomerPortal() {
           </div>
         )}
 
-        {/* TAB 1.5: ORDER NOW — in-stock items only, ready today, no account
+        {/* TAB 1.5: ORDER NOW â€” in-stock items only, ready today, no account
             needed. Separate from the cart/checkout flow above on purpose:
             this should be the fastest possible path to a hot meal. */}
         {activeTab === "order-now" && (
@@ -1164,7 +1164,7 @@ export default function CustomerPortal() {
 
                 {orderNowResult.paymentMethod === "BANK_TRANSFER" && (
                   <div className="border border-border bg-muted/20 rounded-xl p-4 space-y-3 text-left">
-                    <p className="text-xs font-bold text-foreground text-center">{lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR Code to Pay"}</p>
+                    <p className="text-xs font-bold text-foreground text-center">{lang === "vi" ? "QuÃ©t mÃ£ VietQR Ä‘á»ƒ thanh toÃ¡n" : "Scan VietQR Code to Pay"}</p>
                     <div className="bg-white p-2.5 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
                       <img
                         src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${orderNowResult.total}&addInfo=FK${orderNowResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
@@ -1196,7 +1196,7 @@ export default function CustomerPortal() {
                     </div>
                     <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 text-center leading-normal">
                       {lang === "vi"
-                        ? "Vui lòng chuyển khoản đúng số tiền và nội dung chuyển khoản để đơn hàng được xác nhận tự động."
+                        ? "Vui lÃ²ng chuyá»ƒn khoáº£n Ä‘Ãºng sá»‘ tiá»n vÃ  ná»™i dung chuyá»ƒn khoáº£n Ä‘á»ƒ Ä‘Æ¡n hÃ ng Ä‘Æ°á»£c xÃ¡c nháº­n tá»± Ä‘á»™ng."
                         : "Please transfer the exact amount and note to auto-confirm your order."}
                     </div>
                   </div>
@@ -1264,7 +1264,7 @@ export default function CustomerPortal() {
                     <div className="text-center py-16 border border-dashed border-border rounded-xl">
                       <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay trong danh mục này." : "No ready dishes currently available in this category."}
+                        {lang === "vi" ? "Hiá»‡n chÆ°a cÃ³ mÃ³n nÃ o sáºµn sÃ ng giao ngay trong danh má»¥c nÃ y." : "No ready dishes currently available in this category."}
                       </p>
                     </div>
                   ) : (
@@ -1324,7 +1324,7 @@ export default function CustomerPortal() {
                                   onClick={() => addToOrderNowCart(selected)}
                                   className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
                                 >
-                                  {lang === "vi" ? "Thêm" : "Add"}
+                                  {lang === "vi" ? "ThÃªm" : "Add"}
                                 </button>
                               )}
                             </div>
@@ -1343,7 +1343,7 @@ export default function CustomerPortal() {
                     <div className="space-y-2">
                       {orderNowCart.map((l) => (
                         <div key={l.menuItem.id} className="flex justify-between text-xs">
-                          <span className="truncate pr-2">{l.menuItem.flavor} ×{l.qty}</span>
+                          <span className="truncate pr-2">{l.menuItem.flavor} Ã—{l.qty}</span>
                           <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
                         </div>
                       ))}
@@ -1361,7 +1361,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_name")}
                       value={orderNowName}
                       onChange={(e) => setOrderNowName(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     <input
                       type="tel"
@@ -1369,7 +1369,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_phone")}
                       value={orderNowPhone}
                       onChange={(e) => setOrderNowPhone(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     
                     <div className="space-y-2">
@@ -1381,7 +1381,7 @@ export default function CustomerPortal() {
                             setOrderNowProvince(e.target.value);
                             setOrderNowWard("");
                           }}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
                         >
                           <option value="">{t("cart_province")}</option>
                           {getProvinces().map((p: any) => (
@@ -1396,7 +1396,7 @@ export default function CustomerPortal() {
                           disabled={!orderNowProvince}
                           value={orderNowWard}
                           onChange={(e) => setOrderNowWard(e.target.value)}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
                         >
                           <option value="">{t("cart_ward")}</option>
                           {orderNowProvince &&
@@ -1416,7 +1416,7 @@ export default function CustomerPortal() {
                         placeholder={t("cart_street")}
                         value={orderNowStreet}
                         onChange={(e) => setOrderNowStreet(e.target.value)}
-                        className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
                     </div>
 
@@ -1424,7 +1424,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_notes")}
                       value={orderNowNotes}
                       onChange={(e) => setOrderNowNotes(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
                       rows={2}
                     />
 
@@ -1494,26 +1494,26 @@ export default function CustomerPortal() {
               </div>
             )}
 
-            {/* Track my order — self-serve status check by phone. There's
+            {/* Track my order â€” self-serve status check by phone. There's
                 no SMS/push notification connected yet, so this is how a
                 customer finds out staff accepted or completed their order. */}
             <div className="max-w-md mx-auto mt-16 pt-10 border-t border-border">
               <h3 className="text-center text-sm font-bold font-heading mb-1">
-                {lang === "vi" ? "Theo dõi đơn hàng của bạn" : "Track Your Orders"}
+                {lang === "vi" ? "Theo dÃµi Ä‘Æ¡n hÃ ng cá»§a báº¡n" : "Track Your Orders"}
               </h3>
               <p className="text-center text-xs text-muted-foreground mb-5">
                 {lang === "vi"
-                  ? "Nhập số điện thoại đã dùng để đặt hàng để xem trạng thái mới nhất."
+                  ? "Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i Ä‘Ã£ dÃ¹ng Ä‘á»ƒ Ä‘áº·t hÃ ng Ä‘á»ƒ xem tráº¡ng thÃ¡i má»›i nháº¥t."
                   : "Enter the phone number used during checkout to check the latest status."}
               </p>
               <form onSubmit={handleTrackOrders} className="flex gap-2 mb-6">
                 <input
                   type="tel"
                   required
-                  placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
+                  placeholder={lang === "vi" ? "Sá»‘ Ä‘iá»‡n thoáº¡i cá»§a báº¡n" : "Your phone number"}
                   value={trackPhone}
                   onChange={(e) => setTrackPhone(e.target.value)}
-                  className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                 />
                 <button
                   type="submit"
@@ -1521,7 +1521,7 @@ export default function CustomerPortal() {
                   className="bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground font-bold px-4 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 text-xs"
                 >
                   {isTrackingLoading ? <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-3.5 w-3.5" />}
-                  {lang === "vi" ? "Tra cứu" : "Track"}
+                  {lang === "vi" ? "Tra cá»©u" : "Track"}
                 </button>
               </form>
 
@@ -1529,7 +1529,7 @@ export default function CustomerPortal() {
 
               {hasTracked && !isTrackingLoading && !trackingError && trackedOrders.length === 0 && (
                 <p className="text-center text-xs text-muted-foreground">
-                  {lang === "vi" ? "Không tìm thấy đơn hàng nào với số điện thoại này." : "No orders found with this phone number."}
+                  {lang === "vi" ? "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng nÃ o vá»›i sá»‘ Ä‘iá»‡n thoáº¡i nÃ y." : "No orders found with this phone number."}
                 </p>
               )}
 
@@ -1538,10 +1538,10 @@ export default function CustomerPortal() {
                   <div key={o.id} className="border border-border bg-card rounded-xl p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-xs font-bold truncate">
-                        {(o.items || []).map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
+                        {(o.items || []).map((i: any) => `${i.flavor} Ã—${i.qty}`).join(", ")}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
+                        {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} Â· {formatVND(o.total)}
                       </p>
                     </div>
                     <span
@@ -1566,18 +1566,18 @@ export default function CustomerPortal() {
           </div>
         )}
 
-        {/* TAB 2: MY VOLUME SUBSCRIPTION (staff set these up — this is a
+        {/* TAB 2: MY VOLUME SUBSCRIPTION (staff set these up â€” this is a
             phone-number lookup so a customer can check their remaining
             balance per protein and postpone today's delivery themselves) */}
         {activeTab === "subscriptions" && (
           <div>
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Gói đăng ký của bạn" : "Your Subscriptions"}
+                {lang === "vi" ? "GÃ³i Ä‘Äƒng kÃ½ cá»§a báº¡n" : "Your Subscriptions"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {lang === "vi"
-                  ? "Nhập số điện thoại đã đăng ký với Fortify Kitchen để xem số dư Protein còn lại và lịch giao sắp tới."
+                  ? "Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i Ä‘Ã£ Ä‘Äƒng kÃ½ vá»›i Fortify Kitchen Ä‘á»ƒ xem sá»‘ dÆ° Protein cÃ²n láº¡i vÃ  lá»‹ch giao sáº¯p tá»›i."
                   : "Enter your registered phone number to check remaining Protein balance and upcoming delivery schedules."}
               </p>
             </div>
@@ -1586,10 +1586,10 @@ export default function CustomerPortal() {
               <input
                 type="tel"
                 required
-                placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
+                placeholder={lang === "vi" ? "Sá»‘ Ä‘iá»‡n thoáº¡i cá»§a báº¡n" : "Your phone number"}
                 value={lookupPhone}
                 onChange={(e) => setLookupPhone(e.target.value)}
-                className="flex-1 bg-background border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none"
+                className="flex-1 bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none text-foreground"
               />
               <button
                 type="submit"
@@ -1597,7 +1597,7 @@ export default function CustomerPortal() {
                 className="bg-primary text-primary-foreground font-bold px-5 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isLookupLoading ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-4 w-4" />}
-                {lang === "vi" ? "Tra cứu" : "Lookup"}
+                {lang === "vi" ? "Tra cá»©u" : "Lookup"}
               </button>
             </form>
 
@@ -1609,7 +1609,7 @@ export default function CustomerPortal() {
               <div className="max-w-md mx-auto text-center py-10 border border-dashed border-border rounded-xl">
                 <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  {lang === "vi" ? "Không tìm thấy gói đăng ký nào với số điện thoại này." : "No subscriptions found associated with this phone number."}
+                  {lang === "vi" ? "KhÃ´ng tÃ¬m tháº¥y gÃ³i Ä‘Äƒng kÃ½ nÃ o vá»›i sá»‘ Ä‘iá»‡n thoáº¡i nÃ y." : "No subscriptions found associated with this phone number."}
                 </p>
               </div>
             )}
@@ -1622,7 +1622,7 @@ export default function CustomerPortal() {
                       <h3 className="text-sm font-bold font-heading">{sub.packageName}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
                         {lang === "vi"
-                          ? `Giao ${formatGrams(sub.deliveryAmountGrams)} mỗi ${sub.deliveryIntervalDays} ngày`
+                          ? `Giao ${formatGrams(sub.deliveryAmountGrams)} má»—i ${sub.deliveryIntervalDays} ngÃ y`
                           : `Deliver ${formatGrams(sub.deliveryAmountGrams)} every ${sub.deliveryIntervalDays} days`}
                       </p>
                     </div>
@@ -1646,7 +1646,7 @@ export default function CustomerPortal() {
                             <span className="font-semibold">{t(`filter_${p.protein}` as any)}</span>
                             <span className="text-muted-foreground">
                               {lang === "vi"
-                                ? `còn ${formatGrams(p.remainingGrams)} / ${formatGrams(p.totalGrams)}`
+                                ? `cÃ²n ${formatGrams(p.remainingGrams)} / ${formatGrams(p.totalGrams)}`
                                 : `remaining ${formatGrams(p.remainingGrams)} / ${formatGrams(p.totalGrams)}`}
                             </span>
                           </div>
@@ -1661,19 +1661,19 @@ export default function CustomerPortal() {
                   {sub.upcomingDeliveries?.length > 0 && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
                       <h4 className="text-xs font-bold flex items-center gap-1.5">
-                        <FontAwesomeIcon icon={faCalendarAlt} className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lịch giao sắp tới" : "Upcoming Deliveries"}
+                        <FontAwesomeIcon icon={faCalendarAlt} className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lá»‹ch giao sáº¯p tá»›i" : "Upcoming Deliveries"}
                       </h4>
                       {sub.upcomingDeliveries.map((d: any) => (
                         <div key={d.id} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
-                            {new Date(d.scheduledDate).toLocaleDateString("vi-VN")} —{" "}
-                            {d.items.map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
+                            {new Date(d.scheduledDate).toLocaleDateString("vi-VN")} â€”{" "}
+                            {d.items.map((i: any) => `${i.flavor} Ã—${i.qty}`).join(", ")}
                           </span>
                           <button
                             onClick={() => handlePostponeMyDelivery(d.id)}
                             className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer shrink-0"
                           >
-                            {lang === "vi" ? "Hoãn" : "Postpone"}
+                            {lang === "vi" ? "HoÃ£n" : "Postpone"}
                           </button>
                         </div>
                       ))}
@@ -1690,7 +1690,7 @@ export default function CustomerPortal() {
           <div>
             <div className="mb-10">
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? `Chào mừng trở lại, ${user.firstName}` : `Welcome back, ${user.firstName}`}
+                {lang === "vi" ? `ChÃ o má»«ng trá»Ÿ láº¡i, ${user.firstName}` : `Welcome back, ${user.firstName}`}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {t("dash_subtitle")}
@@ -1710,7 +1710,7 @@ export default function CustomerPortal() {
                     <div className="py-10 text-center">
                       <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
                       <span className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Đang tải đơn hàng..." : "Retrieving orders..."}
+                        {lang === "vi" ? "Äang táº£i Ä‘Æ¡n hÃ ng..." : "Retrieving orders..."}
                       </span>
                     </div>
                   ) : myOrders.length === 0 ? (
@@ -1720,7 +1720,7 @@ export default function CustomerPortal() {
                         onClick={() => setActiveTab("menu")}
                         className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
                       >
-                        {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
+                        {lang === "vi" ? "KhÃ¡m phÃ¡ Thá»±c Ä‘Æ¡n vÃ  Ä‘áº·t mÃ³n ngay" : "Browse Menu and order now"}
                       </button>
                     </div>
                   ) : (
@@ -1764,10 +1764,10 @@ export default function CustomerPortal() {
                               <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
 
                               {[
-                                { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
-                                { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
-                                { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
-                                { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
+                                { key: "PENDING", label: lang === "vi" ? "ÄÃ£ nháº­n" : "Received", icon: faClock },
+                                { key: "CONFIRMED", label: lang === "vi" ? "ÄÃ£ xÃ¡c nháº­n" : "Confirmed", icon: faCheckCircle },
+                                { key: "PREPARING", label: lang === "vi" ? "Äang náº¥u" : "Preparing", icon: faUtensils },
+                                { key: "DELIVERED", label: lang === "vi" ? "ÄÃ£ giao" : "Delivered", icon: faTruck },
                               ].map((step) => {
                                 const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
                                 const currentIdx = statuses.indexOf(order.status);
@@ -1796,11 +1796,11 @@ export default function CustomerPortal() {
                           <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
                             <span className="flex items-center gap-1">
                               <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
-                              {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
+                              {lang === "vi" ? `Giao tá»›i: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
                             </span>
                             <span className="font-semibold text-foreground/80">
                               {lang === "vi"
-                                ? `Thanh toán: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Đã trả" : "Chưa trả"})`
+                                ? `Thanh toÃ¡n: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "ÄÃ£ tráº£" : "ChÆ°a tráº£"})`
                                 : `Payment: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Paid" : "Unpaid"})`}
                             </span>
                           </div>
@@ -1830,7 +1830,7 @@ export default function CustomerPortal() {
                         onClick={() => setActiveTab("subscriptions")}
                         className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
                       >
-                        {lang === "vi" ? "Đăng ký các gói hàng ngày/tuần" : "Subscribe to daily/weekly plans"}
+                        {lang === "vi" ? "ÄÄƒng kÃ½ cÃ¡c gÃ³i hÃ ng ngÃ y/tuáº§n" : "Subscribe to daily/weekly plans"}
                       </button>
                     </div>
                   ) : (
@@ -1843,7 +1843,7 @@ export default function CustomerPortal() {
                                 {sub.frequency}
                               </span>
                               <h4 className="text-sm font-bold font-heading mt-1.5">
-                                {lang === "vi" ? "Hộp cơm dinh dưỡng" : "Chef Meal Box"}
+                                {lang === "vi" ? "Há»™p cÆ¡m dinh dÆ°á»¡ng" : "Chef Meal Box"}
                               </h4>
                             </div>
                             <span
@@ -1859,10 +1859,10 @@ export default function CustomerPortal() {
 
                           <div className="text-[11px] text-muted-foreground space-y-1">
                             <div>
-                              {lang === "vi" ? "Giá mỗi chu kỳ: " : "Cycle Price: "} <span className="font-semibold text-foreground">{formatVND(sub.pricePerCycle)}</span>
+                              {lang === "vi" ? "GiÃ¡ má»—i chu ká»³: " : "Cycle Price: "} <span className="font-semibold text-foreground">{formatVND(sub.pricePerCycle)}</span>
                             </div>
                             <div>
-                              {lang === "vi" ? "Giao hàng tiếp theo: " : "Next Delivery: "}{" "}
+                              {lang === "vi" ? "Giao hÃ ng tiáº¿p theo: " : "Next Delivery: "}{" "}
                               <span className="font-semibold text-foreground">
                                 {new Date(sub.nextDeliveryDate).toLocaleDateString("vi-VN")}
                               </span>
@@ -1874,7 +1874,7 @@ export default function CustomerPortal() {
                               onClick={() => handlePauseSubscription(sub.id, sub.status)}
                               className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-[10px] font-extrabold py-2 px-3 rounded-lg border border-border transition-colors cursor-pointer"
                             >
-                              {sub.status === "ACTIVE" ? (lang === "vi" ? "Tạm dừng" : "Pause") : (lang === "vi" ? "Kích hoạt lại" : "Resume")}
+                              {sub.status === "ACTIVE" ? (lang === "vi" ? "Táº¡m dá»«ng" : "Pause") : (lang === "vi" ? "KÃ­ch hoáº¡t láº¡i" : "Resume")}
                             </button>
                           </div>
                         </div>
@@ -2015,7 +2015,7 @@ export default function CustomerPortal() {
                           }}
                           className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
                         >
-                          {lang === "vi" ? "Thay đổi" : "Change"}
+                          {lang === "vi" ? "Thay Ä‘á»•i" : "Change"}
                         </button>
                       </div>
                       <p className="text-xs text-foreground font-semibold leading-relaxed pt-1">{checkoutAddress}</p>
@@ -2033,7 +2033,7 @@ export default function CustomerPortal() {
                             setCheckoutProvince(e.target.value);
                             setCheckoutWard("");
                           }}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
                         >
                           <option value="">{t("cart_province")}</option>
                           {getProvinces().map((p: any) => (
@@ -2048,7 +2048,7 @@ export default function CustomerPortal() {
                           disabled={!checkoutProvince}
                           value={checkoutWard}
                           onChange={(e) => setCheckoutWard(e.target.value)}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
                         >
                           <option value="">{t("cart_ward")}</option>
                           {checkoutProvince &&
@@ -2068,7 +2068,7 @@ export default function CustomerPortal() {
                         placeholder={t("cart_street")}
                         value={checkoutStreet}
                         onChange={(e) => setCheckoutStreet(e.target.value)}
-                        className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
                     </div>
                   )}
@@ -2079,10 +2079,10 @@ export default function CustomerPortal() {
                     </label>
                     <input
                       type="text"
-                      placeholder={lang === "vi" ? "Ví dụ: Gửi bảo vệ..." : "e.g. Please leave at the front desk"}
+                      placeholder={lang === "vi" ? "VÃ­ dá»¥: Gá»­i báº£o vá»‡..." : "e.g. Please leave at the front desk"}
                       value={checkoutNotes}
                       onChange={(e) => setCheckoutNotes(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
 
@@ -2095,7 +2095,7 @@ export default function CustomerPortal() {
                       placeholder="e.g. WELCOME10"
                       value={discountCode}
                       onChange={(e) => setDiscountCode(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
@@ -2164,7 +2164,7 @@ export default function CustomerPortal() {
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faCheck} className="h-4 w-4" />
-                        {paymentMethod === "CASH_ON_DELIVERY" ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)") : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
+                        {paymentMethod === "CASH_ON_DELIVERY" ? (lang === "vi" ? "Äáº·t hÃ ng (COD)" : "Order Now (COD)") : (lang === "vi" ? "Tiáº¿p tá»¥c thanh toÃ¡n" : "Proceed to Payment")}
                       </>
                     )}
                   </button>
@@ -2179,7 +2179,7 @@ export default function CustomerPortal() {
       {authModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setAuthModal(null)} />
-          <div className="relative w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-bold font-heading">
                 {authModal === "login" ? t("auth_login_title") : t("auth_register_title")}
@@ -2199,7 +2199,7 @@ export default function CustomerPortal() {
                     placeholder="you@example.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
                 <div className="space-y-1">
@@ -2207,10 +2207,10 @@ export default function CustomerPortal() {
                   <input
                     type="password"
                     required
-                    placeholder="••••••••"
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     value={loginPass}
                     onChange={(e) => setLoginPass(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
                 <div className="flex items-center gap-2 select-none py-1">
@@ -2222,7 +2222,7 @@ export default function CustomerPortal() {
                     className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary cursor-pointer mt-0.5"
                   />
                   <label htmlFor="rememberMe" className="text-[10px] font-semibold text-muted-foreground cursor-pointer">
-                    {lang === "vi" ? "Ghi nhớ mật khẩu" : "Remember password"}
+                    {lang === "vi" ? "Ghi nhá»› máº­t kháº©u" : "Remember password"}
                   </label>
                 </div>
                 <button
@@ -2233,13 +2233,13 @@ export default function CustomerPortal() {
                 </button>
                 <div className="text-center pt-2">
                   <span className="text-[11px] text-muted-foreground">
-                    {lang === "vi" ? "Chưa có tài khoản? " : "Don't have an account? "}
+                    {lang === "vi" ? "ChÆ°a cÃ³ tÃ i khoáº£n? " : "Don't have an account? "}
                     <button
                       type="button"
                       onClick={() => setAuthModal("signup")}
                       className="text-primary font-bold hover:underline cursor-pointer"
                     >
-                      {lang === "vi" ? "Đăng ký ngay" : "Register here"}
+                      {lang === "vi" ? "ÄÄƒng kÃ½ ngay" : "Register here"}
                     </button>
                   </span>
                 </div>
@@ -2255,7 +2255,7 @@ export default function CustomerPortal() {
                       placeholder="Jane"
                       value={signupFirst}
                       onChange={(e) => setSignupFirst(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
                   <div className="space-y-1">
@@ -2266,7 +2266,7 @@ export default function CustomerPortal() {
                       placeholder="Doe"
                       value={signupLast}
                       onChange={(e) => setSignupLast(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
                 </div>
@@ -2279,7 +2279,7 @@ export default function CustomerPortal() {
                     placeholder="you@example.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2288,10 +2288,10 @@ export default function CustomerPortal() {
                   <input
                     type="password"
                     required
-                    placeholder={lang === "vi" ? "Tối thiểu 6 ký tự" : "Minimum 6 characters"}
+                    placeholder={lang === "vi" ? "Tá»‘i thiá»ƒu 6 kÃ½ tá»±" : "Minimum 6 characters"}
                     value={signupPass}
                     onChange={(e) => setSignupPass(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2300,10 +2300,10 @@ export default function CustomerPortal() {
                   <input
                     type="text"
                     required
-                    placeholder={lang === "vi" ? "Ví dụ: 0901234567" : "e.g. 0901234567"}
+                    placeholder={lang === "vi" ? "VÃ­ dá»¥: 0901234567" : "e.g. 0901234567"}
                     value={signupPhone}
                     onChange={(e) => setSignupPhone(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2312,10 +2312,10 @@ export default function CustomerPortal() {
                   <input
                     type="text"
                     required
-                    placeholder={lang === "vi" ? "Ví dụ: 123 Đồng Khởi" : "e.g. 123 Dong Khoi St"}
+                    placeholder={lang === "vi" ? "VÃ­ dá»¥: 123 Äá»“ng Khá»Ÿi" : "e.g. 123 Dong Khoi St"}
                     value={signupAddress}
                     onChange={(e) => setSignupAddress(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2348,13 +2348,13 @@ export default function CustomerPortal() {
                 </button>
                 <div className="text-center pt-2">
                   <span className="text-[11px] text-muted-foreground">
-                    {lang === "vi" ? "Đã có tài khoản? " : "Already have an account? "}
+                    {lang === "vi" ? "ÄÃ£ cÃ³ tÃ i khoáº£n? " : "Already have an account? "}
                     <button
                       type="button"
                       onClick={() => setAuthModal("login")}
                       className="text-primary font-bold hover:underline cursor-pointer"
                     >
-                      {lang === "vi" ? "Đăng nhập tại đây" : "Sign in instead"}
+                      {lang === "vi" ? "ÄÄƒng nháº­p táº¡i Ä‘Ã¢y" : "Sign in instead"}
                     </button>
                   </span>
                 </div>
@@ -2370,19 +2370,19 @@ export default function CustomerPortal() {
           {/* Column 1: Brand & Contact Info */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}
+              {lang === "vi" ? "FortifyKitchen Viá»‡t Nam" : "FortifyKitchen Vietnam"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu tươi sạch bởi đầu bếp chuyên nghiệp để phục vụ mục tiêu sức khỏe của bạn."
+                ? "GÃ³i dinh dÆ°á»¡ng cao cáº¥p, thá»±c Ä‘Æ¡n Protein chuáº©n gourmet Ä‘Æ°á»£c cháº¿ biáº¿n tá»« nguyÃªn liá»‡u tÆ°Æ¡i sáº¡ch bá»Ÿi Ä‘áº§u báº¿p chuyÃªn nghiá»‡p Ä‘á»ƒ phá»¥c vá»¥ má»¥c tiÃªu sá»©c khá»e cá»§a báº¡n."
                 : "Premium gourmet protein meal prep subscriptions prepared by professional chefs to help you achieve your fitness goals."}
             </p>
             <div className="space-y-2">
               <p>
-                <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+                <strong>{lang === "vi" ? "Khu vá»±c phá»¥c vá»¥:" : "Service Area:"}</strong> {lang === "vi" ? "ThÃ nh phá»‘ Há»“ ChÃ­ Minh, Viá»‡t Nam" : "Ho Chi Minh City, Vietnam"}
               </p>
               <p>
-                <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+                <strong>Hotline & Zalo:</strong> [Sá»‘ Ä‘iá»‡n thoáº¡i liÃªn há»‡]
               </p>
             </div>
           </div>
@@ -2390,11 +2390,11 @@ export default function CustomerPortal() {
           {/* Column 2: Legal / Policies */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Chính sách & Quy định" : "Policies & Regulations"}
+              {lang === "vi" ? "ChÃ­nh sÃ¡ch & Quy Ä‘á»‹nh" : "Policies & Regulations"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Các điều khoản sử dụng và chính sách hoạt động của cửa hàng chúng tôi:"
+                ? "CÃ¡c Ä‘iá»u khoáº£n sá»­ dá»¥ng vÃ  chÃ­nh sÃ¡ch hoáº¡t Ä‘á»™ng cá»§a cá»­a hÃ ng chÃºng tÃ´i:"
                 : "Our store's usage terms and operational policies:"}
             </p>
             <div className="flex flex-col gap-2 font-medium">
@@ -2402,19 +2402,19 @@ export default function CustomerPortal() {
                 onClick={() => setShowPrivacyModal(true)}
                 className="text-left text-primary hover:underline cursor-pointer transition-colors"
               >
-                {lang === "vi" ? "➔ Điều khoản sử dụng dịch vụ" : "➔ Terms of Service"}
+                {lang === "vi" ? "âž” Äiá»u khoáº£n sá»­ dá»¥ng dá»‹ch vá»¥" : "âž” Terms of Service"}
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
                 className="text-left text-primary hover:underline cursor-pointer transition-colors"
               >
-                {lang === "vi" ? "➔ Chính sách bảo mật thông tin" : "➔ Privacy Policy"}
+                {lang === "vi" ? "âž” ChÃ­nh sÃ¡ch báº£o máº­t thÃ´ng tin" : "âž” Privacy Policy"}
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
                 className="text-left text-primary hover:underline cursor-pointer transition-colors"
               >
-                {lang === "vi" ? "➔ Chính sách thanh toán & Hoàn tiền" : "➔ Payment & Refund Policy"}
+                {lang === "vi" ? "âž” ChÃ­nh sÃ¡ch thanh toÃ¡n & HoÃ n tiá»n" : "âž” Payment & Refund Policy"}
               </button>
             </div>
           </div>
@@ -2422,11 +2422,11 @@ export default function CustomerPortal() {
           {/* Column 3: Secure Payments & Social Channels */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Thanh toán & Liên hệ mạng xã hội" : "Payments & Social Channels"}
+              {lang === "vi" ? "Thanh toÃ¡n & LiÃªn há»‡ máº¡ng xÃ£ há»™i" : "Payments & Social Channels"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận nơi (COD) và Chuyển khoản VietQR tiện lợi. Liên hệ ngay để được tư vấn thực đơn phù hợp nhất."
+                ? "ChÃºng tÃ´i há»— trá»£ giao hÃ ng thu tiá»n táº­n nÆ¡i (COD) vÃ  Chuyá»ƒn khoáº£n VietQR tiá»‡n lá»£i. LiÃªn há»‡ ngay Ä‘á»ƒ Ä‘Æ°á»£c tÆ° váº¥n thá»±c Ä‘Æ¡n phÃ¹ há»£p nháº¥t."
                 : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Contact us directly for menu consultations."}
             </p>
             
@@ -2460,7 +2460,7 @@ export default function CustomerPortal() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-border/40 text-center text-[10px] text-muted-foreground">
-          <p>© 2026 FortifyKitchen Việt Nam. {lang === "vi" ? "Tất cả các quyền được bảo lưu." : "All rights reserved."}</p>
+          <p>Â© 2026 FortifyKitchen Viá»‡t Nam. {lang === "vi" ? "Táº¥t cáº£ cÃ¡c quyá»n Ä‘Æ°á»£c báº£o lÆ°u." : "All rights reserved."}</p>
         </div>
       </footer>
 
@@ -2468,49 +2468,49 @@ export default function CustomerPortal() {
       {showPrivacyModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setShowPrivacyModal(false)} />
-          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8 overflow-hidden max-h-[85vh] flex flex-col">
+          <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8 overflow-hidden max-h-[85vh] flex flex-col">
             <div className="text-center pb-2 border-b border-border">
               <h3 className="text-lg font-bold font-heading">{t("cart_terms")}</h3>
             </div>
             <div className="overflow-y-auto pr-2 space-y-4 text-xs text-muted-foreground leading-relaxed flex-1">
               <h4 className="font-bold text-foreground text-sm">
-                {lang === "vi" ? "1. Quy định chung" : "1. General Regulations"}
+                {lang === "vi" ? "1. Quy Ä‘á»‹nh chung" : "1. General Regulations"}
               </h4>
               <p>
                 {lang === "vi"
-                  ? "Chào mừng bạn đến với Fortify Kitchen. Khi sử dụng dịch vụ của chúng tôi (bao gồm đặt hàng trực tiếp, đăng ký gói hội viên định kỳ hoặc quản trị vận hành), bạn đồng ý cam kết tuân thủ các điều khoản này."
+                  ? "ChÃ o má»«ng báº¡n Ä‘áº¿n vá»›i Fortify Kitchen. Khi sá»­ dá»¥ng dá»‹ch vá»¥ cá»§a chÃºng tÃ´i (bao gá»“m Ä‘áº·t hÃ ng trá»±c tiáº¿p, Ä‘Äƒng kÃ½ gÃ³i há»™i viÃªn Ä‘á»‹nh ká»³ hoáº·c quáº£n trá»‹ váº­n hÃ nh), báº¡n Ä‘á»“ng Ã½ cam káº¿t tuÃ¢n thá»§ cÃ¡c Ä‘iá»u khoáº£n nÃ y."
                   : "Welcome to Fortify Kitchen. By using our services (including guest checkout, subscribing to recurring plans, or admin operations), you agree to comply with these terms."}
               </p>
               <h4 className="font-bold text-foreground text-sm">
-                {lang === "vi" ? "2. Thu thập & Sử dụng Thông tin cá nhân" : "2. Personal Data Collection & Usage"}
+                {lang === "vi" ? "2. Thu tháº­p & Sá»­ dá»¥ng ThÃ´ng tin cÃ¡ nhÃ¢n" : "2. Personal Data Collection & Usage"}
               </h4>
               <p>
                 {lang === "vi"
-                  ? "Chúng tôi thu thập các thông tin như Họ tên, Số điện thoại, Địa chỉ giao hàng và Ghi chú nhằm mục đích xử lý đơn hàng, điều phối vận chuyển và xác minh thanh toán. Đối với thành viên đăng ký tài khoản, chúng tôi lưu trữ Email và thông tin đăng nhập để cá nhân hóa trải nghiệm và cung cấp các chính sách ưu đãi (coupon)."
+                  ? "ChÃºng tÃ´i thu tháº­p cÃ¡c thÃ´ng tin nhÆ° Há» tÃªn, Sá»‘ Ä‘iá»‡n thoáº¡i, Äá»‹a chá»‰ giao hÃ ng vÃ  Ghi chÃº nháº±m má»¥c Ä‘Ã­ch xá»­ lÃ½ Ä‘Æ¡n hÃ ng, Ä‘iá»u phá»‘i váº­n chuyá»ƒn vÃ  xÃ¡c minh thanh toÃ¡n. Äá»‘i vá»›i thÃ nh viÃªn Ä‘Äƒng kÃ½ tÃ i khoáº£n, chÃºng tÃ´i lÆ°u trá»¯ Email vÃ  thÃ´ng tin Ä‘Äƒng nháº­p Ä‘á»ƒ cÃ¡ nhÃ¢n hÃ³a tráº£i nghiá»‡m vÃ  cung cáº¥p cÃ¡c chÃ­nh sÃ¡ch Æ°u Ä‘Ã£i (coupon)."
                   : "We collect details like Full Name, Phone Number, Delivery Address, and Notes to process orders, coordinate shipping, and verify payments. For registered members, we store Email and login credentials to personalize experiences and offer promotional coupons."}
               </p>
               <h4 className="font-bold text-foreground text-sm">
-                {lang === "vi" ? "3. Chính sách Thanh toán" : "3. Payment Policy"}
+                {lang === "vi" ? "3. ChÃ­nh sÃ¡ch Thanh toÃ¡n" : "3. Payment Policy"}
               </h4>
               <p>
                 {lang === "vi"
-                  ? "Chúng tôi chấp nhận thanh toán COD (tiền mặt khi nhận hàng) và Chuyển khoản ngân hàng trực tuyến (qua VietQR). Khách hàng có trách nhiệm thực hiện đúng nội dung chuyển khoản được cung cấp tại màn hình xác nhận đơn hàng để đảm bảo giao dịch được đối soát tự động thành công."
+                  ? "ChÃºng tÃ´i cháº¥p nháº­n thanh toÃ¡n COD (tiá»n máº·t khi nháº­n hÃ ng) vÃ  Chuyá»ƒn khoáº£n ngÃ¢n hÃ ng trá»±c tuyáº¿n (qua VietQR). KhÃ¡ch hÃ ng cÃ³ trÃ¡ch nhiá»‡m thá»±c hiá»‡n Ä‘Ãºng ná»™i dung chuyá»ƒn khoáº£n Ä‘Æ°á»£c cung cáº¥p táº¡i mÃ n hÃ¬nh xÃ¡c nháº­n Ä‘Æ¡n hÃ ng Ä‘á»ƒ Ä‘áº£m báº£o giao dá»‹ch Ä‘Æ°á»£c Ä‘á»‘i soÃ¡t tá»± Ä‘á»™ng thÃ nh cÃ´ng."
                   : "We accept COD (Cash on Delivery) and online Bank Transfer via VietQR. Customers are responsible for entering the exact transfer reference code provided during checkout to facilitate automated confirmation."}
               </p>
               <h4 className="font-bold text-foreground text-sm">
-                {lang === "vi" ? "4. Cam kết Bảo mật" : "4. Data Security & Integrity"}
+                {lang === "vi" ? "4. Cam káº¿t Báº£o máº­t" : "4. Data Security & Integrity"}
               </h4>
               <p>
                 {lang === "vi"
-                  ? "Fortify Kitchen cam kết bảo mật tuyệt đối dữ liệu cá nhân của khách hàng và nhân viên vận hành. Chúng tôi không mua bán, chia sẻ thông tin cho bất kỳ bên thứ ba nào, ngoại trừ mục đích điều phối giao hàng với các đơn vị vận chuyển đối tác."
+                  ? "Fortify Kitchen cam káº¿t báº£o máº­t tuyá»‡t Ä‘á»‘i dá»¯ liá»‡u cÃ¡ nhÃ¢n cá»§a khÃ¡ch hÃ ng vÃ  nhÃ¢n viÃªn váº­n hÃ nh. ChÃºng tÃ´i khÃ´ng mua bÃ¡n, chia sáº» thÃ´ng tin cho báº¥t ká»³ bÃªn thá»© ba nÃ o, ngoáº¡i trá»« má»¥c Ä‘Ã­ch Ä‘iá»u phá»‘i giao hÃ ng vá»›i cÃ¡c Ä‘Æ¡n vá»‹ váº­n chuyá»ƒn Ä‘á»‘i tÃ¡c."
                   : "Fortify Kitchen is committed to securing customer and operational personal data. We do not sell or share information with third parties, except for logistical coordination with delivery partners."}
               </p>
               <h4 className="font-bold text-foreground text-sm">
-                {lang === "vi" ? "5. Thay đổi Điều khoản" : "5. Amendments to Terms"}
+                {lang === "vi" ? "5. Thay Ä‘á»•i Äiá»u khoáº£n" : "5. Amendments to Terms"}
               </h4>
               <p>
                 {lang === "vi"
-                  ? "Chúng tôi có quyền sửa đổi các điều khoản này bất kỳ lúc nào để phù hợp với quy định của pháp luật và nhu cầu vận hành thực tế. Bản cập nhật mới nhất sẽ luôn được hiển thị công khai trên website."
+                  ? "ChÃºng tÃ´i cÃ³ quyá»n sá»­a Ä‘á»•i cÃ¡c Ä‘iá»u khoáº£n nÃ y báº¥t ká»³ lÃºc nÃ o Ä‘á»ƒ phÃ¹ há»£p vá»›i quy Ä‘á»‹nh cá»§a phÃ¡p luáº­t vÃ  nhu cáº§u váº­n hÃ nh thá»±c táº¿. Báº£n cáº­p nháº­t má»›i nháº¥t sáº½ luÃ´n Ä‘Æ°á»£c hiá»ƒn thá»‹ cÃ´ng khai trÃªn website."
                   : "We reserve the right to amend these terms at any time to align with legal guidelines and operational requirements. The latest version will always be publicly posted on the website."}
               </p>
             </div>
@@ -2518,7 +2518,7 @@ export default function CustomerPortal() {
               onClick={() => setShowPrivacyModal(false)}
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10 mt-4 shrink-0"
             >
-              {lang === "vi" ? "Đóng" : "Close"}
+              {lang === "vi" ? "ÄÃ³ng" : "Close"}
             </button>
           </div>
         </div>
@@ -2532,20 +2532,20 @@ export default function CustomerPortal() {
             setCartOpen(false);
             setActiveTab("dashboard");
           }} />
-          <div className="relative w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
             <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
             <h3 className="text-base font-bold font-heading">
-              {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
+              {lang === "vi" ? "Äáº·t hÃ ng thÃ nh cÃ´ng!" : "Order Placed Successfully!"}
             </h3>
             <p className="text-xs text-muted-foreground">
               {lang === "vi"
-                ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
+                ? "ÄÆ¡n hÃ ng cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c ghi nháº­n. Vui lÃ²ng hoÃ n táº¥t thanh toÃ¡n chuyá»ƒn khoáº£n qua VietQR bÃªn dÆ°á»›i."
                 : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
             </p>
 
             <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
               <p className="text-xs font-bold text-foreground text-center">
-                {lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR to Complete Payment"}
+                {lang === "vi" ? "QuÃ©t mÃ£ VietQR Ä‘á»ƒ thanh toÃ¡n" : "Scan VietQR to Complete Payment"}
               </p>
               <div className="bg-white p-2 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
                 <img
@@ -2556,23 +2556,23 @@ export default function CustomerPortal() {
               </div>
               <div className="text-[11px] space-y-1 text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Ngân hàng:" : "Bank:"}</span>
+                  <span>{lang === "vi" ? "NgÃ¢n hÃ ng:" : "Bank:"}</span>
                   <span className="font-bold text-foreground">MB Bank</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Số tài khoản:" : "Account Number:"}</span>
+                  <span>{lang === "vi" ? "Sá»‘ tÃ i khoáº£n:" : "Account Number:"}</span>
                   <span className="font-bold text-foreground font-mono">19035678901234</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Chủ tài khoản:" : "Account Holder:"}</span>
+                  <span>{lang === "vi" ? "Chá»§ tÃ i khoáº£n:" : "Account Holder:"}</span>
                   <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Số tiền:" : "Amount:"}</span>
+                  <span>{lang === "vi" ? "Sá»‘ tiá»n:" : "Amount:"}</span>
                   <span className="font-bold text-primary font-mono">{formatVND(checkoutResult.total)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Nội dung chuyển khoản:" : "Transfer Reference:"}</span>
+                  <span>{lang === "vi" ? "Ná»™i dung chuyá»ƒn khoáº£n:" : "Transfer Reference:"}</span>
                   <span className="font-bold text-primary font-mono">FK{checkoutResult.id.slice(0, 8).toUpperCase()}</span>
                 </div>
               </div>
@@ -2586,7 +2586,7 @@ export default function CustomerPortal() {
               }}
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
             >
-              {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+              {lang === "vi" ? "TÃ´i Ä‘Ã£ chuyá»ƒn khoáº£n / ÄÃ³ng" : "I have transferred / Close"}
             </button>
           </div>
         </div>
@@ -2595,9 +2595,9 @@ export default function CustomerPortal() {
       {confirmState && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
-          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+          <div className="relative w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
             <h3 className="text-base font-bold font-heading">
-              {confirmState.title || (lang === "vi" ? "Xác nhận" : "Confirm")}
+              {confirmState.title || (lang === "vi" ? "XÃ¡c nháº­n" : "Confirm")}
             </h3>
             <p className="text-xs text-muted-foreground">{confirmState.message}</p>
             <div className="flex justify-end gap-2 pt-2">
@@ -2605,7 +2605,7 @@ export default function CustomerPortal() {
                 onClick={() => setConfirmState(null)}
                 className="px-4 py-2 border border-border rounded-xl text-xs font-bold hover:bg-muted cursor-pointer"
               >
-                {lang === "vi" ? "Hủy" : "Cancel"}
+                {lang === "vi" ? "Há»§y" : "Cancel"}
               </button>
               <button
                 onClick={() => {
@@ -2614,7 +2614,7 @@ export default function CustomerPortal() {
                 }}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/95 cursor-pointer"
               >
-                {confirmState.confirmLabel || (lang === "vi" ? "Xác nhận" : "Confirm")}
+                {confirmState.confirmLabel || (lang === "vi" ? "XÃ¡c nháº­n" : "Confirm")}
               </button>
             </div>
           </div>
@@ -2669,3 +2669,7 @@ export default function CustomerPortal() {
     </div>
   );
 }
+
+
+
+
