@@ -7,28 +7,29 @@ import { MenuItem, Protein } from "@fortifykitchen/types";
 import { getMenuItemLabel, PROTEIN_LABELS } from "@fortifykitchen/shared";
 // @ts-expect-error - sub-vn lacks typings
 import { getProvinces, getDistrictsByProvinceCode, getWardsByDistrictCode } from "sub-vn";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  ShoppingBag,
-  User as UserIcon,
-  Plus,
-  Minus,
-  Trash2,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  Truck,
-  Utensils,
-  Info,
-  QrCode,
-  LogOut,
-  Sparkles,
-  MapPin,
-  Tag,
-  CreditCard,
-  Check,
-  Search,
-  CalendarClock,
-} from "lucide-react";
+  faShoppingBag,
+  faUser,
+  faPlus,
+  faMinus,
+  faTrashAlt,
+  faSpinner,
+  faCheckCircle,
+  faClock,
+  faTruck,
+  faUtensils,
+  faInfoCircle,
+  faQrcode,
+  faSignOutAlt,
+  faMagic,
+  faMapMarkerAlt,
+  faTag,
+  faCreditCard,
+  faCheck,
+  faSearch,
+  faCalendarAlt
+} from "@fortawesome/free-solid-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
 // Order status labels for the customer-facing "Track my order" lookup —
@@ -888,7 +889,7 @@ export default function CustomerPortal() {
               onClick={() => setCartOpen(true)}
               className="relative p-2.5 rounded-full border border-border bg-muted/30 hover:bg-muted transition-all cursor-pointer"
             >
-              <ShoppingBag className="h-5 w-5" />
+              <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-accent text-accent-foreground text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center shadow-sm">
                   {cartCount}
@@ -902,7 +903,7 @@ export default function CustomerPortal() {
                   onClick={() => setActiveTab("dashboard")}
                   className="hidden sm:flex items-center gap-2 cursor-pointer border border-border rounded-full py-1.5 px-3 bg-muted/20 hover:bg-muted/50 transition-all"
                 >
-                  <UserIcon className="h-4 w-4 text-primary" />
+                  <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-primary" />
                   <span className="text-xs font-semibold">{user.firstName}</span>
                 </div>
                 <button
@@ -910,7 +911,7 @@ export default function CustomerPortal() {
                   className="p-2.5 rounded-full border border-border bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
                   title={t("btn_logout")}
                 >
-                  <LogOut className="h-4 w-4" />
+                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
                 </button>
               </div>
             ) : (
@@ -918,7 +919,7 @@ export default function CustomerPortal() {
                 onClick={() => setAuthModal("login")}
                 className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-5 rounded-full hover:bg-primary/90 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
               >
-                <UserIcon className="h-4 w-4" />
+                <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
                 {t("btn_signin")}
               </button>
             )}
@@ -932,7 +933,7 @@ export default function CustomerPortal() {
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full border border-border bg-muted/40 text-xs text-primary font-semibold">
-                <Sparkles className="h-3.5 w-3.5" />
+                <FontAwesomeIcon icon={faMagic} className="h-3.5 w-3.5" />
                 {lang === "vi" ? "Giao cơm & Gói hội viên dinh dưỡng cao cấp tại Việt Nam" : "Vietnam's Premium Meal Delivery & Subscription"}
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-heading leading-tight">
@@ -965,7 +966,7 @@ export default function CustomerPortal() {
             <div className="relative h-80 sm:h-96 w-full rounded-2xl border border-border bg-muted/20 overflow-hidden flex items-center justify-center shadow-xl">
               <div className="absolute inset-0 bg-primary/5" />
               <div className="text-center space-y-2 p-8 z-10">
-                <Utensils className="h-16 w-16 text-primary mx-auto opacity-70" />
+                <FontAwesomeIcon icon={faUtensils} className="h-16 w-16 text-primary mx-auto opacity-70" />
                 <h3 className="text-lg font-bold font-heading">
                   {lang === "vi" ? "Nguyên liệu Sạch & Tươi ngon" : "Clean & Fresh Ingredients Only"}
                 </h3>
@@ -1026,14 +1027,14 @@ export default function CustomerPortal() {
             {/* Menu Items Grid */}
             {isLoadingMenu ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <FontAwesomeIcon icon={faSpinner} className="h-10 w-10 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground font-semibold">
                   {lang === "vi" ? "Đang tải thực đơn dinh dưỡng..." : "Loading nutritious menu..."}
                 </span>
               </div>
             ) : filteredMenu.length === 0 ? (
               <div className="text-center py-20 border border-dashed border-border rounded-xl">
-                <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground font-medium">
                   {lang === "vi" ? "Không tìm thấy món ăn nào trong danh mục này." : "No menu items found in this category."}
                 </p>
@@ -1068,7 +1069,7 @@ export default function CustomerPortal() {
                                     className="object-cover h-full w-full"
                                   />
                                 ) : (
-                                  <Utensils className="h-12 w-12 text-muted-foreground/30" />
+                                  <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
                                 )}
                                 <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
                                   {formatVND(selected.price)}
@@ -1111,7 +1112,7 @@ export default function CustomerPortal() {
                                 onClick={() => addToCart(selected)}
                                 className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
-                                <Plus className="h-4 w-4" />
+                                <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
                                 {t("btn_add_cart")}
                               </button>
                             </div>
@@ -1140,7 +1141,7 @@ export default function CustomerPortal() {
 
             {orderNowResult ? (
               <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-4 shadow-sm">
-                <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
+                <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
                 <h3 className="text-sm font-bold font-heading">{t("success_title")}</h3>
                 <p className="text-xs text-muted-foreground">
                   {orderNowResult.fulfillmentType === "IMMEDIATE"
@@ -1214,11 +1215,11 @@ export default function CustomerPortal() {
                 <div className="lg:col-span-2 space-y-4">
                   {isLoadingMenu ? (
                     <div className="flex justify-center py-16">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : readyNowItems.length === 0 ? (
                     <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                      <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
                         {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay." : "No ready dishes currently available."}
                       </p>
@@ -1264,7 +1265,7 @@ export default function CustomerPortal() {
                                     onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
                                     className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
                                   >
-                                    <Minus className="h-3 w-3" />
+                                    <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
                                   </button>
                                   <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
                                   <button
@@ -1272,7 +1273,7 @@ export default function CustomerPortal() {
                                     disabled={inCart.qty >= selected.stockQuantity}
                                     className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
                                   >
-                                    <Plus className="h-3 w-3" />
+                                    <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
                                   </button>
                                 </div>
                               ) : (
@@ -1398,7 +1399,7 @@ export default function CustomerPortal() {
                               : "border-border bg-background hover:bg-muted"
                           }`}
                         >
-                          <CreditCard className="h-3.5 w-3.5 shrink-0" />
+                          <FontAwesomeIcon icon={faCreditCard} className="h-3.5 w-3.5 shrink-0" />
                           {t("payment_cod")}
                         </button>
                         <button
@@ -1410,7 +1411,7 @@ export default function CustomerPortal() {
                               : "border-border bg-background hover:bg-muted"
                           }`}
                         >
-                          <QrCode className="h-3.5 w-3.5 shrink-0" />
+                          <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
                           {t("payment_vietqr")}
                         </button>
                       </div>
@@ -1442,7 +1443,7 @@ export default function CustomerPortal() {
                       disabled={orderNowCart.length === 0 || isSubmittingOrderNow || !orderNowAgreeTerms}
                       className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
-                      {isSubmittingOrderNow && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {isSubmittingOrderNow && <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />}
                       {t("btn_checkout")}
                     </button>
                   </form>
@@ -1476,7 +1477,7 @@ export default function CustomerPortal() {
                   disabled={isTrackingLoading}
                   className="bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground font-bold px-4 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 text-xs"
                 >
-                  {isTrackingLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  {isTrackingLoading ? <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-3.5 w-3.5" />}
                   {lang === "vi" ? "Tra cứu" : "Track"}
                 </button>
               </form>
@@ -1552,7 +1553,7 @@ export default function CustomerPortal() {
                 disabled={isLookupLoading}
                 className="bg-primary text-primary-foreground font-bold px-5 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
-                {isLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {isLookupLoading ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-4 w-4" />}
                 {lang === "vi" ? "Tra cứu" : "Lookup"}
               </button>
             </form>
@@ -1563,7 +1564,7 @@ export default function CustomerPortal() {
 
             {hasLookedUp && !isLookupLoading && !lookupError && myPoolSubscriptions.length === 0 && (
               <div className="max-w-md mx-auto text-center py-10 border border-dashed border-border rounded-xl">
-                <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-xs text-muted-foreground">
                   {lang === "vi" ? "Không tìm thấy gói đăng ký nào với số điện thoại này." : "No subscriptions found associated with this phone number."}
                 </p>
@@ -1617,7 +1618,7 @@ export default function CustomerPortal() {
                   {sub.upcomingDeliveries?.length > 0 && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
                       <h4 className="text-xs font-bold flex items-center gap-1.5">
-                        <CalendarClock className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lịch giao sắp tới" : "Upcoming Deliveries"}
+                        <FontAwesomeIcon icon={faCalendarAlt} className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lịch giao sắp tới" : "Upcoming Deliveries"}
                       </h4>
                       {sub.upcomingDeliveries.map((d: any) => (
                         <div key={d.id} className="flex items-center justify-between text-xs">
@@ -1658,13 +1659,13 @@ export default function CustomerPortal() {
               <div className="lg:col-span-2 space-y-8">
                 <div>
                   <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5 text-primary" />
                     {t("dash_orders_title")}
                   </h3>
 
                   {isLoadingDashboard ? (
                     <div className="py-10 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
                       <span className="text-xs text-muted-foreground">
                         {lang === "vi" ? "Đang tải đơn hàng..." : "Retrieving orders..."}
                       </span>
@@ -1720,10 +1721,10 @@ export default function CustomerPortal() {
                               <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
 
                               {[
-                                { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: Clock },
-                                { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: CheckCircle2 },
-                                { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: Utensils },
-                                { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: Truck },
+                                { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
+                                { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
+                                { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
+                                { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
                               ].map((step) => {
                                 const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
                                 const currentIdx = statuses.indexOf(order.status);
@@ -1739,7 +1740,7 @@ export default function CustomerPortal() {
                                           : "bg-muted border-border text-muted-foreground"
                                       }`}
                                     >
-                                      <step.icon className="h-4 w-4" />
+                                      <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
                                     </div>
                                     <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
                                   </div>
@@ -1751,7 +1752,7 @@ export default function CustomerPortal() {
                           {/* Shipment details */}
                           <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
                             <span className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
                               {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
                             </span>
                             <span className="font-semibold text-foreground/80">
@@ -1771,13 +1772,13 @@ export default function CustomerPortal() {
               <div className="space-y-8">
                 <div>
                   <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
+                    <FontAwesomeIcon icon={faMagic} className="h-5 w-5 text-primary" />
                     {t("nav_sub")}
                   </h3>
 
                   {isLoadingDashboard ? (
                     <div className="py-6 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
+                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
                     </div>
                   ) : mySubscriptions.length === 0 ? (
                     <div className="p-6 text-center border border-dashed border-border rounded-xl bg-muted/10">
@@ -1852,7 +1853,7 @@ export default function CustomerPortal() {
             {/* Cart Header */}
             <div className="p-6 border-b border-border flex justify-between items-center bg-muted/15">
               <h3 className="text-lg font-bold font-heading flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-primary" />
+                <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5 text-primary" />
                 Your Nutritious Cart
               </h3>
               <button
@@ -1867,7 +1868,7 @@ export default function CustomerPortal() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-3">
-                  <ShoppingBag className="h-12 w-12 text-muted-foreground/30" />
+                  <FontAwesomeIcon icon={faShoppingBag} className="h-12 w-12 text-muted-foreground/30" />
                   <p className="text-sm text-muted-foreground font-medium">Your cart is empty.</p>
                   <button
                     onClick={() => {
@@ -1894,7 +1895,7 @@ export default function CustomerPortal() {
                             className="object-cover h-full w-full"
                           />
                         ) : (
-                          <Utensils className="h-6 w-6 text-muted-foreground/30" />
+                          <FontAwesomeIcon icon={faUtensils} className="h-6 w-6 text-muted-foreground/30" />
                         )}
                       </div>
 
@@ -1910,14 +1911,14 @@ export default function CustomerPortal() {
                             onClick={() => updateCartQuantity(item.menuItem.id, item.quantity - 1)}
                             className="p-1 rounded bg-secondary hover:bg-muted border border-border shrink-0 cursor-pointer"
                           >
-                            <Minus className="h-3 w-3" />
+                            <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
                           </button>
                           <span className="text-xs font-bold w-6 text-center">{item.quantity}</span>
                           <button
                             onClick={() => updateCartQuantity(item.menuItem.id, item.quantity + 1)}
                             className="p-1 rounded bg-secondary hover:bg-muted border border-border shrink-0 cursor-pointer"
                           >
-                            <Plus className="h-3 w-3" />
+                            <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
@@ -1926,7 +1927,7 @@ export default function CustomerPortal() {
                         onClick={() => removeFromCart(item.menuItem.id)}
                         className="absolute top-3 right-3 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
@@ -1958,7 +1959,7 @@ export default function CustomerPortal() {
                     <div className="space-y-1 bg-muted/40 p-3 rounded-xl border border-border">
                       <div className="flex justify-between items-start gap-1">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {t("cart_address")}
+                          <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3 w-3" /> {t("cart_address")}
                         </span>
                         <button
                           type="button"
@@ -1979,7 +1980,7 @@ export default function CustomerPortal() {
                   ) : (
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {t("cart_address")} (Vietnam)
+                        <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3 w-3" /> {t("cart_address")} (Vietnam)
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <select
@@ -2044,7 +2045,7 @@ export default function CustomerPortal() {
 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                      <Tag className="h-3 w-3" /> {t("cart_coupon")}
+                      <FontAwesomeIcon icon={faTag} className="h-3 w-3" /> {t("cart_coupon")}
                     </label>
                     <input
                       type="text"
@@ -2072,7 +2073,7 @@ export default function CustomerPortal() {
                             : "border-border bg-background hover:bg-muted"
                         }`}
                       >
-                        <CreditCard className="h-3.5 w-3.5 shrink-0" />
+                        <FontAwesomeIcon icon={faCreditCard} className="h-3.5 w-3.5 shrink-0" />
                         {t("payment_cod")}
                       </button>
                       <button
@@ -2084,7 +2085,7 @@ export default function CustomerPortal() {
                             : "border-border bg-background hover:bg-muted"
                         }`}
                       >
-                        <QrCode className="h-3.5 w-3.5 shrink-0" />
+                        <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
                         {t("payment_vietqr")}
                       </button>
                     </div>
@@ -2116,10 +2117,10 @@ export default function CustomerPortal() {
                     className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
                   >
                     {isSubmittingOrder ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
-                        <Check className="h-4 w-4" />
+                        <FontAwesomeIcon icon={faCheck} className="h-4 w-4" />
                         {paymentMethod === "CASH_ON_DELIVERY" ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)") : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
                       </>
                     )}
@@ -2412,7 +2413,7 @@ export default function CustomerPortal() {
             setActiveTab("dashboard");
           }} />
           <div className="relative w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
-            <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
+            <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
             <h3 className="text-base font-bold font-heading">
               {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
             </h3>
