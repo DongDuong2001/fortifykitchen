@@ -264,6 +264,12 @@ export default function AdminDashboard() {
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, []);
+
   // Inventory tab: two sub-views — Monitor (currently in-stock dishes only,
   // no status badge needed since being listed here already means
   // available) and Add Stock (restock an existing dish; doing so is what
@@ -1436,67 +1442,89 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row transition-colors duration-200">
       {/* 1. SIDEBAR */}
       {sidebarOpen && (
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-card flex flex-col shrink-0">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Fortify Kitchen" className="h-8 w-8 rounded-md object-contain" />
-            <span className="font-semibold tracking-tight font-heading text-sm">Fortify Console</span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="md:hidden text-muted-foreground hover:text-red-500 transition-colors"
-          >
-            <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
-          </button>
-        </div>
+        <>
+          {/* Mobile backdrop overlay */}
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 md:relative md:flex md:w-64 border-r border-border bg-card flex flex-col shrink-0">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="Fortify Kitchen" className="h-8 w-8 rounded-md object-contain" />
+                <span className="font-semibold tracking-tight font-heading text-sm">Fortify Console</span>
+              </div>
+              <div className="flex items-center gap-2 md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faChevronLeft} className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
-          {[
-            { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
-            { id: "customers", label: "Customers", icon: faUsers },
-            { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
-            { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
-            { id: "inventory", label: "Inventory", icon: faBox },
-            { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
-            { id: "deliveries", label: "Deliveries", icon: faTruck },
-            { id: "prep-list", label: "Prep List", icon: faUtensils },
-            { id: "discounts", label: "Promotional Codes", icon: faTag },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setSection(item.id as any)}
-              className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                section === item.id
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
+            <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
+              {[
+                { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
+                { id: "customers", label: "Customers", icon: faUsers },
+                { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
+                { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
+                { id: "inventory", label: "Inventory", icon: faBox },
+                { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
+                { id: "deliveries", label: "Deliveries", icon: faTruck },
+                { id: "prep-list", label: "Prep List", icon: faUtensils },
+                { id: "discounts", label: "Promotional Codes", icon: faTag },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSection(item.id as any);
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    section === item.id
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
 
-        <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
-          <button
-            onClick={() => setShowPrivacyModal(true)}
-            className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
-          >
-            <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5 shrink-0" />
-            Privacy & Operating Terms
-          </button>
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
-            <span className="truncate max-w-[120px] font-semibold">{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
-              title="Logout"
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </aside>
+            <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
+              >
+                <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5 shrink-0" />
+                Privacy & Operating Terms
+              </button>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
+                <span className="truncate max-w-[120px] font-semibold">{user?.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
+                  title="Logout"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
       )}
 
       {/* 2. MAIN WORKSPACE */}
