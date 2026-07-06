@@ -6,13 +6,51 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
+// The app runs against Neon (a serverless/pooled Postgres — note the
+// "-pooler" host and the PgBouncer transaction pooler behind it). Neon's
+// free-tier compute auto-suspends after a few minutes of inactivity; the
+// pool's existing sockets go stale while it's suspended, and the very next
+// query after a wake-up (or any other transient network blip to the
+// pooler) fails with `Error { kind: Closed, cause: None }` even though a
+// brand-new connection would succeed immediately. Retrying once, on a
+// fresh connection, is safe for reads and for the writes we do here
+// (no query has already partially applied when the socket was already
+// closed before it was sent) and makes the blip invisible to callers
+// instead of surfacing as a 500.
+function isTransientConnectionError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    message.includes("kind: Closed") ||
+    message.includes("Connection terminated") ||
+    message.includes("Server has closed the connection") ||
+    message.includes("ECONNRESET") ||
+    message.includes("P1001") ||
+    message.includes("P1017")
+  );
+}
+
 function createPrismaClient(): PrismaClient {
-  return new PrismaClient({
+  const base = new PrismaClient({
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
         : ["error"],
   });
+
+  return base.$extends({
+    query: {
+      async $allOperations({ args, query }) {
+        try {
+          return await query(args);
+        } catch (err) {
+          if (!isTransientConnectionError(err)) {
+            throw err;
+          }
+          return await query(args);
+        }
+      },
+    },
+  }) as unknown as PrismaClient;
 }
 
 // Lazily constructed behind a Proxy. Previously this ran `new PrismaClient()`
