@@ -1543,10 +1543,6 @@ export default function AdminDashboard() {
               {section.replace("-", " ")}
             </h2>
           </div>
-          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Database Connected (Vietnam Mode)
-          </div>
         </header>
 
         {/* Workspace Body */}
@@ -2218,7 +2214,40 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <div className="overflow-x-auto">
+                    {/* Mobile cards view */}
+                    <div className="md:hidden space-y-3">
+                      {paginate(customers, clampPage(customersPage, Math.ceil(customers.length / PAGE_SIZE) || 1), PAGE_SIZE).map((c) => (
+                        <div key={c.id} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-foreground">{c.name}</p>
+                              <p className="text-muted-foreground mt-0.5">SĐT: {c.phone || "—"}</p>
+                              <p className="text-muted-foreground">Zalo: {c.zalo || "—"}</p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => handleEditCustomerTrigger(c)}
+                                className="text-muted-foreground hover:text-primary p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                              >
+                                <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCustomer(c.id)}
+                                className="text-muted-foreground hover:text-red-500 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                              >
+                                <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground bg-background p-2 rounded-lg border border-border/40">
+                            <span className="font-semibold text-foreground">Địa chỉ:</span> {c.address || "—"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-3">
