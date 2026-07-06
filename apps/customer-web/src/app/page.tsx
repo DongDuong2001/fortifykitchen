@@ -2324,25 +2324,22 @@ export default function CustomerPortal() {
       {/* 6. FOOTER */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-16">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs text-muted-foreground">
-          {/* Column 1: Company / About */}
+          {/* Column 1: Brand & Contact Info */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Công ty Cổ phần FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam Joint Stock Company"}
+              {lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Cung cấp giải pháp gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu sạch bởi đầu bếp chuyên nghiệp."
-                : "Providing gourmet protein meal subscriptions prepared by professional chefs with fresh ingredients."}
+                ? "Gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu tươi sạch bởi đầu bếp chuyên nghiệp để phục vụ mục tiêu sức khỏe của bạn."
+                : "Premium gourmet protein meal prep subscriptions prepared by professional chefs to help you achieve your fitness goals."}
             </p>
             <div className="space-y-2">
               <p>
-                <strong>{lang === "vi" ? "Mã số thuế / GPĐKKD:" : "Tax Code / Business Reg:"}</strong> 0317589254
+                <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
               </p>
               <p>
-                <strong>{lang === "vi" ? "Trụ sở:" : "Headquarters:"}</strong> Landmark 81, Vinhomes Central Park, Phường 22, Quận Bình Thạnh, Thành phố Hồ Chí Minh, Việt Nam.
-              </p>
-              <p>
-                <strong>Hotline:</strong> +84 28 7300 1234 | <strong>Email:</strong> support@fortifykitchen.vn
+                <strong>Hotline & Zalo:</strong> +84 90 123 4567
               </p>
             </div>
           </div>
@@ -2354,8 +2351,8 @@ export default function CustomerPortal() {
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Vui lòng xem các điều khoản bảo mật và chính sách hoạt động chính thức của chúng tôi:"
-                : "Please review our official privacy guidelines and operational policies:"}
+                ? "Các điều khoản sử dụng và chính sách hoạt động của cửa hàng chúng tôi:"
+                : "Our store's usage terms and operational policies:"}
             </p>
             <div className="flex flex-col gap-2 font-medium">
               <button
@@ -2379,52 +2376,48 @@ export default function CustomerPortal() {
             </div>
           </div>
 
-          {/* Column 3: Trust Badges / Safe Check */}
+          {/* Column 3: Secure Payments & Social Channels */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Thanh toán An toàn & Đã xác minh" : "Verified & Safe Payments"}
+              {lang === "vi" ? "Thanh toán & Liên hệ mạng xã hội" : "Payments & Social Channels"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Dịch vụ của chúng tôi áp dụng chuẩn thanh toán tiền mặt khi nhận hàng (COD) và Chuyển khoản VietQR tiện lợi, đảm bảo an toàn tuyệt đối cho người mua hàng."
-                : "Our service utilizes standard COD (Cash on Delivery) and bank transfer via secure VietQR codes, ensuring absolute transaction safety."}
+                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận nơi (COD) và Chuyển khoản VietQR tiện lợi. Liên hệ ngay để được tư vấn thực đơn phù hợp nhất."
+                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Contact us directly for menu consultations."}
             </p>
             
-            {/* Ministry of Industry and Trade Vietnamese trust badge (BCT green badge) */}
-            <div className="pt-2 flex items-center gap-4">
+            {/* Social Connect buttons using text-based tags */}
+            <div className="pt-2 flex flex-wrap gap-3">
               <a
-                href="http://online.gov.vn/"
+                href="https://zalo.me/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block hover:opacity-90 transition-opacity"
-                title="Đã Đăng Ký Bộ Công Thương"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
               >
-                <svg
-                  width="130"
-                  height="49"
-                  viewBox="0 0 130 49"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-10 w-auto"
-                >
-                  <rect width="130" height="49" rx="8" fill="#143423" />
-                  <rect x="2" y="2" width="126" height="45" rx="6" fill="#1b462f" />
-                  <path d="M12 24.5C12 17.5964 17.5964 12 24.5 12C31.4036 12 37 17.5964 37 24.5C37 31.4036 31.4036 37 24.5 37C17.5964 37 12 31.4036 12 24.5Z" fill="#2fb67d" />
-                  <path d="M20 25.5L23.5 29L29.5 21L28 19.5L23.5 25.5L21.5 23.5L20 25.5Z" fill="#ffffff" />
-                  <text x="44" y="22" fill="#ffffff" fontFamily="sans-serif" fontSize="10" fontWeight="bold">ĐÃ ĐĂNG KÝ</text>
-                  <text x="44" y="34" fill="#2fb67d" fontFamily="sans-serif" fontSize="9" fontWeight="bold">BỘ CÔNG THƯƠNG</text>
-                </svg>
+                Zalo Chat
               </a>
-              <div className="text-[10px] text-muted-foreground leading-tight">
-                {lang === "vi"
-                  ? "Sản phẩm được chứng nhận an toàn thực phẩm số 425/GCN-ATTP."
-                  : "Certified Safe Food Facility Registry License No. 425/GCN-ATTP."}
-              </div>
+              <a
+                href="https://facebook.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+              >
+                Facebook
+              </a>
+              <a
+                href="https://instagram.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+              >
+                Instagram
+              </a>
             </div>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-border/40 text-center text-[10px] text-muted-foreground">
-          <p>© 2026 Công ty Cổ phần FortifyKitchen Việt Nam. {lang === "vi" ? "Tất cả các quyền được bảo lưu." : "All rights reserved."}</p>
+          <p>© 2026 FortifyKitchen Việt Nam. {lang === "vi" ? "Tất cả các quyền được bảo lưu." : "All rights reserved."}</p>
         </div>
       </footer>
 
