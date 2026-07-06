@@ -1706,7 +1706,39 @@ export default function AdminDashboard() {
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
-                    <div className="overflow-x-auto">
+                    {/* Mobile cards view */}
+                    <div className="md:hidden space-y-3">
+                      {stats.recentOrders?.map((o: any) => (
+                        <div key={o.id} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-foreground">{o.customerName}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {new Date(o.createdAt).toLocaleDateString("vi-VN")}
+                              </p>
+                            </div>
+                            <span className="font-bold text-primary">{formatVND(o.total)}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                o.fulfillmentType === "IMMEDIATE"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}
+                            >
+                              {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                              {o.deliveryStatus}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
