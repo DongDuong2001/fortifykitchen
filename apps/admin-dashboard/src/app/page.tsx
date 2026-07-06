@@ -1,26 +1,26 @@
 "use client";
 
 import * as React from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  LayoutDashboard,
-  ShoppingBag,
-  Users,
-  LogOut,
-  Utensils,
-  Plus,
-  Trash2,
-  Edit2,
-  DollarSign,
-  Calendar,
-  Tag,
-  Loader2,
-  Truck,
-  PanelLeftClose,
-  PanelLeftOpen,
-  ChefHat,
-  Package,
-  Info,
-} from "lucide-react";
+  faThLarge,
+  faShoppingBag,
+  faUsers,
+  faSignOutAlt,
+  faUtensils,
+  faPlus,
+  faTrashAlt,
+  faEdit,
+  faDollarSign,
+  faCalendarAlt,
+  faTag,
+  faSpinner,
+  faTruck,
+  faChevronLeft,
+  faChevronRight,
+  faBox,
+  faInfoCircle
+} from "@fortawesome/free-solid-svg-icons";
 import {
   PROTEIN_LABELS,
   getMenuItemLabel,
@@ -1424,7 +1424,7 @@ export default function AdminDashboard() {
               disabled={isLoggingIn}
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-primary/10"
             >
-              {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In to Admin Portal"}
+              {isLoggingIn ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : "Sign In to Admin Portal"}
             </button>
           </form>
         </div>
@@ -1446,21 +1446,21 @@ export default function AdminDashboard() {
             onClick={handleLogout}
             className="md:hidden text-muted-foreground hover:text-red-500 transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
           </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
           {[
-            { id: "dashboard", label: "Dashboard Overview", icon: LayoutDashboard },
-            { id: "customers", label: "Customers", icon: Users },
-            { id: "orders", label: "Orders dispatcher", icon: ShoppingBag },
-            { id: "menu", label: "Menu Catalog Manager", icon: Utensils },
-            { id: "inventory", label: "Inventory", icon: Package },
-            { id: "subscriptions", label: "Subscriptions", icon: Calendar },
-            { id: "deliveries", label: "Deliveries", icon: Truck },
-            { id: "prep-list", label: "Prep List", icon: ChefHat },
-            { id: "discounts", label: "Promotional Codes", icon: Tag },
+            { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
+            { id: "customers", label: "Customers", icon: faUsers },
+            { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
+            { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
+            { id: "inventory", label: "Inventory", icon: faBox },
+            { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
+            { id: "deliveries", label: "Deliveries", icon: faTruck },
+            { id: "prep-list", label: "Prep List", icon: faUtensils },
+            { id: "discounts", label: "Promotional Codes", icon: faTag },
           ].map((item) => (
             <button
               key={item.id}
@@ -1471,7 +1471,7 @@ export default function AdminDashboard() {
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
               {item.label}
             </button>
           ))}
@@ -1482,7 +1482,7 @@ export default function AdminDashboard() {
             onClick={() => setShowPrivacyModal(true)}
             className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
           >
-            <Info className="h-3.5 w-3.5 shrink-0" />
+            <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5 shrink-0" />
             Privacy & Operating Terms
           </button>
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
@@ -1492,7 +1492,7 @@ export default function AdminDashboard() {
               className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
               title="Logout"
             >
-              <LogOut className="h-4 w-4" />
+              <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1509,7 +1509,7 @@ export default function AdminDashboard() {
               className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors cursor-pointer shrink-0"
               title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
             >
-              {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+              {sidebarOpen ? <FontAwesomeIcon icon={faChevronLeft} className="h-4 w-4" /> : <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4" />}
             </button>
             <h2 className="font-extrabold tracking-tight font-heading text-base capitalize truncate">
               {section.replace("-", " ")}
@@ -1525,7 +1525,7 @@ export default function AdminDashboard() {
         <main className="flex-1 p-6 overflow-y-auto">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center py-20 gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
               <span className="text-xs text-muted-foreground">Syncing workspace...</span>
             </div>
           ) : (
@@ -1535,10 +1535,10 @@ export default function AdminDashboard() {
                 <div className="space-y-8 animate-in fade-in duration-200">
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: DollarSign },
-                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: Calendar },
-                      { label: "Total Customers", value: stats.totalCustomers, icon: Users },
-                      { label: "Total Food Orders", value: stats.totalOrders, icon: ShoppingBag },
+                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
+                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
+                      { label: "Total Customers", value: stats.totalCustomers, icon: faUsers },
+                      { label: "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
@@ -1546,7 +1546,7 @@ export default function AdminDashboard() {
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <item.icon className="h-5 w-5" />
+                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
                         </div>
                       </div>
                     ))}
@@ -1558,24 +1558,24 @@ export default function AdminDashboard() {
                       {
                         label: "Awaiting Acceptance",
                         value: stats.ordersAwaitingAcceptance || 0,
-                        icon: ShoppingBag,
+                        icon: faShoppingBag,
                         urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
                       },
                       {
                         label: "In Preparation",
                         value: stats.ordersInPreparation || 0,
-                        icon: ChefHat,
+                        icon: faUtensils,
                       },
                       {
                         label: "Out of Stock Dishes",
                         value: (stats.outOfStockItems || []).length,
-                        icon: Package,
+                        icon: faBox,
                         urgent: (stats.outOfStockItems || []).length > 0,
                       },
                       {
                         label: "Low Stock Dishes",
                         value: (stats.lowStockItems || []).length,
-                        icon: Package,
+                        icon: faBox,
                       },
                     ].map((item, idx) => (
                       <button
@@ -1596,7 +1596,7 @@ export default function AdminDashboard() {
                               : "border-primary/20 bg-primary/10 text-primary"
                           }`}
                         >
-                          <item.icon className="h-5 w-5" />
+                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
                         </div>
                       </button>
                     ))}
@@ -1608,27 +1608,27 @@ export default function AdminDashboard() {
                       {
                         label: "Outstanding Volume (kg)",
                         value: formatGrams(stats.outstandingVolumeGrams || 0),
-                        icon: Truck,
+                        icon: faTruck,
                       },
                       {
                         label: "Nearing Depletion",
                         value: stats.subscriptionsNearingDepletion || 0,
-                        icon: ChefHat,
+                        icon: faUtensils,
                       },
                       {
                         label: "Delivered This Month",
                         value: formatGrams(stats.gramsDeliveredThisMonth || 0),
-                        icon: Calendar,
+                        icon: faCalendarAlt,
                       },
                       {
                         label: "Deliveries This Week",
                         value: stats.deliveriesThisWeek || 0,
-                        icon: ShoppingBag,
+                        icon: faShoppingBag,
                       },
                       {
                         label: "Dishes Ready Now",
                         value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
-                        icon: ChefHat,
+                        icon: faUtensils,
                       },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
@@ -1637,7 +1637,7 @@ export default function AdminDashboard() {
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <item.icon className="h-5 w-5" />
+                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
                         </div>
                       </div>
                     ))}
@@ -1752,7 +1752,7 @@ export default function AdminDashboard() {
                         onClick={() => { resetOrderForm(); setOrderModal("create"); }}
                         className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
                       >
-                        <Plus className="h-4 w-4" /> Tạo đơn hàng
+                        <FontAwesomeIcon icon={faPlus} className="h-4 w-4" /> Tạo đơn hàng
                       </button>
                     </div>
                   </div>
@@ -1929,14 +1929,14 @@ export default function AdminDashboard() {
                                         className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
                                         title="Edit"
                                       >
-                                        <Edit2 className="h-3.5 w-3.5" />
+                                        <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteOrder(o.id)}
                                         className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                                         title="Delete"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                                       </button>
                                     </div>
                                   </td>
@@ -2153,7 +2153,7 @@ export default function AdminDashboard() {
                       onClick={() => { resetCustomerForm(); setCustomerModal("create"); }}
                       className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
                     >
-                      <Plus className="h-4 w-4" /> Thêm khách hàng
+                      <FontAwesomeIcon icon={faPlus} className="h-4 w-4" /> Thêm khách hàng
                     </button>
                   </div>
 
@@ -2182,13 +2182,13 @@ export default function AdminDashboard() {
                                     onClick={() => handleEditCustomerTrigger(c)}
                                     className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
                                   >
-                                    <Edit2 className="h-3.5 w-3.5" />
+                                    <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteCustomer(c.id)}
                                     className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               </td>
@@ -2369,7 +2369,7 @@ export default function AdminDashboard() {
                                             onClick={() => handleDeleteDelivery(d)}
                                             className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                                           >
-                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                                           </button>
                                         </div>
                                       </td>
@@ -2474,7 +2474,7 @@ export default function AdminDashboard() {
                                             onClick={() => handleDeleteDelivery(d)}
                                             className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                                           >
-                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                                           </button>
                                         </div>
                                       </td>
@@ -2510,7 +2510,7 @@ export default function AdminDashboard() {
                       }}
                       className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer"
                     >
-                      <Plus className="h-4 w-4" /> Add Menu Item
+                      <FontAwesomeIcon icon={faPlus} className="h-4 w-4" /> Add Menu Item
                     </button>
                   </div>
 
@@ -2608,13 +2608,13 @@ export default function AdminDashboard() {
                                     onClick={() => handleEditMenuItemTrigger(item)}
                                     className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md flex items-center justify-center gap-1 cursor-pointer"
                                   >
-                                    <Edit2 className="h-3 w-3" /> Edit
+                                    <FontAwesomeIcon icon={faEdit} className="h-3 w-3" /> Edit
                                   </button>
                                   <button
                                     onClick={() => handleDeleteMenuItem(item.id)}
                                     className="py-1.5 px-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               </div>
@@ -2819,7 +2819,7 @@ export default function AdminDashboard() {
                           disabled={isAddingStock || !addStockItemId}
                           className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
                         >
-                          {isAddingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                          {isAddingStock ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />}
                           Add to Inventory
                         </button>
                       </form>
@@ -2837,7 +2837,7 @@ export default function AdminDashboard() {
                       onClick={() => { resetSubForm(); setSubModal("create"); }}
                       className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1 hover:opacity-90 transition-smooth shadow-warm cursor-pointer"
                     >
-                      <Plus className="h-4 w-4" /> Tạo gói đăng ký
+                      <FontAwesomeIcon icon={faPlus} className="h-4 w-4" /> Tạo gói đăng ký
                     </button>
                   </div>
 
@@ -2919,7 +2919,7 @@ export default function AdminDashboard() {
                               onClick={() => handleDeleteSubscription(sub.id)}
                               className="py-1.5 px-2 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
@@ -2947,7 +2947,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                        <ChefHat className="h-4 w-4 text-primary" />
+                        <FontAwesomeIcon icon={faUtensils} className="h-4 w-4 text-primary" />
                         Prep List
                       </h3>
                       <p className="text-xs text-muted-foreground mt-1">Tổng hợp nguyên liệu cần chuẩn bị</p>
@@ -2971,12 +2971,12 @@ export default function AdminDashboard() {
 
                   {isPrepLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
                       <span className="text-xs text-muted-foreground">Đang tổng hợp...</span>
                     </div>
                   ) : prepData.prepItems.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-20 text-center">
-                      <ChefHat className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <FontAwesomeIcon icon={faUtensils} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground font-medium">Không có gì cần chuẩn bị</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Ngày {prepDate} không có đơn hàng hoặc giao hàng nào
@@ -3157,7 +3157,7 @@ export default function AdminDashboard() {
                                   onClick={() => handleDeleteDiscount(d.id)}
                                   className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer"
                                 >
-                                  <Trash2 className="h-4 w-4 mx-auto" />
+                                  <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4 mx-auto" />
                                 </button>
                               </td>
                             </tr>
@@ -3521,7 +3521,7 @@ export default function AdminDashboard() {
                 }}
                 className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-1.5"
               >
-                <Edit2 className="h-3.5 w-3.5" /> Sửa đơn hàng
+                <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" /> Sửa đơn hàng
               </button>
             </div>
           </div>
@@ -3618,7 +3618,7 @@ export default function AdminDashboard() {
                             onClick={() => setOrderLineItems((prev) => prev.filter((_, i) => i !== idx))}
                             className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <FontAwesomeIcon icon={faTrashAlt} className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
@@ -3774,7 +3774,7 @@ export default function AdminDashboard() {
                           onClick={() => setSubPools((prev) => prev.filter((_, i) => i !== idx))}
                           className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <FontAwesomeIcon icon={faTrashAlt} className="h-3 w-3" />
                         </button>
                       </div>
                     ))}
@@ -3897,7 +3897,7 @@ export default function AdminDashboard() {
               </button>
             </div>
             {isSubDetailLoading ? (
-              <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+              <div className="py-10 text-center"><FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
             ) : subDetailDeliveries.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">Chưa có lần giao nào được tạo</p>
             ) : (

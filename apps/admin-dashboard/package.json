@@ -10,6 +10,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.3.0",
+    "@fortawesome/free-solid-svg-icons": "^7.3.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "@fortifykitchen/config": "workspace:*",
     "@fortifykitchen/shared": "workspace:*",
     "@fortifykitchen/types": "workspace:*",
@@ -26,12 +29,12 @@
   },
   "devDependencies": {
     "@fortifykitchen/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
     "typescript": "^5.7.2"
   }
 }
