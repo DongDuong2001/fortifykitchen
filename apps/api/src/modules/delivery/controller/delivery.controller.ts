@@ -57,10 +57,10 @@ export class DeliveryController {
   }
 
   @Get("upcoming")
-  @ApiOperation({ summary: "Get upcoming (today onward) Orders + Deliveries grouped by week or month" })
-  @ApiQuery({ name: "groupBy", required: false, enum: ["week", "month"] })
+  @ApiOperation({ summary: "Get upcoming (today onward) Orders + Deliveries grouped by day, week, or month" })
+  @ApiQuery({ name: "groupBy", required: false, enum: ["day", "week", "month"] })
   @ApiResponse({ status: 200, description: "Returns grouped upcoming entries." })
-  async findUpcomingGrouped(@Query("groupBy") groupBy?: "week" | "month") {
+  async findUpcomingGrouped(@Query("groupBy") groupBy?: "day" | "week" | "month") {
     return this.deliveryService.findUpcomingGrouped(groupBy ?? "week");
   }
 

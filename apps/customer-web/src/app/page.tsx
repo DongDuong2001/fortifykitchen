@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useApp } from "../providers/app-context";
+import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { getMenuItemLabel, PROTEIN_LABELS } from "@fortifykitchen/shared";
 import {
@@ -56,6 +57,24 @@ export default function CustomerPortal() {
     updateCartQuantity,
     placeOrder,
   } = useApp();
+  const { toast } = useToast();
+
+  // In-app replacement for window.confirm — used for the one destructive
+  // customer-facing action (postponing a subscription delivery) instead of
+  // a native browser dialog.
+  const [confirmState, setConfirmState] = React.useState<{
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const requestConfirm = React.useCallback(
+    (message: string, onConfirm: () => void, opts?: { title?: string; confirmLabel?: string }) => {
+      setConfirmState({ message, onConfirm, title: opts?.title, confirmLabel: opts?.confirmLabel });
+    },
+    [],
+  );
 
   // Tab State: "menu" | "order-now" | "subscriptions" | "dashboard"
   const [activeTab, setActiveTab] = React.useState<"menu" | "order-now" | "subscriptions" | "dashboard">("menu");
@@ -271,22 +290,26 @@ export default function CustomerPortal() {
     }
   };
 
-  const handlePostponeMyDelivery = async (deliveryId: string) => {
-    if (!confirm("Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.")) return;
-    try {
-      const res = await fetch(
-        `${API_URL}/subscriptions/public/${deliveryId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
-        { method: "POST" },
-      );
-      if (res.ok) {
-        handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
-      } else {
-        const result = await res.json().catch(() => null);
-        alert(result?.message || "Không thể hoãn lần giao này");
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const handlePostponeMyDelivery = (deliveryId: string) => {
+    requestConfirm(
+      "Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.",
+      async () => {
+        try {
+          const res = await fetch(
+            `${API_URL}/subscriptions/public/${deliveryId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
+            { method: "POST" },
+          );
+          if (res.ok) {
+            handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+          } else {
+            const result = await res.json().catch(() => null);
+            toast({ title: result?.message || "Không thể hoãn lần giao này", type: "error" });
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      },
+    );
   };
 
   const handlePauseSubscription = async (id: string, currentStatus: string) => {
@@ -1640,6 +1663,37 @@ export default function CustomerPortal() {
           <p>© 2026 FortifyKitchen. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* In-app confirm dialog — replaces window.confirm(). */}
+      {confirmState && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
+          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+            <h3 className="text-sm font-bold font-heading">{confirmState.title || "Xác nhận"}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{confirmState.message}</p>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmState(null)}
+                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirmState.onConfirm;
+                  setConfirmState(null);
+                  action();
+                }}
+                className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer"
+              >
+                {confirmState.confirmLabel || "Xác nhận"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,6 +32,7 @@ import {
   DELIVERY_FREQUENCY_PRESETS,
 } from "@fortifykitchen/shared";
 import type { Protein } from "@fortifykitchen/types";
+import { useToast } from "@fortifykitchen/ui";
 
 const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
 const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
@@ -62,6 +63,69 @@ function getLocalDateString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+// Single shared grouping routine used everywhere a list of dated entries
+// (orders, subscription-generated deliveries, or the two merged) needs to
+// be bucketed by day / ISO week / month. Having exactly one implementation
+// — computed client-side, in the browser's local timezone — is what keeps
+// every list view (Orders, Orders from Subscriptions, Deliveries "Tất cả",
+// Deliveries "Sắp tới") agreeing on where one day ends and the next
+// begins, instead of some views grouping server-side and others
+// client-side with slightly different date math.
+function groupEntriesByDate<T>(
+  entries: T[],
+  getDate: (entry: T) => string | Date,
+  groupBy: "day" | "week" | "month",
+): { key: string; entries: T[] }[] {
+  const map = new Map<string, T[]>();
+  for (const entry of entries) {
+    const d = new Date(getDate(entry));
+    let key: string;
+    if (groupBy === "day") {
+      key = getLocalDateString(d);
+    } else if (groupBy === "month") {
+      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    } else {
+      // ISO-ish week key: year + week number (Mon-start)
+      const dayNum = (d.getDay() + 6) % 7;
+      const thursday = new Date(d);
+      thursday.setDate(d.getDate() - dayNum + 3);
+      const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+      const weekNum =
+        1 + Math.round(((thursday.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+      key = `${thursday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+    }
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(entry);
+  }
+  return Array.from(map.entries())
+    .map(([key, groupEntries]) => ({ key, entries: groupEntries }))
+    .sort((a, b) => a.key.localeCompare(b.key)); // oldest first
+}
+
+// Formats a Deliveries "Sắp tới" group key (shaped differently depending on
+// the selected granularity — "YYYY-MM-DD" for day, "YYYY-Www" for week,
+// "YYYY-MM" for month) into a readable Vietnamese heading, so the upcoming
+// view reads the same way the "Tất cả" tab's day headings do rather than
+// showing the raw grouping key.
+function formatGroupKeyLabel(key: string, groupBy: "day" | "week" | "month"): string {
+  if (groupBy === "day") {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("vi-VN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+  if (groupBy === "month") {
+    const [y, m] = key.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("vi-VN", { month: "long", year: "numeric" });
+  }
+  // week key looks like "2026-W27"
+  const [y, w] = key.split("-W");
+  return `Tuần ${w} · ${y}`;
+}
+
 // Groups same-flavor menu items (e.g. "xá xíu 150g" + "xá xíu 250g") into
 // one dish card with a portion-size toggle, instead of one card per exact
 // protein+flavor+size row — matches the same grouping used on customer-web.
@@ -78,9 +142,101 @@ function groupMenuByFlavor(items: any[]) {
   return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
 }
 
+// Slices an already-filtered/sorted array down to one page's worth of rows.
+// Every list view in this console loads its full (already small-ish, staff-
+// facing) dataset up front — client-side slicing keeps pagination
+// consistent with the existing tab/search/status filters, which all operate
+// on the full in-memory list before this runs.
+function paginate<T>(items: T[], page: number, pageSize: number): T[] {
+  const start = (page - 1) * pageSize;
+  return items.slice(start, start + pageSize);
+}
+
+// Clamps a requested page number into [1, totalPages] so switching tabs/
+// filters (which can shrink the result set) never strands the view on a
+// page that no longer has any rows.
+function clampPage(page: number, totalPages: number): number {
+  return Math.min(Math.max(page, 1), Math.max(totalPages, 1));
+}
+
+function PaginationControls({
+  page,
+  totalPages,
+  onChange,
+  totalItems,
+  pageSize,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+  totalItems: number;
+  pageSize: number;
+}) {
+  if (totalItems === 0 || totalPages <= 1) return null;
+  const safePage = clampPage(page, totalPages);
+  const rangeStart = (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, totalItems);
+  return (
+    <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
+      <span className="text-[11px] text-muted-foreground font-mono">
+        {rangeStart}–{rangeEnd} / {totalItems}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={safePage <= 1}
+          onClick={() => onChange(safePage - 1)}
+          className="text-[11px] font-bold px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          ‹ Trước
+        </button>
+        <span className="text-[11px] font-mono text-muted-foreground px-1.5">
+          Trang {safePage}/{totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={safePage >= totalPages}
+          onClick={() => onChange(safePage + 1)}
+          className="text-[11px] font-bold px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          Sau ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const PAGE_SIZE = 10;
+const CARD_PAGE_SIZE = 8; // for grid-of-cards views (Subscriptions, day/week groups)
+
 export default function AdminDashboard() {
+  const { toast } = useToast();
   const [token, setToken] = React.useState<string | null>(null);
   const [user, setUser] = React.useState<any | null>(null);
+
+  // In-app replacement for window.confirm — every destructive/important
+  // action routes through requestConfirm() instead, which opens the same
+  // styled modal used elsewhere in this console rather than a native
+  // browser dialog. onConfirm runs only if the user clicks the confirm
+  // button; dismissing (backdrop click / Hủy) just closes it.
+  const [confirmState, setConfirmState] = React.useState<{
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "default" | "destructive";
+    onConfirm: () => void;
+  } | null>(null);
+
+  const requestConfirm = React.useCallback(
+    (
+      message: string,
+      onConfirm: () => void,
+      opts?: { title?: string; confirmLabel?: string; variant?: "default" | "destructive" },
+    ) => {
+      setConfirmState({ message, onConfirm, title: opts?.title, confirmLabel: opts?.confirmLabel, variant: opts?.variant });
+    },
+    [],
+  );
 
   // Authentication Fields
   const [loginEmail, setLoginEmail] = React.useState("");
@@ -134,9 +290,14 @@ export default function AdminDashboard() {
   const [categories, setCategories] = React.useState<any[]>([]);
   const [subscriptions, setSubscriptions] = React.useState<any[]>([]);
   const [deliveries, setDeliveries] = React.useState<any[]>([]); // unified Order+Subscription entries
+  // Subscription-generated deliveries shown as their own group within the
+  // Orders tab (they're backed by the Delivery model, not Order, but still
+  // need to be visible/actionable — accepted, completed, cancelled — right
+  // alongside one-off orders). Filtered client-side from the same unified
+  // endpoint the Deliveries tab already uses.
+  const [subscriptionOrders, setSubscriptionOrders] = React.useState<any[]>([]);
   const [deliveryView, setDeliveryView] = React.useState<"all" | "upcoming">("all");
-  const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"week" | "month">("week");
-  const [upcomingGroups, setUpcomingGroups] = React.useState<any[]>([]);
+  const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"day" | "week" | "month">("day");
   // Deliveries tab filters — apply to both "Tất cả" (grouped by day) and
   // "Sắp tới" (grouped by week/month) views.
   const [deliverySourceFilter, setDeliverySourceFilter] = React.useState<"ALL" | "ORDER" | "SUBSCRIPTION">("ALL");
@@ -144,6 +305,20 @@ export default function AdminDashboard() {
   const [deliverySearch, setDeliverySearch] = React.useState("");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
+
+  // --- Pagination state — one page counter per list view. Every list here
+  // is small-ish and already loaded in full for client-side tab/search
+  // filtering, so pagination is a display-only slice (see paginate()) that
+  // clamps back to a valid page whenever a filter shrinks the result set.
+  const [ordersPage, setOrdersPage] = React.useState(1);
+  const [subOrdersPage, setSubOrdersPage] = React.useState(1);
+  const [customersPage, setCustomersPage] = React.useState(1);
+  const [deliveriesAllPage, setDeliveriesAllPage] = React.useState(1);
+  const [deliveriesUpcomingPage, setDeliveriesUpcomingPage] = React.useState(1);
+  const [subscriptionsPage, setSubscriptionsPage] = React.useState(1);
+  const [discountsPage, setDiscountsPage] = React.useState(1);
+  const [menuPageByProtein, setMenuPageByProtein] = React.useState<Record<string, number>>({});
+  const [inventoryPageByProtein, setInventoryPageByProtein] = React.useState<Record<string, number>>({});
 
   // Loading States
   const [isLoading, setIsLoading] = React.useState(false);
@@ -181,6 +356,18 @@ export default function AdminDashboard() {
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
 
+  // Jump back to page 1 whenever a filter/tab/search change would otherwise
+  // leave the paginated table showing a stale, filter-mismatched page.
+  React.useEffect(() => {
+    setOrdersPage(1);
+    setSubOrdersPage(1);
+  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch]);
+
+  React.useEffect(() => {
+    setDeliveriesAllPage(1);
+    setDeliveriesUpcomingPage(1);
+  }, [deliverySourceFilter, deliveryStatusFilter, deliverySearch, deliveryGroupBy]);
+
   // --- Subscription form state (volume-based: one or more protein pools +
   // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
   const [subModal, setSubModal] = React.useState<"create" | null>(null);
@@ -190,9 +377,10 @@ export default function AdminDashboard() {
   const [topUpModal, setTopUpModal] = React.useState<{ subId: string; protein: Protein; grams: number } | null>(null);
   const [subCustomerId, setSubCustomerId] = React.useState("");
   const [subPackageName, setSubPackageName] = React.useState("");
-  const [subPools, setSubPools] = React.useState<{ protein: Protein; kg: number }[]>([]);
+  const [subPools, setSubPools] = React.useState<{ protein: Protein; sizeGrams: number; qty: number }[]>([]);
   const [subPoolProtein, setSubPoolProtein] = React.useState<Protein>("CHICKEN");
-  const [subPoolKg, setSubPoolKg] = React.useState(10);
+  const [subPoolSizeGrams, setSubPoolSizeGrams] = React.useState(150);
+  const [subPoolQty, setSubPoolQty] = React.useState(10);
   const [subDeliveryAmountGrams, setSubDeliveryAmountGrams] = React.useState(1000);
   const [subDeliveryIntervalDays, setSubDeliveryIntervalDays] = React.useState(1);
   const [subStartDate, setSubStartDate] = React.useState(getLocalDateString());
@@ -254,12 +442,12 @@ export default function AdminDashboard() {
     (responses: { status: number }[]) => {
       if (responses.some((r) => r.status === 401)) {
         handleLogout();
-        alert("Your session has expired — please log in again.");
+        toast({ title: "Your session has expired — please log in again.", type: "error" });
         return true;
       }
       return false;
     },
-    [handleLogout],
+    [handleLogout, toast],
   );
 
   const loadData = React.useCallback(async () => {
@@ -279,18 +467,23 @@ export default function AdminDashboard() {
         }
         if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
       } else if (section === "orders") {
-        const [resOrders, resCustomers, resMenu] = await Promise.all([
+        const [resOrders, resCustomers, resMenu, resUnified] = await Promise.all([
           fetch(`${API_URL}/orders`, { headers }),
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/deliveries/unified`, { headers }),
         ]);
-        if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
+        if (handleUnauthorized([resOrders, resCustomers, resMenu, resUnified])) return;
         if (resOrders.ok) setOrders((await resOrders.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
           if (menuData.length > 0) setOrderSelectedMenuItemId((prev) => prev || menuData[0].id);
+        }
+        if (resUnified.ok) {
+          const unified = (await resUnified.json()).data || [];
+          setSubscriptionOrders(unified.filter((e: any) => e.source === "SUBSCRIPTION"));
         }
       } else if (section === "customers") {
         const res = await fetch(`${API_URL}/customers`, { headers });
@@ -302,17 +495,15 @@ export default function AdminDashboard() {
       } else if (section === "deliveries") {
         // Pull the rolling 7-day-ahead window forward before displaying,
         // so newly-due subscription occurrences show up without staff
-        // having to wait for some external cron to run.
+        // having to wait for some external cron to run. Both "Tất cả" and
+        // "Sắp tới" are now derived client-side from this one unified list
+        // (see filteredUpcomingGroups) so both views group by the exact
+        // same day/week/month logic — no more risk of the two tabs
+        // disagreeing about where a day boundary falls.
         await fetch(`${API_URL}/subscriptions/sync-deliveries`, { method: "POST", headers });
-        if (deliveryView === "upcoming") {
-          const res = await fetch(`${API_URL}/deliveries/upcoming?groupBy=${deliveryGroupBy}`, { headers });
-          if (handleUnauthorized([res])) return;
-          if (res.ok) setUpcomingGroups((await res.json()).data || []);
-        } else {
-          const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
-          if (handleUnauthorized([res])) return;
-          if (res.ok) setDeliveries((await res.json()).data || []);
-        }
+        const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
+        if (handleUnauthorized([res])) return;
+        if (res.ok) setDeliveries((await res.json()).data || []);
       } else if (section === "menu") {
         const [resMenu, resCat] = await Promise.all([
           fetch(`${API_URL}/menu/admin`, { headers }),
@@ -358,7 +549,7 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL, deliveryView, deliveryGroupBy, handleUnauthorized]);
+  }, [token, section, API_URL, handleUnauthorized]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -416,13 +607,13 @@ export default function AdminDashboard() {
 
       const result = await res.json();
       if (!res.ok) {
-        alert(result.message || "Invalid credentials");
+        toast({ title: result.message || "Invalid credentials", type: "error" });
         return;
       }
 
       const loggedUser = result.data.user;
       if (loggedUser.role === "CUSTOMER") {
-        alert("Access Denied: Only admin staff profiles can log in.");
+        toast({ title: "Access Denied: Only admin staff profiles can log in.", type: "error" });
         return;
       }
 
@@ -432,7 +623,7 @@ export default function AdminDashboard() {
       localStorage.setItem("fka_user", JSON.stringify(loggedUser));
     } catch (err) {
       console.error(err);
-      alert("Could not connect to authentication server");
+      toast({ title: "Could not connect to authentication server", type: "error" });
     } finally {
       setIsLoggingIn(false);
     }
@@ -469,14 +660,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("Xóa đơn hàng này?")) return;
-    try {
-      const res = await fetch(`${API_URL}/orders/${orderId}`, { method: "DELETE", headers: authHeaders() });
-      if (res.ok) loadData();
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteOrder = (orderId: string) => {
+    requestConfirm(
+      "Xóa đơn hàng này?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/orders/${orderId}`, { method: "DELETE", headers: authHeaders() });
+          if (res.ok) loadData();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   // --- Customers CRUD ---
@@ -518,21 +714,26 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to save customer");
+        toast({ title: error.message || "Failed to save customer", type: "error" });
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteCustomer = async (id: string) => {
-    if (!confirm("Xóa khách hàng này? Đơn hàng/gói đăng ký liên quan sẽ không bị xóa.")) return;
-    try {
-      const res = await fetch(`${API_URL}/customers/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (res.ok) loadData();
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteCustomer = (id: string) => {
+    requestConfirm(
+      "Xóa khách hàng này? Đơn hàng/gói đăng ký liên quan sẽ không bị xóa.",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/customers/${id}`, { method: "DELETE", headers: authHeaders() });
+          if (res.ok) loadData();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   // --- Order line-item builder (shared UX pattern with Subscriptions) ---
@@ -580,8 +781,8 @@ export default function AdminDashboard() {
 
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderCustomerId) { alert("Vui lòng chọn khách hàng"); return; }
-    if (orderLineItems.length === 0) { alert("Vui lòng thêm ít nhất 1 món"); return; }
+    if (!orderCustomerId) { toast({ title: "Vui lòng chọn khách hàng", type: "error" }); return; }
+    if (orderLineItems.length === 0) { toast({ title: "Vui lòng thêm ít nhất 1 món", type: "error" }); return; }
     try {
       const payload = {
         customerId: orderCustomerId,
@@ -598,7 +799,7 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to save order");
+        toast({ title: error.message || "Failed to save order", type: "error" });
       }
     } catch (err) {
       console.error(err);
@@ -606,19 +807,33 @@ export default function AdminDashboard() {
   };
 
   // --- Subscription pool builder + schedule/price preview ---
+  // Sizes available for the currently-selected protein, drawn from real
+  // available MenuItem SKUs (e.g. 150g, 250g) — no free-typed kilograms.
+  const subPoolAvailableSizes = Array.from(
+    new Set(
+      menuItems
+        .filter((m) => m.isAvailable && m.protein === subPoolProtein)
+        .map((m) => m.sizeGrams as number),
+    ),
+  ).sort((a, b) => a - b);
+
   const addSubPool = () => {
-    if (subPoolKg <= 0) return;
+    if (subPoolQty <= 0 || !subPoolSizeGrams) return;
     setSubPools((prev) => {
-      const existing = prev.find((p) => p.protein === subPoolProtein);
+      const existing = prev.find((p) => p.protein === subPoolProtein && p.sizeGrams === subPoolSizeGrams);
       if (existing) {
-        return prev.map((p) => (p.protein === subPoolProtein ? { ...p, kg: p.kg + subPoolKg } : p));
+        return prev.map((p) =>
+          p.protein === subPoolProtein && p.sizeGrams === subPoolSizeGrams
+            ? { ...p, qty: p.qty + subPoolQty }
+            : p,
+        );
       }
-      return [...prev, { protein: subPoolProtein, kg: subPoolKg }];
+      return [...prev, { protein: subPoolProtein, sizeGrams: subPoolSizeGrams, qty: subPoolQty }];
     });
-    setSubPoolKg(10);
+    setSubPoolQty(10);
   };
 
-  const subTotalGrams = subPools.reduce((sum, p) => sum + p.kg * 1000, 0);
+  const subTotalGrams = subPools.reduce((sum, p) => sum + p.sizeGrams * p.qty, 0);
   const subSchedulePreview =
     subTotalGrams > 0 && subDeliveryAmountGrams > 0 && subDeliveryIntervalDays > 0
       ? generateVolumeSchedule(subStartDate, subDeliveryAmountGrams, subDeliveryIntervalDays, subTotalGrams)
@@ -626,7 +841,7 @@ export default function AdminDashboard() {
   const subPricing =
     subPools.length > 0
       ? calculatePoolPricing(
-          subPools.map((p) => ({ protein: p.protein, totalGrams: p.kg * 1000 })),
+          subPools.map((p) => ({ protein: p.protein, sizeGrams: p.sizeGrams, qty: p.qty })),
           menuItems.filter((m) => m.isAvailable),
         )
       : null;
@@ -636,7 +851,8 @@ export default function AdminDashboard() {
     setSubPackageName("");
     setSubPools([]);
     setSubPoolProtein("CHICKEN");
-    setSubPoolKg(10);
+    setSubPoolSizeGrams(150);
+    setSubPoolQty(10);
     setSubDeliveryAmountGrams(1000);
     setSubDeliveryIntervalDays(1);
     setSubStartDate(getLocalDateString());
@@ -645,14 +861,22 @@ export default function AdminDashboard() {
 
   const handleCreateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subCustomerId) { alert("Vui lòng chọn khách hàng"); return; }
-    if (!subPackageName.trim()) { alert("Vui lòng nhập tên gói"); return; }
-    if (subPools.length === 0) { alert("Vui lòng thêm ít nhất 1 loại protein"); return; }
+    if (!subCustomerId) { toast({ title: "Vui lòng chọn khách hàng", type: "error" }); return; }
+    if (!subPackageName.trim()) { toast({ title: "Vui lòng nhập tên gói", type: "error" }); return; }
+    if (subPools.length === 0) { toast({ title: "Vui lòng thêm ít nhất 1 loại protein", type: "error" }); return; }
     try {
+      // Group flat (protein, sizeGrams, qty) entries back into one pool per
+      // protein with a list of portion selections, matching the API's DTO.
+      const poolsByProtein = new Map<Protein, { sizeGrams: number; qty: number }[]>();
+      for (const p of subPools) {
+        const list = poolsByProtein.get(p.protein) ?? [];
+        list.push({ sizeGrams: p.sizeGrams, qty: p.qty });
+        poolsByProtein.set(p.protein, list);
+      }
       const payload = {
         customerId: subCustomerId,
         packageName: subPackageName,
-        pools: subPools.map((p) => ({ protein: p.protein, totalGrams: Math.round(p.kg * 1000) })),
+        pools: Array.from(poolsByProtein.entries()).map(([protein, portions]) => ({ protein, portions })),
         deliveryAmountGrams: subDeliveryAmountGrams,
         deliveryIntervalDays: subDeliveryIntervalDays,
         startDate: subStartDate,
@@ -665,7 +889,7 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to create subscription");
+        toast({ title: error.message || "Failed to create subscription", type: "error" });
       }
     } catch (err) {
       console.error(err);
@@ -685,14 +909,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteSubscription = async (subId: string) => {
-    if (!confirm("Xóa gói đăng ký này? Toàn bộ lịch giao hàng sẽ bị xóa.")) return;
-    try {
-      const res = await fetch(`${API_URL}/subscriptions/${subId}`, { method: "DELETE", headers: authHeaders() });
-      if (res.ok) loadData();
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteSubscription = (subId: string) => {
+    requestConfirm(
+      "Xóa gói đăng ký này? Toàn bộ lịch giao hàng sẽ bị xóa.",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/subscriptions/${subId}`, { method: "DELETE", headers: authHeaders() });
+          if (res.ok) loadData();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   const handleOpenSubDetail = async (subId: string) => {
@@ -722,7 +951,7 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to top up pool");
+        toast({ title: error.message || "Failed to top up pool", type: "error" });
       }
     } catch (e) {
       console.error(e);
@@ -755,50 +984,58 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleMarkDelivered = async (entry: any) => {
-    if (!confirm("Xác nhận đã giao? Số lượng sẽ được trừ vào gói đăng ký.")) return;
-    if (entry.source === "ORDER") {
-      return handleUpdateUnifiedStatus(entry, "DELIVERED");
-    }
-    try {
-      const res = await fetch(`${API_URL}/deliveries/${entry.id}/deliver`, { method: "POST", headers: authHeaders() });
-      if (res.ok) loadData();
-      else {
-        const error = await res.json();
-        alert(error.message || "Failed to mark delivered");
+  const handleMarkDelivered = (entry: any) => {
+    requestConfirm("Xác nhận đã giao? Số lượng sẽ được trừ vào gói đăng ký.", async () => {
+      if (entry.source === "ORDER") {
+        await handleUpdateUnifiedStatus(entry, "DELIVERED");
+        return;
       }
-    } catch (e) {
-      console.error(e);
-    }
+      try {
+        const res = await fetch(`${API_URL}/deliveries/${entry.id}/deliver`, { method: "POST", headers: authHeaders() });
+        if (res.ok) loadData();
+        else {
+          const error = await res.json();
+          toast({ title: error.message || "Failed to mark delivered", type: "error" });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
   };
 
-  const handlePostponeDelivery = async (entry: any) => {
+  const handlePostponeDelivery = (entry: any) => {
     if (entry.source !== "SUBSCRIPTION") return;
-    if (!confirm("Hoãn lần giao này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.")) return;
-    try {
-      const res = await fetch(`${API_URL}/deliveries/${entry.id}/postpone`, { method: "POST", headers: authHeaders() });
-      if (res.ok) loadData();
-      else {
-        const error = await res.json();
-        alert(error.message || "Failed to postpone delivery");
+    requestConfirm("Hoãn lần giao này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.", async () => {
+      try {
+        const res = await fetch(`${API_URL}/deliveries/${entry.id}/postpone`, { method: "POST", headers: authHeaders() });
+        if (res.ok) loadData();
+        else {
+          const error = await res.json();
+          toast({ title: error.message || "Failed to postpone delivery", type: "error" });
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    });
   };
 
-  const handleDeleteDelivery = async (entry: any) => {
+  const handleDeleteDelivery = (entry: any) => {
     if (entry.source === "ORDER") {
-      alert("Xóa đơn hàng lẻ trong tab Orders dispatcher.");
+      toast({ title: "Xóa đơn hàng lẻ trong tab Orders dispatcher.", type: "default" });
       return;
     }
-    if (!confirm("Xóa lần giao này?")) return;
-    try {
-      const res = await fetch(`${API_URL}/deliveries/${entry.id}`, { method: "DELETE", headers: authHeaders() });
-      if (res.ok) loadData();
-    } catch (e) {
-      console.error(e);
-    }
+    requestConfirm(
+      "Xóa lần giao này?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/deliveries/${entry.id}`, { method: "DELETE", headers: authHeaders() });
+          if (res.ok) loadData();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   // Create or Update Menu Item
@@ -834,7 +1071,7 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to save menu item");
+        toast({ title: error.message || "Failed to save menu item", type: "error" });
       }
     } catch (err) {
       console.error(err);
@@ -842,19 +1079,24 @@ export default function AdminDashboard() {
   };
 
   // Delete Menu Item
-  const handleDeleteMenuItem = async (itemId: string) => {
-    if (!confirm("Are you sure you want to delete this menu item?")) return;
-    try {
-      const res = await fetch(`${API_URL}/menu/${itemId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        loadData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteMenuItem = (itemId: string) => {
+    requestConfirm(
+      "Are you sure you want to delete this menu item?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/menu/${itemId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            loadData();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   const handleEditMenuItemTrigger = (item: any) => {
@@ -902,7 +1144,7 @@ export default function AdminDashboard() {
         setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, stockQuantity: updated.stockQuantity } : m)));
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to adjust stock");
+        toast({ title: error.message || "Failed to adjust stock", type: "error" });
       }
     } catch (e) {
       console.error(e);
@@ -934,7 +1176,7 @@ export default function AdminDashboard() {
         setAddStockQty(10);
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to add stock");
+        toast({ title: error.message || "Failed to add stock", type: "error" });
       }
     } catch (e) {
       console.error(e);
@@ -969,31 +1211,73 @@ export default function AdminDashboard() {
         loadData();
       } else {
         const error = await res.json();
-        alert(error.message || "Failed to create discount code");
+        toast({ title: error.message || "Failed to create discount code", type: "error" });
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteDiscount = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this discount code?")) return;
-    try {
-      const res = await fetch(`${API_URL}/discounts/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        loadData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteDiscount = (id: string) => {
+    requestConfirm(
+      "Are you sure you want to delete this discount code?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/discounts/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            loadData();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
   };
 
   const formatVND = (num: number) => {
     return `${num.toLocaleString()} ₫`;
   };
+
+  // One-off Orders — filtered + sorted the same way the table below used to
+  // do inline, pulled out here so it can be paginated.
+  const filteredOrders = orders
+    .filter((o) => {
+      if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
+      if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
+      if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
+      if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
+      if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
+      if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
+  // Grouped by delivery date — same day-card pattern the Deliveries tab
+  // uses, via the same shared groupEntriesByDate helper, so "grouped by
+  // date" means the same thing everywhere in this console.
+  const orderDayGroups = groupEntriesByDate(filteredOrders, (o) => o.deliveryDate, "day");
+  const ordersTotalPages = Math.ceil(orderDayGroups.length / CARD_PAGE_SIZE) || 1;
+  const pagedOrderDayGroups = paginate(orderDayGroups, clampPage(ordersPage, ordersTotalPages), CARD_PAGE_SIZE);
+
+  // Orders tab: subscription-generated deliveries filtered by the same
+  // Current/Completed/Cancelled tab + search box used for one-off orders,
+  // so switching tabs/searching behaves consistently across both groups.
+  const filteredSubscriptionOrders = subscriptionOrders
+    .filter((d) => {
+      if (orderViewTab === "completed") return d.status === "DELIVERED";
+      if (orderViewTab === "cancelled") return d.status === "CANCELLED";
+      if (d.status === "DELIVERED" || d.status === "CANCELLED") return false;
+      if (orderStatusFilter !== "ALL" && d.status !== orderStatusFilter) return false;
+      if (orderSearch.trim() && !d.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
+  const subOrderDayGroups = groupEntriesByDate(filteredSubscriptionOrders, (d) => d.scheduledDate, "day");
+  const subOrdersTotalPages = Math.ceil(subOrderDayGroups.length / CARD_PAGE_SIZE) || 1;
+  const pagedSubOrderDayGroups = paginate(subOrderDayGroups, clampPage(subOrdersPage, subOrdersTotalPages), CARD_PAGE_SIZE);
 
   // Shared filter predicate for the Deliveries tab — applies identically to
   // the "Tất cả" (day-grouped) and "Sắp tới" (week/month-grouped) views so
@@ -1011,21 +1295,41 @@ export default function AdminDashboard() {
   // scrolling one long table — same grouping shape as the "Sắp tới" view's
   // week/month groups, just at day granularity.
   const filteredDeliveriesAll = deliveries.filter(matchesDeliveryFilters);
-  const deliveryDayGroups = (() => {
-    const map = new Map<string, any[]>();
-    for (const d of filteredDeliveriesAll) {
-      const key = getLocalDateString(new Date(d.scheduledDate));
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(d);
-    }
-    return Array.from(map.entries())
-      .map(([date, entries]) => ({
-        date,
-        entries,
-        totalGrams: entries.reduce((s, e) => s + (e.totalGrams || 0), 0),
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date)); // oldest day first
-  })();
+  const deliveryDayGroups = groupEntriesByDate(filteredDeliveriesAll, (d) => d.scheduledDate, "day").map((g) => ({
+    date: g.key,
+    entries: g.entries,
+    totalGrams: g.entries.reduce((s, e: any) => s + (e.totalGrams || 0), 0),
+  }));
+  const deliveriesAllTotalPages = Math.ceil(deliveryDayGroups.length / CARD_PAGE_SIZE) || 1;
+  const pagedDeliveryDayGroups = paginate(
+    deliveryDayGroups,
+    clampPage(deliveriesAllPage, deliveriesAllTotalPages),
+    CARD_PAGE_SIZE,
+  );
+
+  // "Sắp tới" (upcoming) view — derived from the exact same unified
+  // `deliveries` list "Tất cả" uses (filtered to today-onward, non-terminal
+  // status, plus the shared search/source/status filters), then bucketed
+  // with the same groupEntriesByDate helper. Previously this view fetched
+  // its own server-grouped data from a separate endpoint, which could
+  // disagree with "Tất cả" about where a day boundary falls; computing both
+  // from one shared list/function guarantees they always agree.
+  const upcomingCutoff = new Date();
+  upcomingCutoff.setHours(0, 0, 0, 0);
+  const upcomingEntries = deliveries.filter(
+    (d) =>
+      new Date(d.scheduledDate) >= upcomingCutoff &&
+      d.status !== "CANCELLED" &&
+      d.status !== "DELIVERED" &&
+      matchesDeliveryFilters(d),
+  );
+  const filteredUpcomingGroups = groupEntriesByDate(upcomingEntries, (d) => d.scheduledDate, deliveryGroupBy);
+  const deliveriesUpcomingTotalPages = Math.ceil(filteredUpcomingGroups.length / CARD_PAGE_SIZE) || 1;
+  const pagedUpcomingGroups = paginate(
+    filteredUpcomingGroups,
+    clampPage(deliveriesUpcomingPage, deliveriesUpcomingTotalPages),
+    CARD_PAGE_SIZE,
+  );
 
   // Render Login state if not authenticated
   if (!token) {
@@ -1429,136 +1733,257 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left">
-                        <thead>
-                          <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                            <th className="pb-3 font-semibold">Ngày giao</th>
-                            <th className="pb-3 font-semibold">Khách hàng</th>
-                            <th className="pb-3 font-semibold">Số phần</th>
-                            <th className="pb-3 font-semibold">Tổng tiền</th>
-                            <th className="pb-3 font-semibold">Fulfillment</th>
-                            <th className="pb-3 font-semibold">Thanh toán</th>
-                            <th className="pb-3 font-semibold">Trạng thái</th>
-                            <th className="pb-3 font-semibold text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders
-                            .filter((o) => {
-                              if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
-                              if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
-                              // "current" = anything not completed/cancelled
-                              if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
-                              if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
-                              if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
-                              if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
-                              return true;
-                            })
-                            .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
-                            .map((o) => (
-                            <tr
-                              key={o.id}
-                              onClick={() => setOrderDetailView(o)}
-                              className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
-                            >
-                              <td className="py-4 text-muted-foreground">
-                                {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
-                              </td>
-                              <td className="py-4">
-                                <div className="font-bold">{o.customerName}</div>
-                                {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
-                              </td>
-                              <td className="py-4 text-muted-foreground">
-                                {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
-                              </td>
-                              <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
-                              <td className="py-4">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                    o.fulfillmentType === "IMMEDIATE"
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
-                                >
-                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
-                                </span>
-                              </td>
-                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={o.paymentStatus}
-                                  onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                >
-                                  {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                              </td>
-                              <td className="py-4">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                    o.deliveryStatus === "PREPPING"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : o.deliveryStatus === "DELIVERED"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : o.deliveryStatus === "CANCELLED"
-                                          ? "bg-red-50 text-red-700 border-red-200"
-                                          : o.deliveryStatus === "SKIPPED"
-                                            ? "bg-muted text-muted-foreground border-border"
-                                            : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
-                                >
-                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
-                                </span>
-                              </td>
-                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex justify-center items-center gap-2 flex-wrap">
-                                  {o.deliveryStatus === "SCHEDULED" && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
-                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
-                                    >
-                                      Accept Order
-                                    </button>
-                                  )}
-                                  {o.deliveryStatus === "PREPPING" && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
-                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
-                                    >
-                                      Mark Completed
-                                    </button>
-                                  )}
-                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
-                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
-                                    >
-                                      Cancel
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleEditOrderTrigger(o)}
-                                    className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
-                                    title="Edit"
-                                  >
-                                    <Edit2 className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteOrder(o.id)}
-                                    className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  {orderDayGroups.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                      Không có đơn hàng nào khớp bộ lọc
                     </div>
+                  ) : (
+                    pagedOrderDayGroups.map((group) => (
+                      <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                            {formatGroupKeyLabel(group.key, "day")}
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                <th className="pb-3 font-semibold">Khách hàng</th>
+                                <th className="pb-3 font-semibold">Số phần</th>
+                                <th className="pb-3 font-semibold">Tổng tiền</th>
+                                <th className="pb-3 font-semibold">Fulfillment</th>
+                                <th className="pb-3 font-semibold">Thanh toán</th>
+                                <th className="pb-3 font-semibold">Trạng thái</th>
+                                <th className="pb-3 font-semibold text-center">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.entries.map((o: any) => (
+                                <tr
+                                  key={o.id}
+                                  onClick={() => setOrderDetailView(o)}
+                                  className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
+                                >
+                                  <td className="py-4">
+                                    <div className="font-bold">{o.customerName}</div>
+                                    {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
+                                  </td>
+                                  <td className="py-4 text-muted-foreground">
+                                    {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
+                                  </td>
+                                  <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
+                                  <td className="py-4">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                        o.fulfillmentType === "IMMEDIATE"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                          : "bg-amber-50 text-amber-700 border-amber-200"
+                                      }`}
+                                    >
+                                      {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                    </span>
+                                  </td>
+                                  <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                                    <select
+                                      value={o.paymentStatus}
+                                      onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
+                                      className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                    >
+                                      {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="py-4">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                        o.deliveryStatus === "PREPPING"
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : o.deliveryStatus === "DELIVERED"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : o.deliveryStatus === "CANCELLED"
+                                              ? "bg-red-50 text-red-700 border-red-200"
+                                              : o.deliveryStatus === "SKIPPED"
+                                                ? "bg-muted text-muted-foreground border-border"
+                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                      }`}
+                                    >
+                                      {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                    </span>
+                                  </td>
+                                  <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex justify-center items-center gap-2 flex-wrap">
+                                      {o.deliveryStatus === "SCHEDULED" && (
+                                        <button
+                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
+                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          Accept Order
+                                        </button>
+                                      )}
+                                      {o.deliveryStatus === "PREPPING" && (
+                                        <button
+                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
+                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                        >
+                                          Mark Completed
+                                        </button>
+                                      )}
+                                      {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
+                                        <button
+                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
+                                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                        >
+                                          Cancel
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleEditOrderTrigger(o)}
+                                        className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                        title="Edit"
+                                      >
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteOrder(o.id)}
+                                        className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <PaginationControls
+                    page={ordersPage}
+                    totalPages={ordersTotalPages}
+                    totalItems={orderDayGroups.length}
+                    pageSize={CARD_PAGE_SIZE}
+                    onChange={setOrdersPage}
+                  />
+
+                  {/* Orders generated from Subscriptions — a separate group
+                      from the one-off Order rows above (these are Delivery
+                      rows, not Order rows), so staff can still monitor and
+                      action them from the Orders view. Accepting/completing/
+                      cancelling and postponing route through the same
+                      unified handlers the Deliveries tab uses; "Mark
+                      Completed" goes through markDelivered, which deducts
+                      the delivered amount from the subscription's pool. */}
+                  <div className="flex justify-between items-center pt-4">
+                    <h3 className="text-sm font-bold font-heading">
+                      Orders from Subscriptions ({filteredSubscriptionOrders.length})
+                    </h3>
                   </div>
+
+                  {subOrderDayGroups.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                      Không có đơn nào từ gói đăng ký khớp bộ lọc
+                    </div>
+                  ) : (
+                    pagedSubOrderDayGroups.map((group) => (
+                      <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                            {formatGroupKeyLabel(group.key, "day")}
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                <th className="pb-3 font-semibold">Khách hàng</th>
+                                <th className="pb-3 font-semibold">Gói đăng ký</th>
+                                <th className="pb-3 font-semibold">Khối lượng</th>
+                                <th className="pb-3 font-semibold">Trạng thái</th>
+                                <th className="pb-3 font-semibold text-center">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.entries.map((d: any) => (
+                                <tr key={d.id} className="border-b border-border/20 last:border-0 align-top">
+                                  <td className="py-4">
+                                    <div className="font-bold">{d.customerName}</div>
+                                  </td>
+                                  <td className="py-4 text-primary font-semibold">{d.packageName}</td>
+                                  <td className="py-4 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                  <td className="py-4">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                        d.status === "PREPPING"
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : d.status === "DELIVERED"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : d.status === "CANCELLED"
+                                              ? "bg-red-50 text-red-700 border-red-200"
+                                              : d.status === "SKIPPED"
+                                                ? "bg-muted text-muted-foreground border-border"
+                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                      }`}
+                                    >
+                                      {ORDER_STATUS_LABELS[d.status] || d.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-4">
+                                    <div className="flex justify-center items-center gap-2 flex-wrap">
+                                      {d.status === "SCHEDULED" && (
+                                        <button
+                                          onClick={() => handleUpdateUnifiedStatus(d, "PREPPING")}
+                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                        >
+                                          Accept Order
+                                        </button>
+                                      )}
+                                      {d.status === "PREPPING" && (
+                                        <button
+                                          onClick={() => handleMarkDelivered(d)}
+                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                        >
+                                          Mark Completed
+                                        </button>
+                                      )}
+                                      {(d.status === "SCHEDULED" || d.status === "PREPPING") && (
+                                        <button
+                                          onClick={() => handleUpdateUnifiedStatus(d, "CANCELLED")}
+                                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                        >
+                                          Cancel
+                                        </button>
+                                      )}
+                                      {(d.status === "SCHEDULED" || d.status === "PREPPING") && (
+                                        <button
+                                          onClick={() => handlePostponeDelivery(d)}
+                                          title="Hoãn lần giao này (bảo lưu số lượng)"
+                                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border hover:bg-muted cursor-pointer whitespace-nowrap"
+                                        >
+                                          Hoãn
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <PaginationControls
+                    page={subOrdersPage}
+                    totalPages={subOrdersTotalPages}
+                    totalItems={subOrderDayGroups.length}
+                    pageSize={CARD_PAGE_SIZE}
+                    onChange={setSubOrdersPage}
+                  />
                 </div>
               )}
 
@@ -1588,7 +2013,7 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {customers.map((c) => (
+                          {paginate(customers, clampPage(customersPage, Math.ceil(customers.length / PAGE_SIZE) || 1), PAGE_SIZE).map((c) => (
                             <tr key={c.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold">{c.name}</td>
                               <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
@@ -1615,6 +2040,13 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
+                    <PaginationControls
+                      page={customersPage}
+                      totalPages={Math.ceil(customers.length / PAGE_SIZE) || 1}
+                      totalItems={customers.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setCustomersPage}
+                    />
                   </div>
                 </div>
               )}
@@ -1644,9 +2076,10 @@ export default function AdminDashboard() {
                       {deliveryView === "upcoming" && (
                         <select
                           value={deliveryGroupBy}
-                          onChange={(e) => setDeliveryGroupBy(e.target.value as "week" | "month")}
+                          onChange={(e) => setDeliveryGroupBy(e.target.value as "day" | "week" | "month")}
                           className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
                         >
+                          <option value="day">Theo ngày</option>
                           <option value="week">Theo tuần</option>
                           <option value="month">Theo tháng</option>
                         </select>
@@ -1691,7 +2124,7 @@ export default function AdminDashboard() {
                           Không có lịch giao nào khớp bộ lọc
                         </div>
                       ) : (
-                        deliveryDayGroups.map((group) => (
+                        pagedDeliveryDayGroups.map((group) => (
                           <div key={group.date} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
@@ -1777,56 +2210,118 @@ export default function AdminDashboard() {
                           </div>
                         ))
                       )}
+                      <PaginationControls
+                        page={deliveriesAllPage}
+                        totalPages={deliveriesAllTotalPages}
+                        totalItems={deliveryDayGroups.length}
+                        pageSize={CARD_PAGE_SIZE}
+                        onChange={setDeliveriesAllPage}
+                      />
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {upcomingGroups
-                        .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
-                        .filter((group) => group.entries.length > 0).length === 0 ? (
+                      {filteredUpcomingGroups.length === 0 ? (
                         <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
                           Không có lịch giao nào khớp bộ lọc
                         </div>
                       ) : (
-                        upcomingGroups
-                          .map((group) => ({ ...group, entries: group.entries.filter(matchesDeliveryFilters) }))
-                          .filter((group) => group.entries.length > 0)
-                          .map((group) => (
+                        pagedUpcomingGroups.map((group) => (
                           <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">{group.key}</h4>
+                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                                {formatGroupKeyLabel(group.key, deliveryGroupBy)}
+                              </h4>
                               <span className="text-[10px] text-muted-foreground font-mono">
-                                {group.entries.length} lần giao ·{" "}
-                                {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
+                                {group.entries.length} lần giao · {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
                               </span>
                             </div>
-                            <div className="space-y-2">
-                              {group.entries.map((d: any) => (
-                                <div
-                                  key={`${d.source}-${d.id}`}
-                                  className="flex items-center justify-between text-xs py-2 border-b border-border/20 last:border-0"
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-muted-foreground font-mono shrink-0">
-                                      {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
-                                    </span>
-                                    <span
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
-                                        d.source === "SUBSCRIPTION"
-                                          ? "bg-primary/10 text-primary border-primary/20"
-                                          : "bg-muted text-muted-foreground border-border"
-                                      }`}
-                                    >
-                                      {d.source === "SUBSCRIPTION" ? "Gói" : "Đơn"}
-                                    </span>
-                                    <span className="font-bold truncate">{d.customerName}</span>
-                                  </div>
-                                  <span className="font-mono text-muted-foreground shrink-0">{formatGrams(d.totalGrams)}</span>
-                                </div>
-                              ))}
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left">
+                                <thead>
+                                  <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                    <th className="pb-2 font-semibold">Ngày giao</th>
+                                    <th className="pb-2 font-semibold">Loại</th>
+                                    <th className="pb-2 font-semibold">Khách hàng</th>
+                                    <th className="pb-2 font-semibold">Gói / Món</th>
+                                    <th className="pb-2 font-semibold">Khối lượng</th>
+                                    <th className="pb-2 font-semibold">Trạng thái</th>
+                                    <th className="pb-2 font-semibold text-center">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.entries.map((d: any) => (
+                                    <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
+                                      <td className="py-3 text-muted-foreground">
+                                        {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
+                                      </td>
+                                      <td className="py-3">
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                            d.source === "SUBSCRIPTION"
+                                              ? "bg-primary/10 text-primary border-primary/20"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 font-bold">{d.customerName}</td>
+                                      <td className="py-3 text-primary font-semibold">
+                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                      </td>
+                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                      <td className="py-3">
+                                        <select
+                                          value={d.status}
+                                          onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                        >
+                                          {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </td>
+                                      <td className="py-3 text-center">
+                                        <div className="flex justify-center items-center gap-2">
+                                          {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handleMarkDelivered(d)}
+                                              title="Xác nhận đã giao"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                            >
+                                              Đã giao
+                                            </button>
+                                          )}
+                                          {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                            <button
+                                              onClick={() => handlePostponeDelivery(d)}
+                                              title="Hoãn lần giao này (bảo lưu số lượng)"
+                                              className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                            >
+                                              Hoãn
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleDeleteDelivery(d)}
+                                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         ))
                       )}
+                      <PaginationControls
+                        page={deliveriesUpcomingPage}
+                        totalPages={deliveriesUpcomingTotalPages}
+                        totalItems={filteredUpcomingGroups.length}
+                        pageSize={CARD_PAGE_SIZE}
+                        onChange={setDeliveriesUpcomingPage}
+                      />
                     </div>
                   )}
                 </div>
@@ -1850,6 +2345,9 @@ export default function AdminDashboard() {
 
                   {PROTEIN_OPTIONS.filter((p) => menuItems.some((item) => item.protein === p)).map((protein) => {
                     const dishes = groupMenuByFlavor(menuItems.filter((item) => item.protein === protein));
+                    const dishesTotalPages = Math.ceil(dishes.length / CARD_PAGE_SIZE) || 1;
+                    const dishesPage = clampPage(menuPageByProtein[protein] ?? 1, dishesTotalPages);
+                    const pagedDishes = paginate(dishes, dishesPage, CARD_PAGE_SIZE);
                     return (
                       <div key={protein} className="space-y-3">
                         <div className="flex items-center gap-2">
@@ -1860,7 +2358,7 @@ export default function AdminDashboard() {
                           <div className="flex-1 border-t border-border/60" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                          {dishes.map((dish) => {
+                          {pagedDishes.map((dish) => {
                             const dishKey = `${dish.protein}::${dish.flavor}`;
                             const selectedId = menuSelectedSizeByDish[dishKey];
                             const item = dish.sizes.find((s: any) => s.id === selectedId) ?? dish.sizes[0];
@@ -1952,6 +2450,13 @@ export default function AdminDashboard() {
                             );
                           })}
                         </div>
+                        <PaginationControls
+                          page={dishesPage}
+                          totalPages={dishesTotalPages}
+                          totalItems={dishes.length}
+                          pageSize={CARD_PAGE_SIZE}
+                          onChange={(p) => setMenuPageByProtein((prev) => ({ ...prev, [protein]: p }))}
+                        />
                       </div>
                     );
                   })}
@@ -2025,6 +2530,9 @@ export default function AdminDashboard() {
                               const diff = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
                               return inventorySort === "stock-asc" ? diff : -diff;
                             });
+                          const itemsTotalPages = Math.ceil(items.length / PAGE_SIZE) || 1;
+                          const itemsPage = clampPage(inventoryPageByProtein[protein] ?? 1, itemsTotalPages);
+                          const pagedItems = paginate(items, itemsPage, PAGE_SIZE);
                           return (
                             <div key={protein} className="space-y-2">
                               <div className="flex items-center gap-2">
@@ -2046,7 +2554,7 @@ export default function AdminDashboard() {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {items.map((item) => (
+                                      {pagedItems.map((item) => (
                                         <tr key={item.id} className="border-b border-border/20 last:border-0">
                                           <td className="py-3 font-bold">{item.flavor}</td>
                                           <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
@@ -2074,6 +2582,13 @@ export default function AdminDashboard() {
                                     </tbody>
                                   </table>
                                 </div>
+                                <PaginationControls
+                                  page={itemsPage}
+                                  totalPages={itemsTotalPages}
+                                  totalItems={items.length}
+                                  pageSize={PAGE_SIZE}
+                                  onChange={(p) => setInventoryPageByProtein((prev) => ({ ...prev, [protein]: p }))}
+                                />
                               </div>
                             </div>
                           );
@@ -2156,7 +2671,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-2">
-                    {subscriptions.map((sub) => {
+                    {paginate(subscriptions, clampPage(subscriptionsPage, Math.ceil(subscriptions.length / CARD_PAGE_SIZE) || 1), CARD_PAGE_SIZE).map((sub) => {
                       const totalRemaining = (sub.pools || []).reduce((s: number, p: any) => s + p.remainingGrams, 0);
                       const totalPurchased = (sub.pools || []).reduce((s: number, p: any) => s + p.totalGrams, 0);
                       const pct = totalPurchased > 0 ? Math.round((totalRemaining / totalPurchased) * 100) : 0;
@@ -2245,6 +2760,13 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
+                  <PaginationControls
+                    page={subscriptionsPage}
+                    totalPages={Math.ceil(subscriptions.length / CARD_PAGE_SIZE) || 1}
+                    totalItems={subscriptions.length}
+                    pageSize={CARD_PAGE_SIZE}
+                    onChange={setSubscriptionsPage}
+                  />
                 </div>
               )}
 
@@ -2449,7 +2971,7 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {discounts.map((d) => (
+                          {paginate(discounts, clampPage(discountsPage, Math.ceil(discounts.length / PAGE_SIZE) || 1), PAGE_SIZE).map((d) => (
                             <tr key={d.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold tracking-wider">{d.code}</td>
                               <td className="py-3.5 text-muted-foreground">{d.type}</td>
@@ -2472,6 +2994,13 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
+                    <PaginationControls
+                      page={discountsPage}
+                      totalPages={Math.ceil(discounts.length / PAGE_SIZE) || 1}
+                      totalItems={discounts.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setDiscountsPage}
+                    />
                   </div>
                 </div>
               )}
@@ -2995,25 +3524,49 @@ export default function AdminDashboard() {
 
               <div className="border border-border rounded-xl p-4 space-y-3">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Khối lượng mua theo protein (kg)
+                  Mua theo số phần ăn (portion)
                 </label>
                 <div className="flex gap-2">
                   <select
                     value={subPoolProtein}
-                    onChange={(e) => setSubPoolProtein(e.target.value as Protein)}
+                    onChange={(e) => {
+                      const protein = e.target.value as Protein;
+                      setSubPoolProtein(protein);
+                      const sizes = Array.from(
+                        new Set(
+                          menuItems
+                            .filter((m) => m.isAvailable && m.protein === protein)
+                            .map((m) => m.sizeGrams as number),
+                        ),
+                      ).sort((a, b) => a - b);
+                      if (sizes.length > 0 && !sizes.includes(subPoolSizeGrams)) {
+                        setSubPoolSizeGrams(sizes[0]);
+                      }
+                    }}
                     className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
                   >
                     {PROTEIN_OPTIONS.map((p) => (
                       <option key={p} value={p}>{PROTEIN_LABELS[p]}</option>
                     ))}
                   </select>
+                  <select
+                    value={subPoolSizeGrams}
+                    onChange={(e) => setSubPoolSizeGrams(Number(e.target.value))}
+                    className="w-28 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  >
+                    {subPoolAvailableSizes.length === 0 && <option value={subPoolSizeGrams}>{subPoolSizeGrams}g</option>}
+                    {subPoolAvailableSizes.map((sz) => (
+                      <option key={sz} value={sz}>{sz}g</option>
+                    ))}
+                  </select>
                   <input
                     type="number"
-                    min={0.1}
-                    step={0.1}
-                    value={subPoolKg}
-                    onChange={(e) => setSubPoolKg(Number(e.target.value))}
-                    className="w-24 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    min={1}
+                    step={1}
+                    value={subPoolQty}
+                    onChange={(e) => setSubPoolQty(Number(e.target.value))}
+                    placeholder="Số phần"
+                    className="w-20 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
                   />
                   <button
                     type="button"
@@ -3023,12 +3576,17 @@ export default function AdminDashboard() {
                     Thêm
                   </button>
                 </div>
+                {subPoolAvailableSizes.length === 0 && (
+                  <p className="text-[11px] text-red-500">
+                    Chưa có món khả dụng cho {PROTEIN_LABELS[subPoolProtein]} — vui lòng thêm món trong Thực đơn trước.
+                  </p>
+                )}
 
                 {subPools.length > 0 && (
                   <div className="space-y-1.5 pt-1">
                     {subPools.map((p, idx) => (
                       <div key={idx} className="flex justify-between text-xs items-center">
-                        <span>{PROTEIN_LABELS[p.protein]} — {p.kg}kg</span>
+                        <span>{PROTEIN_LABELS[p.protein]} — {p.qty} phần x {p.sizeGrams}g</span>
                         <button
                           type="button"
                           onClick={() => setSubPools((prev) => prev.filter((_, i) => i !== idx))}
@@ -3041,12 +3599,12 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {subPricing && subPricing.missingProteins.length > 0 && (
+                {subPricing && subPricing.missingCombos.length > 0 && (
                   <p className="text-[11px] text-red-500">
-                    Chưa có món khả dụng cho: {subPricing.missingProteins.join(", ")}
+                    Chưa có món khả dụng cho: {subPricing.missingCombos.join(", ")}
                   </p>
                 )}
-                {subPricing && subPricing.missingProteins.length === 0 && subPools.length > 0 && (
+                {subPricing && subPricing.missingCombos.length === 0 && subPools.length > 0 && (
                   <div className="pt-2 border-t border-border/50 space-y-1 text-xs">
                     <div className="flex justify-between text-muted-foreground">
                       <span>Tạm tính ({(subTotalGrams / 1000).toFixed(1)}kg)</span>
@@ -3226,6 +3784,42 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* In-app confirm dialog — replaces window.confirm() everywhere in
+          this console (see requestConfirm above). */}
+      {confirmState && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
+          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+            <h3 className="text-sm font-bold font-heading">{confirmState.title || "Xác nhận"}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{confirmState.message}</p>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmState(null)}
+                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirmState.onConfirm;
+                  setConfirmState(null);
+                  action();
+                }}
+                className={`flex-1 text-xs font-bold py-2.5 rounded-xl cursor-pointer ${
+                  confirmState.variant === "destructive"
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-primary hover:bg-primary/95 text-primary-foreground"
+                }`}
+              >
+                {confirmState.confirmLabel || "Xác nhận"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -101,10 +101,12 @@ export class DeliveryService {
     return merged.slice(skip, skip + take);
   }
 
-  // Upcoming (today onward) entries grouped by ISO week or by month, for the
-  // "see upcoming deliveries for both normal and subscription orders,
-  // grouped into month or week" requirement.
-  async findUpcomingGrouped(groupBy: "week" | "month" = "week") {
+  // Upcoming (today onward) entries grouped by day, ISO week, or month, for
+  // the "see upcoming deliveries for both normal and subscription orders,
+  // grouped into day/week/month" requirement. Day grouping mirrors the same
+  // calendar-day bucketing the "Tất cả" tab uses client-side, so switching
+  // grouping granularity doesn't change what a "day" means.
+  async findUpcomingGrouped(groupBy: "day" | "week" | "month" = "week") {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -117,7 +119,9 @@ export class DeliveryService {
     for (const entry of upcoming) {
       const d = new Date(entry.scheduledDate);
       let key: string;
-      if (groupBy === "month") {
+      if (groupBy === "day") {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      } else if (groupBy === "month") {
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       } else {
         // ISO-ish week key: year + week number (Mon-start)
