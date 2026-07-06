@@ -1885,7 +1885,110 @@ export default function AdminDashboard() {
                           </h4>
                           <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
                         </div>
-                        <div className="overflow-x-auto">
+                        {/* Mobile cards view */}
+                        <div className="md:hidden space-y-3">
+                          {group.entries.map((o: any) => (
+                            <div
+                              key={o.id}
+                              onClick={() => setOrderDetailView(o)}
+                              className="border border-border bg-muted/10 p-4 rounded-xl space-y-3 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="font-bold text-foreground">{o.customerName}</div>
+                                  <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
+                                    {o.deliveryAddress && <span>📍 {o.deliveryAddress}</span>}
+                                    <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                  </div>
+                                </div>
+                                <span className="font-bold text-primary">{formatVND(o.total)}</span>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.deliveryStatus === "PREPPING"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : o.deliveryStatus === "DELIVERED"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : o.deliveryStatus === "CANCELLED"
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : o.deliveryStatus === "SKIPPED"
+                                            ? "bg-muted text-muted-foreground border-border"
+                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between border-t border-border/40 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                                <div className="space-y-1">
+                                  <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block">Thanh toán</span>
+                                  <select
+                                    value={o.paymentStatus}
+                                    onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
+                                    className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                  >
+                                    {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {o.deliveryStatus === "SCHEDULED" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Accept
+                                    </button>
+                                  )}
+                                  {o.deliveryStatus === "PREPPING" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Complete
+                                    </button>
+                                  )}
+                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
+                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditOrderTrigger(o)}
+                                    className="text-muted-foreground hover:text-primary p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                    title="Edit"
+                                  >
+                                    <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteOrder(o.id)}
+                                    className="text-muted-foreground hover:text-red-500 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                    title="Delete"
+                                  >
+                                    <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Desktop table view */}
+                        <div className="hidden md:block overflow-x-auto">
                           <table className="w-full text-xs text-left">
                             <thead>
                               <tr className="text-muted-foreground border-b border-border/50 pb-3">
@@ -1904,6 +2007,7 @@ export default function AdminDashboard() {
                                   key={o.id}
                                   onClick={() => setOrderDetailView(o)}
                                   className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
+                                  style={{ contentVisibility: 'auto' }}
                                 >
                                   <td className="py-4 text-xs">
                                     <div className="font-bold text-foreground">{o.customerName}</div>
@@ -2394,7 +2498,74 @@ export default function AdminDashboard() {
                                 {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
                               </span>
                             </div>
-                            <div className="overflow-x-auto">
+
+                            {/* Mobile cards view */}
+                            <div className="md:hidden space-y-3">
+                              {group.entries.map((d: any) => (
+                                <div key={`${d.source}-${d.id}`} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                            d.source === "SUBSCRIPTION"
+                                              ? "bg-primary/10 text-primary border-primary/20"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                        </span>
+                                        <span className="font-bold text-foreground">{d.customerName}</span>
+                                      </div>
+                                      <p className="text-primary font-semibold mt-1">
+                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                      </p>
+                                    </div>
+                                    <span className="font-mono text-muted-foreground font-semibold">{formatGrams(d.totalGrams)}</span>
+                                  </div>
+
+                                  <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block">Trạng thái</span>
+                                      <select
+                                        value={d.status}
+                                        onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                      >
+                                        {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                        <button
+                                          onClick={() => handleMarkDelivered(d)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                        >
+                                          Đã giao
+                                        </button>
+                                      )}
+                                      {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                        <button
+                                          onClick={() => handlePostponeDelivery(d)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                        >
+                                          Hoãn
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeleteDelivery(d)}
+                                        className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                      >
+                                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Desktop table view */}
+                            <div className="hidden md:block overflow-x-auto">
                               <table className="w-full text-xs text-left">
                                 <thead>
                                   <tr className="text-muted-foreground border-b border-border/50 pb-3">
