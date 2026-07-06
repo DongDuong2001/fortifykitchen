@@ -1816,92 +1816,46 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left">
-                        <thead>
-                          <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                            <th className="pb-3 font-semibold">Ngày giao</th>
-                            <th className="pb-3 font-semibold">Khách hàng</th>
-                            <th className="pb-3 font-semibold">Số phần</th>
-                            <th className="pb-3 font-semibold">Tổng tiền</th>
-                            <th className="pb-3 font-semibold">Fulfillment</th>
-                            <th className="pb-3 font-semibold">Thanh toán</th>
-                            <th className="pb-3 font-semibold">Trạng thái</th>
-                            <th className="pb-3 font-semibold text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders
-                            .filter((o) => {
-                              if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
-                              if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
-                              // "current" = anything not completed/cancelled
-                              if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
-                              if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
-                              if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
-                              if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
-                              return true;
-                            })
-                            .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
-                            .map((o) => (
-                            <tr
-                              key={o.id}
-                              onClick={() => setOrderDetailView(o)}
-                              className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
-                            >
-                              <td className="py-4 text-muted-foreground">
-                                {new Date(o.deliveryDate).toLocaleDateString("vi-VN")}
-                              </td>
-                              <td className="py-4 text-xs">
-                                <div className="font-bold text-foreground">{o.customerName}</div>
-                                <div className="text-[10px] text-muted-foreground flex flex-col gap-0.5 mt-1">
-                                  {o.deliveryAddress && <span className="truncate max-w-[200px]" title={o.deliveryAddress}>📍 {o.deliveryAddress}</span>}
-                                  <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
-                                </div>
-                                {o.notes && <div className="text-[10px] text-primary italic truncate mt-1.5">&quot;{o.notes}&quot;</div>}
-                              </td>
-                              <td className="py-4 text-muted-foreground">
-                                {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
-                              </td>
-                              <td className="py-4 font-bold text-primary">{formatVND(o.total)}</td>
-                              <td className="py-4">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                    o.fulfillmentType === "IMMEDIATE"
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
+                  {orderDayGroups.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                      Không có đơn hàng nào khớp bộ lọc
+                    </div>
+                  ) : (
+                    pagedOrderDayGroups.map((group) => (
+                      <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                            {formatGroupKeyLabel(group.key, "day")}
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-muted-foreground border-b border-border/50 pb-3">
+                                <th className="pb-3 font-semibold">Khách hàng</th>
+                                <th className="pb-3 font-semibold">Số phần</th>
+                                <th className="pb-3 font-semibold">Tổng tiền</th>
+                                <th className="pb-3 font-semibold">Fulfillment</th>
+                                <th className="pb-3 font-semibold">Thanh toán</th>
+                                <th className="pb-3 font-semibold">Trạng thái</th>
+                                <th className="pb-3 font-semibold text-center">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.entries.map((o: any) => (
+                                <tr
+                                  key={o.id}
+                                  onClick={() => setOrderDetailView(o)}
+                                  className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
                                 >
-                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
-                                </span>
-                              </td>
-                              <td className="py-4" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={o.paymentStatus}
-                                  onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                >
-                                  {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                              </td>
-                              <td className="py-4">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                    o.deliveryStatus === "PREPPING"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : o.deliveryStatus === "DELIVERED"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : o.deliveryStatus === "CANCELLED"
-                                          ? "bg-red-50 text-red-700 border-red-200"
-                                          : o.deliveryStatus === "SKIPPED"
-                                            ? "bg-muted text-muted-foreground border-border"
-                                            : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
-                                >
-                                  <td className="py-4">
-                                    <div className="font-bold">{o.customerName}</div>
-                                    {o.notes && <div className="text-[10px] text-muted-foreground italic truncate">&quot;{o.notes}&quot;</div>}
+                                  <td className="py-4 text-xs">
+                                    <div className="font-bold text-foreground">{o.customerName}</div>
+                                    <div className="text-[10px] text-muted-foreground flex flex-col gap-0.5 mt-1">
+                                      {o.deliveryAddress && <span className="truncate max-w-[200px]" title={o.deliveryAddress}>📍 {o.deliveryAddress}</span>}
+                                      <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                    </div>
+                                    {o.notes && <div className="text-[10px] text-primary italic truncate mt-1.5">&quot;{o.notes}&quot;</div>}
                                   </td>
                                   <td className="py-4 text-muted-foreground">
                                     {(o.items || []).reduce((s: number, i: any) => s + i.qty, 0)}
@@ -4048,6 +4002,42 @@ export default function AdminDashboard() {
             >
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* In-app confirm dialog — replaces window.confirm() everywhere in
+          this console (see requestConfirm above). */}
+      {confirmState && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
+          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+            <h3 className="text-sm font-bold font-heading">{confirmState.title || "Xác nhận"}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{confirmState.message}</p>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmState(null)}
+                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirmState.onConfirm;
+                  setConfirmState(null);
+                  action();
+                }}
+                className={`flex-1 text-xs font-bold py-2.5 rounded-xl cursor-pointer ${
+                  confirmState.variant === "destructive"
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-primary hover:bg-primary/95 text-primary-foreground"
+                }`}
+              >
+                {confirmState.confirmLabel || "Xác nhận"}
+              </button>
+            </div>
           </div>
         </div>
       )}
