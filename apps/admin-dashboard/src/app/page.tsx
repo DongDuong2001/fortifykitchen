@@ -435,6 +435,8 @@ export default function AdminDashboard() {
   const [menuItemSizeGrams, setMenuItemSizeGrams] = React.useState(150);
   const [menuItemPrice, setMenuItemPrice] = React.useState(25000);
   const [menuItemImage, setMenuItemImage] = React.useState("");
+  const [menuItemImagePreview, setMenuItemImagePreview] = React.useState("");
+  const [menuItemUploading, setMenuItemUploading] = React.useState(false);
   const [menuItemCatId, setMenuItemCatId] = React.useState("");
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
   const [menuItemStock, setMenuItemStock] = React.useState(0);
@@ -1147,6 +1149,7 @@ export default function AdminDashboard() {
     setMenuItemSizeGrams(item.sizeGrams);
     setMenuItemPrice(item.price);
     setMenuItemImage(item.imageUrl || "");
+    setMenuItemImagePreview(item.imageUrl || "");
     setMenuItemCatId(item.categoryId || "");
     setMenuItemAvailable(item.isAvailable);
     setMenuItemStock(item.stockQuantity ?? 0);
@@ -1160,8 +1163,54 @@ export default function AdminDashboard() {
     setMenuItemSizeGrams(150);
     setMenuItemPrice(25000);
     setMenuItemImage("");
+    setMenuItemImagePreview("");
+    setMenuItemUploading(false);
     setMenuItemAvailable(true);
     setMenuItemStock(0);
+  };
+
+  // Upload a selected file to POST /upload/image and store the returned
+  // Cloudinary URL in menuItemImage. A local object-URL is used as the
+  // instant preview so the admin sees the image before the upload round-trip
+  // completes.
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    // Show a local preview immediately — no waiting for the server
+    const localPreview = URL.createObjectURL(file);
+    setMenuItemImagePreview(localPreview);
+    setMenuItemUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_URL}/upload/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // data.url is the Cloudinary secure_url — store it so it's sent
+        // in the menu-item create/update payload.
+        setMenuItemImage(data.url);
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Upload ảnh thất bại", type: "error" });
+        // Roll back the preview on failure
+        setMenuItemImagePreview(menuItemImage);
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi upload ảnh", type: "error" });
+      setMenuItemImagePreview(menuItemImage);
+    } finally {
+      setMenuItemUploading(false);
+      // Revoke the temporary object URL to free memory
+      URL.revokeObjectURL(localPreview);
+    }
   };
 
   // Quick +/- stock adjust from the catalog card — hits the dedicated
@@ -3521,15 +3570,75 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Image URL (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
-                  value={menuItemImage}
-                  onChange={(e) => setMenuItemImage(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
-                />
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh sản phẩm (tùy chọn)</label>
+
+                {/* Image Preview */}
+                {(menuItemImagePreview || menuItemImage) && (
+                  <div className="relative w-full h-36 rounded-xl overflow-hidden border border-border bg-muted">
+                    <img
+                      src={menuItemImagePreview || menuItemImage}
+                      alt="Preview ảnh sản phẩm"
+                      className="w-full h-full object-cover"
+                    />
+                    {menuItemUploading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <FontAwesomeIcon icon={faSpinner} className="text-white text-2xl animate-spin" />
+                      </div>
+                    )}
+                    {/* Remove image button */}
+                    {!menuItemUploading && (
+                      <button
+                        type="button"
+                        onClick={() => { setMenuItemImage(""); setMenuItemImagePreview(""); }}
+                        className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold px-2 py-1 rounded-lg transition-all cursor-pointer"
+                      >
+                        Xóa ảnh
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <label
+                  className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-xl py-3 px-4 cursor-pointer transition-all text-xs font-semibold
+                    ${
+                      menuItemUploading
+                        ? "border-primary/40 text-muted-foreground cursor-not-allowed"
+                        : "border-border hover:border-primary hover:text-primary text-muted-foreground"
+                    }`
+                  }
+                >
+                  {menuItemUploading ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                      Đang upload...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {menuItemImage ? "Thay ảnh khác" : "Tải ảnh lên"}
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={menuItemUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      // Reset the input value so the same file can be re-selected
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+
+                <p className="text-[10px] text-muted-foreground">
+                  Hỗ trợ: JPG, PNG, WEBP, GIF · Tối đa 5 MB
+                </p>
               </div>
 
               <div className="space-y-1">

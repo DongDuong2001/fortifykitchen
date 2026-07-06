@@ -9,6 +9,10 @@ export const backendEnvSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   THROTTLE_TTL: z.coerce.number().default(60),
   THROTTLE_LIMIT: z.coerce.number().default(100),
+  // Cloudinary — required for image upload
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
 });
 
 export const frontendEnvSchema = z.object({
