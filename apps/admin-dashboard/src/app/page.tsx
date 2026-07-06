@@ -1785,9 +1785,9 @@ export default function AdminDashboard() {
               {/* SECTION B: ORDERS DISPATCHER */}
               {section === "orders" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Orders ({orders.length})</h3>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <input
                         type="date"
                         value={orderDateFilter}
@@ -2207,7 +2207,7 @@ export default function AdminDashboard() {
               {/* SECTION: CUSTOMERS */}
               {section === "customers" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Customers ({customers.length})</h3>
                     <button
                       onClick={() => { resetCustomerForm(); setCustomerModal("create"); }}
@@ -2561,7 +2561,7 @@ export default function AdminDashboard() {
               {/* SECTION C: MENU CATALOG MANAGER */}
               {section === "menu" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Menu Items Catalog</h3>
                     <button
                       onClick={() => {
@@ -2891,7 +2891,7 @@ export default function AdminDashboard() {
               {/* SECTION D: SUBSCRIBER DIRECTORY */}
               {section === "subscriptions" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Subscriptions ({subscriptions.length})</h3>
                     <button
                       onClick={() => { resetSubForm(); setSubModal("create"); }}
@@ -3866,7 +3866,7 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mỗi lần giao</label>
                   <select
