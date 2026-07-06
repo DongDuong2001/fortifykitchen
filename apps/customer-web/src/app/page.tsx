@@ -2470,6 +2470,35 @@ export default function CustomerPortal() {
           </div>
         </div>
       )}
+
+      {confirmState && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
+          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+            <h3 className="text-base font-bold font-heading">
+              {confirmState.title || (lang === "vi" ? "Xác nhận" : "Confirm")}
+            </h3>
+            <p className="text-xs text-muted-foreground">{confirmState.message}</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setConfirmState(null)}
+                className="px-4 py-2 border border-border rounded-xl text-xs font-bold hover:bg-muted cursor-pointer"
+              >
+                {lang === "vi" ? "Hủy" : "Cancel"}
+              </button>
+              <button
+                onClick={() => {
+                  confirmState.onConfirm();
+                  setConfirmState(null);
+                }}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/95 cursor-pointer"
+              >
+                {confirmState.confirmLabel || (lang === "vi" ? "Xác nhận" : "Confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
