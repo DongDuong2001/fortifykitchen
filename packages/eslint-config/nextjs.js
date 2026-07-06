@@ -24,7 +24,10 @@ export default [
         alert: "readonly",
         confirm: "readonly",
         navigator: "readonly",
-        location: "readonly"
+        location: "readonly",
+        File: "readonly",
+        FormData: "readonly",
+        URL: "readonly"
       }
     },
     rules: {
