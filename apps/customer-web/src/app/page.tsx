@@ -478,6 +478,7 @@ export default function CustomerPortal() {
   // Menu Catalog State
   const [menuItems, setMenuItems] = React.useState<MenuItem[]>([]);
   const [selectedProtein, setSelectedProtein] = React.useState<Protein | "">("");
+  const [selectedProteinOrderNow, setSelectedProteinOrderNow] = React.useState<Protein | "">("");
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
   // User Dashboard State
@@ -689,6 +690,9 @@ export default function CustomerPortal() {
   // resolve IMMEDIATE server-side (barring a stock race with another
   // customer, which the server handles by falling back to SCHEDULED).
   const readyNowItems = menuItems.filter((m) => (m.stockQuantity ?? 0) > 0);
+  const filteredReadyNowItems = selectedProteinOrderNow
+    ? readyNowItems.filter((item) => item.protein === selectedProteinOrderNow)
+    : readyNowItems;
 
   const addToOrderNowCart = (item: MenuItem) => {
     setOrderNowCart((prev) => {
@@ -812,7 +816,7 @@ export default function CustomerPortal() {
     }));
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
       {/* 1. HEADER */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -860,10 +864,11 @@ export default function CustomerPortal() {
             )}
           </nav>
 
-          <div className="flex items-center gap-4">
-            {/* Language Toggle */}
-            <div className="flex items-center border border-border bg-muted/20 p-0.5 rounded-full text-[10px] font-bold select-none shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Language Toggle (hidden on mobile header) */}
+            <div className="hidden md:flex items-center border border-border bg-muted/20 p-0.5 rounded-full text-[10px] font-bold select-none shrink-0">
               <button
+                type="button"
                 onClick={() => changeLang("vi")}
                 className={`px-2 py-1 rounded-full transition-colors cursor-pointer ${
                   lang === "vi"
@@ -874,6 +879,7 @@ export default function CustomerPortal() {
                 VI
               </button>
               <button
+                type="button"
                 onClick={() => changeLang("en")}
                 className={`px-2 py-1 rounded-full transition-colors cursor-pointer ${
                   lang === "en"
@@ -897,32 +903,35 @@ export default function CustomerPortal() {
               )}
             </button>
 
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div
-                  onClick={() => setActiveTab("dashboard")}
-                  className="hidden sm:flex items-center gap-2 cursor-pointer border border-border rounded-full py-1.5 px-3 bg-muted/20 hover:bg-muted/50 transition-all"
-                >
-                  <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-semibold">{user.firstName}</span>
+            {/* Auth / Profile Area (hidden on mobile header since it is in the bottom nav) */}
+            <div className="hidden md:flex items-center gap-4">
+              {user ? (
+                <div className="flex items-center gap-4">
+                  <div
+                    onClick={() => setActiveTab("dashboard")}
+                    className="flex items-center gap-2 cursor-pointer border border-border rounded-full py-1.5 px-3 bg-muted/20 hover:bg-muted/50 transition-all"
+                  >
+                    <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-semibold">{user.firstName}</span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="p-2.5 rounded-full border border-border bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
+                    title={t("btn_logout")}
+                  >
+                    <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                  </button>
                 </div>
+              ) : (
                 <button
-                  onClick={logout}
-                  className="p-2.5 rounded-full border border-border bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
-                  title={t("btn_logout")}
+                  onClick={() => setAuthModal("login")}
+                  className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-5 rounded-full hover:bg-primary/90 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                  <FontAwesomeIcon icon={faUser} className="h-3.5 w-3.5" />
+                  {t("btn_signin")}
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAuthModal("login")}
-                className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-5 rounded-full hover:bg-primary/90 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
-              >
-                <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
-                {t("btn_signin")}
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -1213,20 +1222,54 @@ export default function CustomerPortal() {
             ) : (
               <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-4">
+                  {/* Protein Filter for Order Now */}
+                  <div className="flex flex-wrap gap-2 mb-4 bg-muted/20 p-2 rounded-xl border border-border/40">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProteinOrderNow("")}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        selectedProteinOrderNow === ""
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {t("filter_all")}
+                    </button>
+                    {["BEEF", "CHICKEN", "SHRIMP", "PORK", "FISH", "VEGAN"].map((protein) => {
+                      // Only show categories that have items in stock
+                      const hasItems = readyNowItems.some((m) => m.protein === protein);
+                      if (!hasItems) return null;
+                      return (
+                        <button
+                          key={protein}
+                          type="button"
+                          onClick={() => setSelectedProteinOrderNow(protein as any)}
+                          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            selectedProteinOrderNow === protein
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "bg-transparent text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {t(`filter_${protein}` as any)}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {isLoadingMenu ? (
                     <div className="flex justify-center py-16">
                       <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : readyNowItems.length === 0 ? (
+                  ) : filteredReadyNowItems.length === 0 ? (
                     <div className="text-center py-16 border border-dashed border-border rounded-xl">
                       <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay." : "No ready dishes currently available."}
+                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay trong danh mục này." : "No ready dishes currently available in this category."}
                       </p>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-4">
-                      {groupByFlavor(readyNowItems).map((dish) => {
+                      {groupByFlavor(filteredReadyNowItems).map((dish) => {
                         const dishKey = `${dish.protein}::${dish.flavor}`;
                         const selected = getSelectedSize(dish);
                         const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
@@ -2322,25 +2365,102 @@ export default function CustomerPortal() {
       )}
 
       {/* 6. FOOTER */}
-      <footer className="border-t border-border bg-muted/20 py-12">
-        <div className="max-w-7xl mx-auto px-6 text-center text-xs text-muted-foreground space-y-4">
-          <p className="font-semibold text-foreground/80">
-            {lang === "vi" ? "FortifyKitchen Việt Nam - Gói Dinh Dưỡng Cao Cấp" : "FortifyKitchen Vietnam - Gourmet Nutrition Subscriptions"}
-          </p>
-          <div className="flex justify-center gap-4 text-[11px] font-medium">
-            <button
-              onClick={() => setShowPrivacyModal(true)}
-              className="text-primary hover:underline cursor-pointer transition-colors"
-            >
-              {t("cart_terms")}
-            </button>
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-16">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs text-muted-foreground">
+          {/* Column 1: Brand & Contact Info */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu tươi sạch bởi đầu bếp chuyên nghiệp để phục vụ mục tiêu sức khỏe của bạn."
+                : "Premium gourmet protein meal prep subscriptions prepared by professional chefs to help you achieve your fitness goals."}
+            </p>
+            <div className="space-y-2">
+              <p>
+                <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+              </p>
+              <p>
+                <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+              </p>
+            </div>
           </div>
-          <p>
-            {lang === "vi"
-              ? "Địa chỉ: Thành phố Hồ Chí Minh, Việt Nam. Áp dụng chuẩn thanh toán COD."
-              : "Address: Ho Chi Minh City, Vietnam. COD Payment standard applied."}
-          </p>
-          <p>© 2026 FortifyKitchen. {lang === "vi" ? "Bảo lưu mọi quyền." : "All rights reserved."}</p>
+
+          {/* Column 2: Legal / Policies */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "Chính sách & Quy định" : "Policies & Regulations"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Các điều khoản sử dụng và chính sách hoạt động của cửa hàng chúng tôi:"
+                : "Our store's usage terms and operational policies:"}
+            </p>
+            <div className="flex flex-col gap-2 font-medium">
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Điều khoản sử dụng dịch vụ" : "➔ Terms of Service"}
+              </button>
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Chính sách bảo mật thông tin" : "➔ Privacy Policy"}
+              </button>
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {lang === "vi" ? "➔ Chính sách thanh toán & Hoàn tiền" : "➔ Payment & Refund Policy"}
+              </button>
+            </div>
+          </div>
+
+          {/* Column 3: Secure Payments & Social Channels */}
+          <div className="space-y-4">
+            <div className="text-sm font-bold text-foreground font-heading">
+              {lang === "vi" ? "Thanh toán & Liên hệ mạng xã hội" : "Payments & Social Channels"}
+            </div>
+            <p className="leading-relaxed">
+              {lang === "vi"
+                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận nơi (COD) và Chuyển khoản VietQR tiện lợi. Liên hệ ngay để được tư vấn thực đơn phù hợp nhất."
+                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Contact us directly for menu consultations."}
+            </p>
+            
+            {/* Social Connect buttons using text-based tags */}
+            <div className="pt-2 flex flex-wrap gap-3">
+              <a
+                href="https://zalo.me/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+              >
+                Zalo Chat
+              </a>
+              <a
+                href="https://facebook.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+              >
+                Facebook
+              </a>
+              <a
+                href="https://instagram.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+              >
+                Instagram
+              </a>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-border/40 text-center text-[10px] text-muted-foreground">
+          <p>© 2026 FortifyKitchen Việt Nam. {lang === "vi" ? "Tất cả các quyền được bảo lưu." : "All rights reserved."}</p>
         </div>
       </footer>
 
@@ -2500,6 +2620,52 @@ export default function CustomerPortal() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border flex justify-around py-3 px-2 shadow-2xl">
+        <button
+          onClick={() => setActiveTab("menu")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "menu" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faUtensils} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_menu")}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("order-now")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative ${
+            activeTab === "order-now" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faShoppingBag} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_order")}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("subscriptions")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "subscriptions" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faCalendarAlt} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_sub")}</span>
+        </button>
+        <button
+          onClick={() => {
+            if (user) {
+              setActiveTab("dashboard");
+            } else {
+              setAuthModal("login");
+            }
+          }}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "dashboard" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faUser} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{user ? t("nav_dashboard") : t("btn_signin")}</span>
+        </button>
+      </div>
     </div>
   );
 }

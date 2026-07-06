@@ -264,6 +264,12 @@ export default function AdminDashboard() {
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, []);
+
   // Inventory tab: two sub-views — Monitor (currently in-stock dishes only,
   // no status badge needed since being listed here already means
   // available) and Add Stock (restock an existing dish; doing so is what
@@ -1436,67 +1442,89 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row transition-colors duration-200">
       {/* 1. SIDEBAR */}
       {sidebarOpen && (
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-card flex flex-col shrink-0">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Fortify Kitchen" className="h-8 w-8 rounded-md object-contain" />
-            <span className="font-semibold tracking-tight font-heading text-sm">Fortify Console</span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="md:hidden text-muted-foreground hover:text-red-500 transition-colors"
-          >
-            <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
-          </button>
-        </div>
+        <>
+          {/* Mobile backdrop overlay */}
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 md:relative md:flex md:w-64 border-r border-border bg-card flex flex-col shrink-0">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="Fortify Kitchen" className="h-8 w-8 rounded-md object-contain" />
+                <span className="font-semibold tracking-tight font-heading text-sm">Fortify Console</span>
+              </div>
+              <div className="flex items-center gap-2 md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faChevronLeft} className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
-          {[
-            { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
-            { id: "customers", label: "Customers", icon: faUsers },
-            { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
-            { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
-            { id: "inventory", label: "Inventory", icon: faBox },
-            { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
-            { id: "deliveries", label: "Deliveries", icon: faTruck },
-            { id: "prep-list", label: "Prep List", icon: faUtensils },
-            { id: "discounts", label: "Promotional Codes", icon: faTag },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setSection(item.id as any)}
-              className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                section === item.id
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
+            <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
+              {[
+                { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
+                { id: "customers", label: "Customers", icon: faUsers },
+                { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
+                { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
+                { id: "inventory", label: "Inventory", icon: faBox },
+                { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
+                { id: "deliveries", label: "Deliveries", icon: faTruck },
+                { id: "prep-list", label: "Prep List", icon: faUtensils },
+                { id: "discounts", label: "Promotional Codes", icon: faTag },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSection(item.id as any);
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    section === item.id
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
 
-        <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
-          <button
-            onClick={() => setShowPrivacyModal(true)}
-            className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
-          >
-            <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5 shrink-0" />
-            Privacy & Operating Terms
-          </button>
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
-            <span className="truncate max-w-[120px] font-semibold">{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
-              title="Logout"
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </aside>
+            <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
+              <button
+                onClick={() => setShowPrivacyModal(true)}
+                className="w-full text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
+              >
+                <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5 shrink-0" />
+                Privacy & Operating Terms
+              </button>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
+                <span className="truncate max-w-[120px] font-semibold">{user?.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
+                  title="Logout"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
       )}
 
       {/* 2. MAIN WORKSPACE */}
@@ -1514,10 +1542,6 @@ export default function AdminDashboard() {
             <h2 className="font-extrabold tracking-tight font-heading text-base capitalize truncate">
               {section.replace("-", " ")}
             </h2>
-          </div>
-          <div className="text-xs text-muted-foreground font-semibold flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Database Connected (Vietnam Mode)
           </div>
         </header>
 
@@ -1678,7 +1702,39 @@ export default function AdminDashboard() {
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
-                    <div className="overflow-x-auto">
+                    {/* Mobile cards view */}
+                    <div className="md:hidden space-y-3">
+                      {stats.recentOrders?.map((o: any) => (
+                        <div key={o.id} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-foreground">{o.customerName}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {new Date(o.createdAt).toLocaleDateString("vi-VN")}
+                              </p>
+                            </div>
+                            <span className="font-bold text-primary">{formatVND(o.total)}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                o.fulfillmentType === "IMMEDIATE"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}
+                            >
+                              {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                              {o.deliveryStatus}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
@@ -1725,9 +1781,9 @@ export default function AdminDashboard() {
               {/* SECTION B: ORDERS DISPATCHER */}
               {section === "orders" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Orders ({orders.length})</h3>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <input
                         type="date"
                         value={orderDateFilter}
@@ -1829,7 +1885,110 @@ export default function AdminDashboard() {
                           </h4>
                           <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
                         </div>
-                        <div className="overflow-x-auto">
+                        {/* Mobile cards view */}
+                        <div className="md:hidden space-y-3">
+                          {group.entries.map((o: any) => (
+                            <div
+                              key={o.id}
+                              onClick={() => setOrderDetailView(o)}
+                              className="border border-border bg-muted/10 p-4 rounded-xl space-y-3 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="font-bold text-foreground">{o.customerName}</div>
+                                  <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
+                                    {o.deliveryAddress && <span>📍 {o.deliveryAddress}</span>}
+                                    <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                  </div>
+                                </div>
+                                <span className="font-bold text-primary">{formatVND(o.total)}</span>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.fulfillmentType === "IMMEDIATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                    o.deliveryStatus === "PREPPING"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : o.deliveryStatus === "DELIVERED"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : o.deliveryStatus === "CANCELLED"
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : o.deliveryStatus === "SKIPPED"
+                                            ? "bg-muted text-muted-foreground border-border"
+                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between border-t border-border/40 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                                <div className="space-y-1">
+                                  <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block">Thanh toán</span>
+                                  <select
+                                    value={o.paymentStatus}
+                                    onChange={(e) => handleUpdateOrderPaymentStatus(o.id, e.target.value)}
+                                    className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                  >
+                                    {PAYMENT_STATE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {o.deliveryStatus === "SCHEDULED" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Accept
+                                    </button>
+                                  )}
+                                  {o.deliveryStatus === "PREPPING" && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
+                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
+                                    >
+                                      Complete
+                                    </button>
+                                  )}
+                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
+                                    <button
+                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
+                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditOrderTrigger(o)}
+                                    className="text-muted-foreground hover:text-primary p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                    title="Edit"
+                                  >
+                                    <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteOrder(o.id)}
+                                    className="text-muted-foreground hover:text-red-500 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                    title="Delete"
+                                  >
+                                    <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Desktop table view */}
+                        <div className="hidden md:block overflow-x-auto">
                           <table className="w-full text-xs text-left">
                             <thead>
                               <tr className="text-muted-foreground border-b border-border/50 pb-3">
@@ -1848,6 +2007,7 @@ export default function AdminDashboard() {
                                   key={o.id}
                                   onClick={() => setOrderDetailView(o)}
                                   className="border-b border-border/20 last:border-0 align-top cursor-pointer hover:bg-muted/30 transition-colors"
+                                  style={{ contentVisibility: 'auto' }}
                                 >
                                   <td className="py-4 text-xs">
                                     <div className="font-bold text-foreground">{o.customerName}</div>
@@ -2147,7 +2307,7 @@ export default function AdminDashboard() {
               {/* SECTION: CUSTOMERS */}
               {section === "customers" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Customers ({customers.length})</h3>
                     <button
                       onClick={() => { resetCustomerForm(); setCustomerModal("create"); }}
@@ -2158,7 +2318,40 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <div className="overflow-x-auto">
+                    {/* Mobile cards view */}
+                    <div className="md:hidden space-y-3">
+                      {paginate(customers, clampPage(customersPage, Math.ceil(customers.length / PAGE_SIZE) || 1), PAGE_SIZE).map((c) => (
+                        <div key={c.id} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-foreground">{c.name}</p>
+                              <p className="text-muted-foreground mt-0.5">SĐT: {c.phone || "—"}</p>
+                              <p className="text-muted-foreground">Zalo: {c.zalo || "—"}</p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => handleEditCustomerTrigger(c)}
+                                className="text-muted-foreground hover:text-primary p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                              >
+                                <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCustomer(c.id)}
+                                className="text-muted-foreground hover:text-red-500 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                              >
+                                <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground bg-background p-2 rounded-lg border border-border/40">
+                            <span className="font-semibold text-foreground">Địa chỉ:</span> {c.address || "—"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-3">
@@ -2305,7 +2498,74 @@ export default function AdminDashboard() {
                                 {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
                               </span>
                             </div>
-                            <div className="overflow-x-auto">
+
+                            {/* Mobile cards view */}
+                            <div className="md:hidden space-y-3">
+                              {group.entries.map((d: any) => (
+                                <div key={`${d.source}-${d.id}`} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                            d.source === "SUBSCRIPTION"
+                                              ? "bg-primary/10 text-primary border-primary/20"
+                                              : "bg-muted text-muted-foreground border-border"
+                                          }`}
+                                        >
+                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
+                                        </span>
+                                        <span className="font-bold text-foreground">{d.customerName}</span>
+                                      </div>
+                                      <p className="text-primary font-semibold mt-1">
+                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
+                                      </p>
+                                    </div>
+                                    <span className="font-mono text-muted-foreground font-semibold">{formatGrams(d.totalGrams)}</span>
+                                  </div>
+
+                                  <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
+                                    <div className="space-y-1">
+                                      <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block">Trạng thái</span>
+                                      <select
+                                        value={d.status}
+                                        onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
+                                      >
+                                        {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                        <button
+                                          onClick={() => handleMarkDelivered(d)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                                        >
+                                          Đã giao
+                                        </button>
+                                      )}
+                                      {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
+                                        <button
+                                          onClick={() => handlePostponeDelivery(d)}
+                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
+                                        >
+                                          Hoãn
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeleteDelivery(d)}
+                                        className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                      >
+                                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Desktop table view */}
+                            <div className="hidden md:block overflow-x-auto">
                               <table className="w-full text-xs text-left">
                                 <thead>
                                   <tr className="text-muted-foreground border-b border-border/50 pb-3">
@@ -2501,7 +2761,7 @@ export default function AdminDashboard() {
               {/* SECTION C: MENU CATALOG MANAGER */}
               {section === "menu" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Menu Items Catalog</h3>
                     <button
                       onClick={() => {
@@ -2831,7 +3091,7 @@ export default function AdminDashboard() {
               {/* SECTION D: SUBSCRIBER DIRECTORY */}
               {section === "subscriptions" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h3 className="text-sm font-bold font-heading">Subscriptions ({subscriptions.length})</h3>
                     <button
                       onClick={() => { resetSubForm(); setSubModal("create"); }}
@@ -3806,7 +4066,7 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mỗi lần giao</label>
                   <select
