@@ -1116,7 +1116,7 @@ export default function CustomerPortal() {
                               </div>
                             </div>
 
-                            <div className="p-6 pt-0 border-t border-border/30 mt-4">
+                            <div className="px-6 pb-6 pt-3">
                               <button
                                 onClick={() => addToCart(selected)}
                                 className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
