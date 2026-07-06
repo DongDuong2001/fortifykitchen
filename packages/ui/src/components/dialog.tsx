@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTimes } from "@fortawesome/free-solid-svg-icons";
 import { cn } from "../lib/utils";
 
 export interface DialogProps {
@@ -53,7 +54,7 @@ export function Dialog({
           onClick={onClose}
           className="absolute right-4 top-4 rounded-full p-1 opacity-70 ring-offset-background transition-smooth hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
         >
-          <X className="h-4 w-4" />
+          <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </button>
 
