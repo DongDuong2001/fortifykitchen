@@ -864,10 +864,11 @@ export default function CustomerPortal() {
             )}
           </nav>
 
-          <div className="flex items-center gap-4">
-            {/* Language Toggle */}
-            <div className="flex items-center border border-border bg-muted/20 p-0.5 rounded-full text-[10px] font-bold select-none shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Language Toggle (hidden on mobile header) */}
+            <div className="hidden md:flex items-center border border-border bg-muted/20 p-0.5 rounded-full text-[10px] font-bold select-none shrink-0">
               <button
+                type="button"
                 onClick={() => changeLang("vi")}
                 className={`px-2 py-1 rounded-full transition-colors cursor-pointer ${
                   lang === "vi"
@@ -878,6 +879,7 @@ export default function CustomerPortal() {
                 VI
               </button>
               <button
+                type="button"
                 onClick={() => changeLang("en")}
                 className={`px-2 py-1 rounded-full transition-colors cursor-pointer ${
                   lang === "en"
@@ -901,32 +903,35 @@ export default function CustomerPortal() {
               )}
             </button>
 
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div
-                  onClick={() => setActiveTab("dashboard")}
-                  className="hidden sm:flex items-center gap-2 cursor-pointer border border-border rounded-full py-1.5 px-3 bg-muted/20 hover:bg-muted/50 transition-all"
-                >
-                  <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-semibold">{user.firstName}</span>
+            {/* Auth / Profile Area (hidden on mobile header since it is in the bottom nav) */}
+            <div className="hidden md:flex items-center gap-4">
+              {user ? (
+                <div className="flex items-center gap-4">
+                  <div
+                    onClick={() => setActiveTab("dashboard")}
+                    className="flex items-center gap-2 cursor-pointer border border-border rounded-full py-1.5 px-3 bg-muted/20 hover:bg-muted/50 transition-all"
+                  >
+                    <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-semibold">{user.firstName}</span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="p-2.5 rounded-full border border-border bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
+                    title={t("btn_logout")}
+                  >
+                    <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                  </button>
                 </div>
+              ) : (
                 <button
-                  onClick={logout}
-                  className="p-2.5 rounded-full border border-border bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
-                  title={t("btn_logout")}
+                  onClick={() => setAuthModal("login")}
+                  className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-5 rounded-full hover:bg-primary/90 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4" />
+                  <FontAwesomeIcon icon={faUser} className="h-3.5 w-3.5" />
+                  {t("btn_signin")}
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAuthModal("login")}
-                className="bg-primary text-primary-foreground text-xs font-bold py-2.5 px-5 rounded-full hover:bg-primary/90 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
-              >
-                <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
-                {t("btn_signin")}
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
