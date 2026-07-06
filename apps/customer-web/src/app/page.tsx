@@ -2339,7 +2339,7 @@ export default function CustomerPortal() {
                 <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
               </p>
               <p>
-                <strong>Hotline & Zalo:</strong> +84 90 123 4567
+                <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
               </p>
             </div>
           </div>
