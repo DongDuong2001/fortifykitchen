@@ -1116,7 +1116,7 @@ export default function CustomerPortal() {
                               </div>
                             </div>
 
-                            <div className="p-6 pt-0 border-t border-border/30 mt-4">
+                            <div className="px-6 pb-6 pt-3">
                               <button
                                 onClick={() => addToCart(selected)}
                                 className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1361,7 +1361,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_name")}
                       value={orderNowName}
                       onChange={(e) => setOrderNowName(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     <input
                       type="tel"
@@ -1369,7 +1369,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_phone")}
                       value={orderNowPhone}
                       onChange={(e) => setOrderNowPhone(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     
                     <div className="space-y-2">
@@ -1381,7 +1381,7 @@ export default function CustomerPortal() {
                             setOrderNowProvince(e.target.value);
                             setOrderNowWard("");
                           }}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
                         >
                           <option value="">{t("cart_province")}</option>
                           {getProvinces().map((p: any) => (
@@ -1396,7 +1396,7 @@ export default function CustomerPortal() {
                           disabled={!orderNowProvince}
                           value={orderNowWard}
                           onChange={(e) => setOrderNowWard(e.target.value)}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
                         >
                           <option value="">{t("cart_ward")}</option>
                           {orderNowProvince &&
@@ -1416,7 +1416,7 @@ export default function CustomerPortal() {
                         placeholder={t("cart_street")}
                         value={orderNowStreet}
                         onChange={(e) => setOrderNowStreet(e.target.value)}
-                        className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
                     </div>
 
@@ -1424,7 +1424,7 @@ export default function CustomerPortal() {
                       placeholder={t("placeholder_notes")}
                       value={orderNowNotes}
                       onChange={(e) => setOrderNowNotes(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
                       rows={2}
                     />
 
@@ -1513,7 +1513,7 @@ export default function CustomerPortal() {
                   placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
                   value={trackPhone}
                   onChange={(e) => setTrackPhone(e.target.value)}
-                  className="flex-1 bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                 />
                 <button
                   type="submit"
@@ -1589,7 +1589,7 @@ export default function CustomerPortal() {
                 placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
                 value={lookupPhone}
                 onChange={(e) => setLookupPhone(e.target.value)}
-                className="flex-1 bg-background border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none"
+                className="flex-1 bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none text-foreground"
               />
               <button
                 type="submit"
@@ -2033,7 +2033,7 @@ export default function CustomerPortal() {
                             setCheckoutProvince(e.target.value);
                             setCheckoutWard("");
                           }}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
                         >
                           <option value="">{t("cart_province")}</option>
                           {getProvinces().map((p: any) => (
@@ -2048,7 +2048,7 @@ export default function CustomerPortal() {
                           disabled={!checkoutProvince}
                           value={checkoutWard}
                           onChange={(e) => setCheckoutWard(e.target.value)}
-                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
                         >
                           <option value="">{t("cart_ward")}</option>
                           {checkoutProvince &&
@@ -2068,7 +2068,7 @@ export default function CustomerPortal() {
                         placeholder={t("cart_street")}
                         value={checkoutStreet}
                         onChange={(e) => setCheckoutStreet(e.target.value)}
-                        className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
                     </div>
                   )}
@@ -2082,7 +2082,7 @@ export default function CustomerPortal() {
                       placeholder={lang === "vi" ? "Ví dụ: Gửi bảo vệ..." : "e.g. Please leave at the front desk"}
                       value={checkoutNotes}
                       onChange={(e) => setCheckoutNotes(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
 
@@ -2095,7 +2095,7 @@ export default function CustomerPortal() {
                       placeholder="e.g. WELCOME10"
                       value={discountCode}
                       onChange={(e) => setDiscountCode(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
@@ -2179,7 +2179,7 @@ export default function CustomerPortal() {
       {authModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setAuthModal(null)} />
-          <div className="relative w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-bold font-heading">
                 {authModal === "login" ? t("auth_login_title") : t("auth_register_title")}
@@ -2199,7 +2199,7 @@ export default function CustomerPortal() {
                     placeholder="you@example.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
                 <div className="space-y-1">
@@ -2210,7 +2210,7 @@ export default function CustomerPortal() {
                     placeholder="••••••••"
                     value={loginPass}
                     onChange={(e) => setLoginPass(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
                 <div className="flex items-center gap-2 select-none py-1">
@@ -2255,7 +2255,7 @@ export default function CustomerPortal() {
                       placeholder="Jane"
                       value={signupFirst}
                       onChange={(e) => setSignupFirst(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
                   <div className="space-y-1">
@@ -2266,7 +2266,7 @@ export default function CustomerPortal() {
                       placeholder="Doe"
                       value={signupLast}
                       onChange={(e) => setSignupLast(e.target.value)}
-                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                     />
                   </div>
                 </div>
@@ -2279,7 +2279,7 @@ export default function CustomerPortal() {
                     placeholder="you@example.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2291,7 +2291,7 @@ export default function CustomerPortal() {
                     placeholder={lang === "vi" ? "Tối thiểu 6 ký tự" : "Minimum 6 characters"}
                     value={signupPass}
                     onChange={(e) => setSignupPass(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2303,7 +2303,7 @@ export default function CustomerPortal() {
                     placeholder={lang === "vi" ? "Ví dụ: 0901234567" : "e.g. 0901234567"}
                     value={signupPhone}
                     onChange={(e) => setSignupPhone(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2315,7 +2315,7 @@ export default function CustomerPortal() {
                     placeholder={lang === "vi" ? "Ví dụ: 123 Đồng Khởi" : "e.g. 123 Dong Khoi St"}
                     value={signupAddress}
                     onChange={(e) => setSignupAddress(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                   />
                 </div>
 
@@ -2468,7 +2468,7 @@ export default function CustomerPortal() {
       {showPrivacyModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setShowPrivacyModal(false)} />
-          <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8 overflow-hidden max-h-[85vh] flex flex-col">
+          <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8 overflow-hidden max-h-[85vh] flex flex-col">
             <div className="text-center pb-2 border-b border-border">
               <h3 className="text-lg font-bold font-heading">{t("cart_terms")}</h3>
             </div>
@@ -2532,7 +2532,7 @@ export default function CustomerPortal() {
             setCartOpen(false);
             setActiveTab("dashboard");
           }} />
-          <div className="relative w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
             <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
             <h3 className="text-base font-bold font-heading">
               {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
@@ -2595,7 +2595,7 @@ export default function CustomerPortal() {
       {confirmState && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setConfirmState(null)} />
-          <div className="relative w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
+          <div className="relative w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4">
             <h3 className="text-base font-bold font-heading">
               {confirmState.title || (lang === "vi" ? "Xác nhận" : "Confirm")}
             </h3>

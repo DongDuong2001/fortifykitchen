@@ -66,25 +66,25 @@
 }
 
 :root {
-  --background: #f6f4ef; /* neutral background */
-  --foreground: #234b36; /* primary forest green */
-  --primary: #f28c38; /* tertiary accent orange */
-  --primary-foreground: #ffffff; /* on-primary */
-  --secondary: #e8e4da; /* secondary surface/border light gray */
-  --secondary-foreground: #234b36;
-  --muted: #e8e4da;
-  --muted-foreground: #6e7f74; /* secondary muted gray-green */
-  --accent: #f28c38; /* accent orange */
+  --background: #f2efe8;        /* slightly richer warm neutral — more distinct from white cards */
+  --foreground: #1a3828;        /* darker forest green for stronger body text contrast */
+  --primary: #e8791f;           /* slightly deeper orange — still vivid, passes AA on white */
+  --primary-foreground: #ffffff;
+  --secondary: #e4dfd3;         /* warm gray surface */
+  --secondary-foreground: #1a3828;
+  --muted: #e4dfd3;
+  --muted-foreground: #4a6358;  /* was #6e7f74 — darker for readable secondary text */
+  --accent: #e8791f;
   --accent-foreground: #ffffff;
-  --destructive: #c1453a;
+  --destructive: #b33d33;
   --destructive-foreground: #ffffff;
-  --border: #e8e4da; /* border gray */
-  --input: #e8e4da;
-  --ring: #f28c38;
-  --card: #ffffff; /* surface card white */
-  --card-foreground: #234b36;
+  --border: #c8c2b4;            /* was #e8e4da — much more visible border */
+  --input: #ffffff;             /* white input background so fields stand out */
+  --ring: #e8791f;
+  --card: #ffffff;
+  --card-foreground: #1a3828;
   --popover: #ffffff;
-  --popover-foreground: #234b36;
+  --popover-foreground: #1a3828;
 }
 
 body {

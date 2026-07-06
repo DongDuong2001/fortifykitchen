@@ -435,6 +435,8 @@ export default function AdminDashboard() {
   const [menuItemSizeGrams, setMenuItemSizeGrams] = React.useState(150);
   const [menuItemPrice, setMenuItemPrice] = React.useState(25000);
   const [menuItemImage, setMenuItemImage] = React.useState("");
+  const [menuItemImagePreview, setMenuItemImagePreview] = React.useState("");
+  const [menuItemUploading, setMenuItemUploading] = React.useState(false);
   const [menuItemCatId, setMenuItemCatId] = React.useState("");
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
   const [menuItemStock, setMenuItemStock] = React.useState(0);
@@ -1082,6 +1084,18 @@ export default function AdminDashboard() {
   // Create or Update Menu Item
   const handleSaveMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The Save button is disabled while menuItemUploading is true, but that
+    // only blocks a click on the button itself — pressing Enter in any text
+    // field inside the form still fires this submit handler natively,
+    // bypassing the disabled button entirely. Without this guard, an
+    // Enter-key submit mid-upload sends the payload with imageUrl still
+    // empty (the upload hasn't resolved into menuItemImage yet), silently
+    // saving the item with no image even though the upload itself succeeds
+    // moments later.
+    if (menuItemUploading) {
+      toast({ title: "Đang tải ảnh lên, vui lòng đợi trước khi lưu.", type: "default" });
+      return;
+    }
     try {
       const payload = {
         protein: menuItemProtein,
@@ -1111,11 +1125,20 @@ export default function AdminDashboard() {
         resetMenuForm();
         loadData();
       } else {
-        const error = await res.json();
-        toast({ title: error.message || "Failed to save menu item", type: "error" });
+        let message = "Failed to save menu item";
+        try {
+          const error = await res.json();
+          message = error.message || message;
+        } catch {
+          // Response body wasn't JSON (e.g. proxy/server error page) —
+          // fall back to the status text so the admin still sees *something*.
+          message = `${message} (${res.status} ${res.statusText})`;
+        }
+        toast({ title: message, type: "error" });
       }
     } catch (err) {
       console.error(err);
+      toast({ title: "Lỗi kết nối khi lưu món ăn", type: "error" });
     }
   };
 
@@ -1147,6 +1170,7 @@ export default function AdminDashboard() {
     setMenuItemSizeGrams(item.sizeGrams);
     setMenuItemPrice(item.price);
     setMenuItemImage(item.imageUrl || "");
+    setMenuItemImagePreview(item.imageUrl || "");
     setMenuItemCatId(item.categoryId || "");
     setMenuItemAvailable(item.isAvailable);
     setMenuItemStock(item.stockQuantity ?? 0);
@@ -1160,8 +1184,61 @@ export default function AdminDashboard() {
     setMenuItemSizeGrams(150);
     setMenuItemPrice(25000);
     setMenuItemImage("");
+    setMenuItemImagePreview("");
+    setMenuItemUploading(false);
     setMenuItemAvailable(true);
     setMenuItemStock(0);
+  };
+
+  // Upload a selected file to POST /upload/image and store the returned
+  // Cloudinary URL in menuItemImage. A local object-URL is used as the
+  // instant preview so the admin sees the image before the upload round-trip
+  // completes.
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    // Show a local preview immediately — no waiting for the server
+    const localPreview = URL.createObjectURL(file);
+    setMenuItemImagePreview(localPreview);
+    setMenuItemUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_URL}/upload/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        // Every API response is wrapped by the global TransformInterceptor
+        // as { success, message, data: <result> } — the upload controller's
+        // actual { url, publicId } return value lives at .data, not at the
+        // top level. Reading .url directly here was always undefined,
+        // silently leaving menuItemImage unset (the visible preview was
+        // just the local blob URL, unrelated to this).
+        const body = await res.json();
+        const url = body?.data?.url;
+        // data.url is the Cloudinary secure_url — store it so it's sent
+        // in the menu-item create/update payload.
+        setMenuItemImage(url);
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Upload ảnh thất bại", type: "error" });
+        // Roll back the preview on failure
+        setMenuItemImagePreview(menuItemImage);
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi upload ảnh", type: "error" });
+      setMenuItemImagePreview(menuItemImage);
+    } finally {
+      setMenuItemUploading(false);
+      // Revoke the temporary object URL to free memory
+      URL.revokeObjectURL(localPreview);
+    }
   };
 
   // Quick +/- stock adjust from the catalog card — hits the dedicated
@@ -3444,21 +3521,22 @@ export default function AdminDashboard() {
       {menuModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setMenuModal(null)} />
-          <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
-            <div className="text-center">
-              <h3 className="text-lg font-bold font-heading">
-                {menuModal === "create" ? "Add New Dish to Menu" : "Edit Menu Dish Details"}
+          <div className="relative w-full max-w-lg bg-card border border-border/60 rounded-2xl shadow-2xl p-8 z-10 space-y-6">
+            <div className="text-center pb-1 border-b border-border/40">
+              <h3 className="text-lg font-bold font-heading text-foreground">
+                {menuModal === "create" ? "Thêm món mới" : "Chỉnh sửa món"}
               </h3>
+              <p className="text-[11px] text-foreground/50 mt-0.5">{menuModal === "create" ? "Điền thông tin để thêm món vào thực đơn" : "Cập nhật thông tin món ăn"}</p>
             </div>
 
             <form onSubmit={handleSaveMenuItem} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Protein</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Protein</label>
                   <select
                     value={menuItemProtein}
                     onChange={(e) => setMenuItemProtein(e.target.value as Protein)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                   >
                     {PROTEIN_OPTIONS.map((p) => (
                       <option key={p} value={p}>
@@ -3467,51 +3545,51 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size (grams)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Khối lượng (gram)</label>
                   <input
                     type="number"
                     required
                     min={1}
                     value={menuItemSizeGrams}
                     onChange={(e) => setMenuItemSizeGrams(Number(e.target.value))}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Flavor</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Hương vị / Tên món</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. xá xíu"
+                  placeholder="vd: xá xíu, sốt cam, rang muối..."
                   value={menuItemFlavor}
                   onChange={(e) => setMenuItemFlavor(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground placeholder:text-foreground/30 py-2.5 px-3 rounded-lg outline-none transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Price (VND)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Giá (VND)</label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={menuItemPrice}
                     onChange={(e) => setMenuItemPrice(Number(e.target.value))}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Category (optional)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Danh mục (tùy chọn)</label>
                   <select
                     value={menuItemCatId}
                     onChange={(e) => setMenuItemCatId(e.target.value)}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                   >
-                    <option value="">—</option>
+                    <option value="">— Không chọn —</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -3521,43 +3599,101 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Image URL (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
-                  value={menuItemImage}
-                  onChange={(e) => setMenuItemImage(e.target.value)}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
-                />
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Ảnh sản phẩm (tùy chọn)</label>
+
+                {/* Image Preview */}
+                {(menuItemImagePreview || menuItemImage) && (
+                  <div className="relative w-full h-40 rounded-xl overflow-hidden border border-foreground/15 bg-foreground/5">
+                    <img
+                      src={menuItemImagePreview || menuItemImage}
+                      alt="Preview ảnh sản phẩm"
+                      className="w-full h-full object-cover"
+                    />
+                    {menuItemUploading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <FontAwesomeIcon icon={faSpinner} className="text-white text-2xl animate-spin" />
+                      </div>
+                    )}
+                    {!menuItemUploading && (
+                      <button
+                        type="button"
+                        onClick={() => { setMenuItemImage(""); setMenuItemImagePreview(""); }}
+                        className="absolute top-2 right-2 bg-black/70 hover:bg-black/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                      >
+                        Xóa ảnh
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Upload zone */}
+                <label
+                  className={`flex flex-col items-center justify-center gap-1.5 w-full border-2 border-dashed rounded-xl py-4 px-4 transition-all text-xs font-semibold
+                    ${
+                      menuItemUploading
+                        ? "border-primary/30 text-foreground/30 cursor-not-allowed bg-foreground/[0.02]"
+                        : "border-foreground/25 hover:border-primary hover:bg-primary/5 hover:text-primary text-foreground/50 cursor-pointer bg-white"
+                    }`
+                  }
+                >
+                  {menuItemUploading ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin text-base" />
+                      <span>Đang tải lên...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span>{menuItemImage ? "Thay ảnh khác" : "Nhấn để tải ảnh lên"}</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={menuItemUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+
+                <p className="text-[10px] text-foreground/40">
+                  Hỗ trợ: JPG, PNG, WEBP, GIF · Tối đa 5 MB
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Stock on hand (portions ready right now)
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">
+                  Tồn kho (suất đã sẵn sàng)
                 </label>
                 <input
                   type="number"
                   min={0}
                   value={menuItemStock}
                   onChange={(e) => setMenuItemStock(Number(e.target.value))}
-                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                  className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  0 means orders for this dish need prep first. Use the +/− on the catalog card for quick day-to-day adjustments.
+                <p className="text-[10px] text-foreground/40">
+                  0 = cần chế biến trước khi giao. Dùng nút +/− trên thẻ món để điều chỉnh nhanh hàng ngày.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 bg-foreground/[0.03] border border-foreground/10 rounded-lg px-3 py-2.5">
                 <input
                   type="checkbox"
                   id="avail"
                   checked={menuItemAvailable}
                   onChange={(e) => setMenuItemAvailable(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                  className="rounded border-foreground/30 text-primary focus:ring-primary h-4 w-4 accent-primary"
                 />
-                <label htmlFor="avail" className="text-xs font-semibold text-muted-foreground select-none">
-                  Available in Catalog (Active)
+                <label htmlFor="avail" className="text-xs font-semibold text-foreground/70 select-none cursor-pointer">
+                  Hiển thị trong thực đơn (Active)
                 </label>
               </div>
 
@@ -3565,15 +3701,16 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => setMenuModal(null)}
-                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
+                  className="flex-1 bg-white hover:bg-foreground/5 text-foreground/70 hover:text-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-foreground/20"
                 >
-                  Cancel
+                  Hủy
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                  disabled={menuItemUploading}
+                  className="flex-2 flex-grow-[2] bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/20"
                 >
-                  Save Dish
+                  {menuModal === "create" ? "Thêm món" : "Lưu thay đổi"}
                 </button>
               </div>
             </form>

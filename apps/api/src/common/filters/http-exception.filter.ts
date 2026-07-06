@@ -37,10 +37,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       }
     } else {
-      const stack = exception instanceof Error ? exception.stack : String(exception);
-      this.logger.error(`Unhandled Exception Occurred: ${stack}`);
+      // Not every thrown value is an Error instance — the Cloudinary SDK in
+      // particular sometimes rejects with a plain object (e.g. {message,
+      // http_code}). String(exception) on those just prints the useless
+      // "[object Object]", so fall back to JSON.stringify to actually see
+      // what's in it.
+      const detail =
+        exception instanceof Error
+          ? exception.stack
+          : (() => {
+              try {
+                return JSON.stringify(exception);
+              } catch {
+                return String(exception);
+              }
+            })();
+      this.logger.error(`Unhandled Exception Occurred: ${detail}`);
       if (exception instanceof Error) {
         message = exception.message;
+      } else if (exception && typeof exception === "object" && typeof (exception as any).message === "string") {
+        message = (exception as any).message;
       }
     }
 

@@ -15,6 +15,7 @@ import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.modul
 import { DeliveryModule } from "./modules/delivery/delivery.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { PrepListModule } from "./modules/prep-list/prep-list.module";
+import { UploadModule } from "./modules/upload/upload.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PrepListModule } from "./modules/prep-list/prep-list.module";
     DeliveryModule,
     DashboardModule,
     PrepListModule,
+    UploadModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
