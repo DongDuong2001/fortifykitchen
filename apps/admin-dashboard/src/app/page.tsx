@@ -185,7 +185,7 @@ function PaginationControls({
   const rangeEnd = Math.min(safePage * pageSize, totalItems);
   return (
     <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
-      <span className="text-[11px] text-muted-foreground font-mono">
+      <span className="text-[11px] text-muted-foreground ">
         {rangeStart}–{rangeEnd} / {totalItems}
       </span>
       <div className="flex items-center gap-1.5">
@@ -197,7 +197,7 @@ function PaginationControls({
         >
           ‹ Trước
         </button>
-        <span className="text-[11px] font-mono text-muted-foreground px-1.5">
+        <span className="text-[11px]  text-muted-foreground px-1.5">
           Trang {safePage}/{totalPages}
         </span>
         <button
@@ -1643,7 +1643,7 @@ export default function AdminDashboard() {
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -1687,7 +1687,7 @@ export default function AdminDashboard() {
                         }`}
                       >
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div
@@ -1734,7 +1734,7 @@ export default function AdminDashboard() {
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -1957,10 +1957,10 @@ export default function AdminDashboard() {
                     pagedOrderDayGroups.map((group) => (
                       <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider">
                             {formatGroupKeyLabel(group.key, "day")}
                           </h4>
-                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                          <span className="text-[10px] text-muted-foreground ">{group.entries.length} đơn</span>
                         </div>
                         {/* Mobile cards view */}
                         <div className="md:hidden space-y-3">
@@ -2285,10 +2285,10 @@ export default function AdminDashboard() {
                     pagedSubOrderDayGroups.map((group) => (
                       <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider">
                             {formatGroupKeyLabel(group.key, "day")}
                           </h4>
-                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                          <span className="text-[10px] text-muted-foreground ">{group.entries.length} đơn</span>
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs text-left">
@@ -2308,7 +2308,7 @@ export default function AdminDashboard() {
                                     <div className="font-bold">{d.customerName}</div>
                                   </td>
                                   <td className="py-4 text-primary font-semibold">{d.packageName}</td>
-                                  <td className="py-4 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                  <td className="py-4  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
                                   <td className="py-4">
                                     <span
                                       className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
@@ -2568,10 +2568,10 @@ export default function AdminDashboard() {
                         pagedDeliveryDayGroups.map((group) => (
                           <div key={group.date} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                              <h4 className="text-xs font-bold  uppercase tracking-wider">
                                 {new Date(group.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
                               </h4>
-                              <span className="text-[10px] text-muted-foreground font-mono">
+                              <span className="text-[10px] text-muted-foreground ">
                                 {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
                               </span>
                             </div>
@@ -2598,7 +2598,7 @@ export default function AdminDashboard() {
                                         {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
                                       </p>
                                     </div>
-                                    <span className="font-mono text-muted-foreground font-semibold">{formatGrams(d.totalGrams)}</span>
+                                    <span className=" text-muted-foreground font-semibold">{formatGrams(d.totalGrams)}</span>
                                   </div>
 
                                   <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
@@ -2672,7 +2672,7 @@ export default function AdminDashboard() {
                                       <td className="py-3 text-primary font-semibold">
                                         {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
                                       </td>
-                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                      <td className="py-3  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
                                       <td className="py-3">
                                         <select
                                           value={d.status}
@@ -2736,10 +2736,10 @@ export default function AdminDashboard() {
                         pagedUpcomingGroups.map((group) => (
                           <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                              <h4 className="text-xs font-bold  uppercase tracking-wider">
                                 {formatGroupKeyLabel(group.key, deliveryGroupBy)}
                               </h4>
-                              <span className="text-[10px] text-muted-foreground font-mono">
+                              <span className="text-[10px] text-muted-foreground ">
                                 {group.entries.length} lần giao · {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
                               </span>
                             </div>
@@ -2777,7 +2777,7 @@ export default function AdminDashboard() {
                                       <td className="py-3 text-primary font-semibold">
                                         {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
                                       </td>
-                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                      <td className="py-3  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
                                       <td className="py-3">
                                         <select
                                           value={d.status}
@@ -2859,10 +2859,10 @@ export default function AdminDashboard() {
                     return (
                       <div key={protein} className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider text-muted-foreground">
                             {PROTEIN_LABELS[protein]}
                           </h4>
-                          <span className="text-[10px] font-mono text-muted-foreground">({dishes.length})</span>
+                          <span className="text-[10px]  text-muted-foreground">({dishes.length})</span>
                           <div className="flex-1 border-t border-border/60" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -2875,7 +2875,7 @@ export default function AdminDashboard() {
                                 <div>
                                   <div className="flex justify-between items-start gap-3">
                                     <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
-                                    <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
+                                    <span className="text-xs font-bold text-primary shrink-0 ">{formatVND(item.price)}</span>
                                   </div>
 
                                   {dish.sizes.length > 1 ? (
@@ -2913,7 +2913,7 @@ export default function AdminDashboard() {
                                       0 means an order for this item needs prep (SCHEDULED). */}
                                   <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
                                     <span
-                                      className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                                      className={`text-[10px] font-bold  px-1.5 py-0.5 rounded ${
                                         (item.stockQuantity ?? 0) > 0
                                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                           : "bg-amber-50 text-amber-700 border border-amber-200"
@@ -3044,10 +3044,10 @@ export default function AdminDashboard() {
                           return (
                             <div key={protein} className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                                <h4 className="text-xs font-bold  uppercase tracking-wider text-muted-foreground">
                                   {PROTEIN_LABELS[protein]}
                                 </h4>
-                                <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                                <span className="text-[10px]  text-muted-foreground">({items.length})</span>
                                 <div className="flex-1 border-t border-border/60" />
                               </div>
                               <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
@@ -3066,7 +3066,7 @@ export default function AdminDashboard() {
                                         <tr key={item.id} className="border-b border-border/20 last:border-0">
                                           <td className="py-3 font-bold">{item.flavor}</td>
                                           <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
-                                          <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                          <td className="py-3  font-bold">{item.stockQuantity ?? 0}</td>
                                           <td className="py-3">
                                             <div className="flex items-center justify-end gap-1.5">
                                               <button
@@ -3210,7 +3210,7 @@ export default function AdminDashboard() {
                                 <div key={p.id} className="space-y-1">
                                   <div className="flex justify-between text-[11px]">
                                     <span className="font-semibold">{PROTEIN_LABELS[p.protein as Protein] || p.protein}</span>
-                                    <span className="font-mono text-muted-foreground">
+                                    <span className=" text-muted-foreground">
                                       {formatGrams(p.remainingGrams)} / {formatGrams(p.totalGrams)} còn lại
                                     </span>
                                   </div>
@@ -3339,9 +3339,9 @@ export default function AdminDashboard() {
                           <table className="w-full text-xs text-left">
                             <thead>
                               <tr className="bg-muted/50 border-b border-border">
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground">Món</th>
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-center">Phần</th>
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-right">Tổng gram</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground">Món</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground text-center">Phần</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground text-right">Tổng gram</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3361,11 +3361,11 @@ export default function AdminDashboard() {
                                     <span className="text-muted-foreground ml-1">({item.sizeGrams}g)</span>
                                   </td>
                                   <td className="px-4 py-3 text-center">
-                                    <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md font-bold font-mono">
+                                    <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md font-bold ">
                                       {item.portions}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-right font-semibold font-mono">
+                                  <td className="px-4 py-3 text-right font-semibold ">
                                     {item.totalGrams.toLocaleString()}g
                                   </td>
                                 </tr>
@@ -3374,8 +3374,8 @@ export default function AdminDashboard() {
                             <tfoot>
                               <tr className="border-t-2 border-primary/30 bg-primary/5">
                                 <td className="px-4 py-3 font-bold">Tổng cộng</td>
-                                <td className="px-4 py-3 text-center font-bold font-mono">{prepData.totalPortions}</td>
-                                <td className="px-4 py-3 text-right font-bold font-mono">
+                                <td className="px-4 py-3 text-center font-bold ">{prepData.totalPortions}</td>
+                                <td className="px-4 py-3 text-right font-bold ">
                                   {prepData.totalGrams.toLocaleString()}g
                                 </td>
                               </tr>
@@ -3876,7 +3876,7 @@ export default function AdminDashboard() {
                     <span className="font-bold">{i.flavor}</span>
                     <span className="text-muted-foreground"> · {i.sizeGrams}g × {i.qty}</span>
                   </div>
-                  <span className="font-mono text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
+                  <span className=" text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
                 </div>
               ))}
             </div>
@@ -3884,12 +3884,12 @@ export default function AdminDashboard() {
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Tạm tính</span>
-                <span className="font-mono">{formatVND(orderDetailView.subtotal)}</span>
+                <span className="">{formatVND(orderDetailView.subtotal)}</span>
               </div>
               {orderDetailView.discountAmount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Giảm giá</span>
-                  <span className="font-mono">−{formatVND(orderDetailView.discountAmount)}</span>
+                  <span className="">−{formatVND(orderDetailView.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-border/50">
