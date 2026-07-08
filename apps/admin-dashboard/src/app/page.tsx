@@ -261,6 +261,7 @@ export default function AdminDashboard() {
     | "customers"
     | "discounts"
     | "prep-list"
+    | "home-frames"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -318,6 +319,19 @@ export default function AdminDashboard() {
   const [deliverySearch, setDeliverySearch] = React.useState("");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
+  // --- Home Frames State ---
+  const [homeFrames, setHomeFrames] = React.useState<any[]>([]);
+  const [homeFramesPage, setHomeFramesPage] = React.useState(1);
+  const [homeFrameModal, setHomeFrameModal] = React.useState<"create" | "edit" | null>(null);
+  const [editingHomeFrameId, setEditingHomeFrameId] = React.useState<string | null>(null);
+  const [homeFrameTitle, setHomeFrameTitle] = React.useState("");
+  const [homeFrameImageUrl, setHomeFrameImageUrl] = React.useState("");
+  const [homeFrameLinkUrl, setHomeFrameLinkUrl] = React.useState("");
+  const [homeFrameOrder, setHomeFrameOrder] = React.useState(0);
+  const [homeFrameIsActive, setHomeFrameIsActive] = React.useState(true);
+  const [isSavingHomeFrame, setIsSavingHomeFrame] = React.useState(false);
+  const [homeFrameImagePreview, setHomeFrameImagePreview] = React.useState<string>("");
+  const [isHomeFrameUploading, setIsHomeFrameUploading] = React.useState(false);
 
   // --- Pagination state — one page counter per list view. Every list here
   // is small-ish and already loaded in full for client-side tab/search
@@ -585,6 +599,13 @@ export default function AdminDashboard() {
         if (res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
+        }
+      } else if (section === "home-frames") {
+        const res = await fetch(`${API_URL}/home-frames/admin`, { headers });
+        if (handleUnauthorized([res])) return;
+        if (res.ok) {
+          const result = await res.json();
+          setHomeFrames(result.data || []);
         }
       }
     } catch (e) {
@@ -1241,6 +1262,114 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- Home Frames Handlers ---
+  const resetHomeFrameForm = () => {
+    setEditingHomeFrameId(null);
+    setHomeFrameTitle("");
+    setHomeFrameImageUrl("");
+    setHomeFrameLinkUrl("");
+    setHomeFrameOrder(0);
+    setHomeFrameIsActive(true);
+    setHomeFrameImagePreview("");
+  };
+
+  const handleSaveHomeFrame = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!homeFrameImageUrl.trim()) {
+      toast({ title: "Ảnh khung không được để trống", type: "error" });
+      return;
+    }
+    try {
+      setIsSavingHomeFrame(true);
+      const payload = {
+        title: homeFrameTitle || undefined,
+        imageUrl: homeFrameImageUrl,
+        linkUrl: homeFrameLinkUrl || undefined,
+        order: Number(homeFrameOrder),
+        isActive: homeFrameIsActive,
+      };
+      const url = homeFrameModal === "edit" ? `${API_URL}/home-frames/${editingHomeFrameId}` : `${API_URL}/home-frames`;
+      const method = homeFrameModal === "edit" ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setHomeFrameModal(null);
+        resetHomeFrameForm();
+        loadData();
+        toast({ title: "Đã lưu khung ảnh thành công", type: "success" });
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Không thể lưu khung ảnh", type: "error" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Có lỗi xảy ra khi lưu", type: "error" });
+    } finally {
+      setIsSavingHomeFrame(false);
+    }
+  };
+
+  const handleDeleteHomeFrame = (id: string) => {
+    requestConfirm(
+      "Bạn chắc chắn muốn xóa khung ảnh này khỏi trang chủ?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/home-frames/${id}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          });
+          if (res.ok) {
+            loadData();
+            toast({ title: "Đã xóa khung ảnh", type: "success" });
+          } else {
+            toast({ title: "Không thể xóa khung ảnh", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" }
+    );
+  };
+
+  const handleHomeFrameImageUpload = async (file: File) => {
+    if (!file) return;
+    const localPreview = URL.createObjectURL(file);
+    setHomeFrameImagePreview(localPreview);
+    setIsHomeFrameUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_URL}/upload/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const url = body?.data?.url;
+        setHomeFrameImageUrl(url);
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Upload ảnh thất bại", type: "error" });
+        setHomeFrameImagePreview("");
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi upload ảnh", type: "error" });
+      setHomeFrameImagePreview("");
+    } finally {
+      setIsHomeFrameUploading(false);
+      URL.revokeObjectURL(localPreview);
+    }
+  };
+
   // Quick +/- stock adjust from the catalog card — hits the dedicated
   // PATCH /menu/:id/stock endpoint (delta) rather than resending the whole
   // item form, and optimistically updates the local list so the card
@@ -1560,6 +1689,7 @@ export default function AdminDashboard() {
                 { id: "deliveries", label: "Deliveries", icon: faTruck },
                 { id: "prep-list", label: "Prep List", icon: faUtensils },
                 { id: "discounts", label: "Promotional Codes", icon: faTag },
+                { id: "home-frames", label: "Home Banners", icon: faThLarge },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -3512,6 +3642,122 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* HOME FRAMES MANAGER */}
+              {section === "home-frames" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold font-heading">Quản lý Banners/Khung ảnh Trang chủ</h2>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Cập nhật và sắp xếp các khung hình quảng cáo sẽ xuất hiện trên trang chủ khách hàng.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        resetHomeFrameForm();
+                        setHomeFrameModal("create");
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/10 transition-smooth font-heading"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                      Thêm Banner Mới
+                    </button>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/60 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
+                            <th className="pb-3.5 w-24">Hình ảnh</th>
+                            <th className="pb-3.5">Tiêu đề (Tùy chọn)</th>
+                            <th className="pb-3.5">Đường dẫn liên kết</th>
+                            <th className="pb-3.5 text-center">Thứ tự</th>
+                            <th className="pb-3.5 text-center">Trạng thái</th>
+                            <th className="pb-3.5 text-center w-24">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40 font-medium">
+                          {homeFrames.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                Chưa có banner nào được tạo. Nhấn &quot;Thêm Banner Mới&quot; để bắt đầu.
+                              </td>
+                            </tr>
+                          ) : (
+                            paginate(homeFrames, homeFramesPage, PAGE_SIZE).map((frame: any) => (
+                              <tr key={frame.id} className="hover:bg-muted/10 transition-colors">
+                                <td className="py-3.5">
+                                  <img
+                                    src={frame.imageUrl}
+                                    alt={frame.title || "Banner"}
+                                    className="h-12 w-20 rounded-md object-cover border border-border bg-muted"
+                                  />
+                                </td>
+                                <td className="py-3.5 font-semibold text-foreground">
+                                  {frame.title || <span className="text-muted-foreground italic font-normal">Không có</span>}
+                                </td>
+                                <td className="py-3.5 text-muted-foreground break-all">
+                                  {frame.linkUrl || <span className="text-muted-foreground/50 italic">Không có</span>}
+                                </td>
+                                <td className="py-3.5 text-center font-bold">
+                                  {frame.order}
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                      frame.isActive
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    }`}
+                                  >
+                                    {frame.isActive ? "Hoạt động" : "Tạm ẩn"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingHomeFrameId(frame.id);
+                                        setHomeFrameTitle(frame.title || "");
+                                        setHomeFrameImageUrl(frame.imageUrl);
+                                        setHomeFrameImagePreview(frame.imageUrl);
+                                        setHomeFrameLinkUrl(frame.linkUrl || "");
+                                        setHomeFrameOrder(frame.order);
+                                        setHomeFrameIsActive(frame.isActive);
+                                        setHomeFrameModal("edit");
+                                      }}
+                                      className="text-primary hover:text-primary/80 p-1.5 cursor-pointer transition-colors"
+                                      title="Chỉnh sửa"
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteHomeFrame(frame.id)}
+                                      className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer transition-colors"
+                                      title="Xóa"
+                                    >
+                                      <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationControls
+                      page={homeFramesPage}
+                      totalPages={Math.ceil(homeFrames.length / PAGE_SIZE) || 1}
+                      totalItems={homeFrames.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setHomeFramesPage}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -4399,6 +4645,146 @@ export default function AdminDashboard() {
             >
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* HOME FRAME CREATE/EDIT DIALOG MODAL */}
+      {homeFrameModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setHomeFrameModal(null)} />
+          <div className="relative w-full max-w-lg bg-card border border-border/60 rounded-2xl shadow-2xl p-8 z-10 space-y-6 text-left">
+            <div className="text-center pb-1 border-b border-border/40">
+              <h3 className="text-lg font-bold font-heading text-foreground">
+                {homeFrameModal === "create" ? "Thêm Banner Mới" : "Chỉnh sửa Banner"}
+              </h3>
+              <p className="text-[11px] text-foreground/50 mt-0.5">
+                {homeFrameModal === "create" ? "Thiết lập thông tin cho banner quảng cáo mới" : "Cập nhật thông tin banner quảng cáo"}
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveHomeFrame} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiêu đề (Tùy chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Giảm giá mùa hè"
+                  value={homeFrameTitle}
+                  onChange={(e) => setHomeFrameTitle(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Đường dẫn liên kết (Tùy chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: /menu hoặc link ngoài"
+                  value={homeFrameLinkUrl}
+                  onChange={(e) => setHomeFrameLinkUrl(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Thứ tự hiển thị</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={homeFrameOrder}
+                    onChange={(e) => setHomeFrameOrder(Number(e.target.value))}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none font-bold"
+                  />
+                </div>
+                <div className="space-y-1 flex flex-col justify-end">
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer pb-2 select-none">
+                    <input
+                      type="checkbox"
+                      checked={homeFrameIsActive}
+                      onChange={(e) => setHomeFrameIsActive(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <span>Kích hoạt hiển thị</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Upload section */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Hình ảnh Banner</label>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="relative h-28 w-48 border border-border rounded-xl bg-background overflow-hidden flex items-center justify-center shrink-0">
+                    {homeFrameImagePreview ? (
+                      <>
+                        <img src={homeFrameImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                        {isHomeFrameUploading && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                            <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin" />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/60 text-center px-4">
+                        Chưa chọn ảnh (hoặc điền link trực tiếp bên dưới)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-border hover:bg-muted text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-sm bg-background select-none">
+                      <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5 text-muted-foreground" />
+                      Tải ảnh lên
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleHomeFrameImageUpload(file);
+                        }}
+                      />
+                    </label>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Chấp nhận PNG, JPG, GIF. Dung lượng tối đa 5MB. Ảnh sẽ được tự động đồng bộ lên Cloudinary.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-muted-foreground/80 block uppercase">Hoặc dán URL trực tiếp</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="https://..."
+                    value={homeFrameImageUrl}
+                    onChange={(e) => {
+                      setHomeFrameImageUrl(e.target.value);
+                      setHomeFrameImagePreview(e.target.value);
+                    }}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border/40">
+                <button
+                  type="button"
+                  onClick={() => setHomeFrameModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border transition-colors font-heading"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingHomeFrame || isHomeFrameUploading}
+                  className="flex-1 bg-primary hover:bg-primary/95 disabled:opacity-50 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-colors font-heading"
+                >
+                  {isSavingHomeFrame ? "Đang lưu..." : "Lưu banner"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
