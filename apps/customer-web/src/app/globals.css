@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@200..800&display=swap');
 @import "tailwindcss";
 
 /*
@@ -28,8 +28,8 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Fraunces", "Inter", serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* DESIGN.md's radius scale (sm: 8px / md: 16px / lg: 24px) */
@@ -52,25 +52,25 @@
 }
 
 :root {
-  --background: #f7f3ec;        /* Warm cream */
-  --foreground: #2f4a3c;        /* Deep forest green */
-  --primary: #e8703a;           /* Burnt orange */
-  --primary-foreground: #ffffff;
-  --secondary: #7c8b7e;         /* Muted sage */
-  --secondary-foreground: #ffffff;
-  --muted: #e6e1d6;
-  --muted-foreground: #7c8b7e;  
-  --accent: #e8703a;
-  --accent-foreground: #ffffff;
-  --destructive: #c1453a;
-  --destructive-foreground: #ffffff;
-  --border: #e6e1d6;            /* Card outlines, dividers */
-  --input: #ffffff;             
-  --ring: #e8703a;
-  --card: #ffffff;              /* Card background */
-  --card-foreground: #2f4a3c;
-  --popover: #ffffff;
-  --popover-foreground: #2f4a3c;
+  --background: #F0EBDA;        /* Rice paper warm neutral */
+  --foreground: #1E2016;        /* Deep matcha primary */
+  --primary: #B0361B;           /* Clay red tertiary */
+  --primary-foreground: #F8F3E1;/* Warm cream surface text */
+  --secondary: #7B8069;         /* Bamboo secondary green */
+  --secondary-foreground: #F8F3E1;
+  --muted: #E6DFCE;
+  --muted-foreground: #7B8069;  
+  --accent: #B0361B;
+  --accent-foreground: #F8F3E1;
+  --destructive: #B0361B;
+  --destructive-foreground: #F8F3E1;
+  --border: #E6DFCE;            /* Card outlines, dividers */
+  --input: #F8F3E1;             
+  --ring: #B0361B;
+  --card: #F8F3E1;              /* Warm cream surface card */
+  --card-foreground: #1E2016;
+  --popover: #F8F3E1;
+  --popover-foreground: #1E2016;
 }
 
 body {

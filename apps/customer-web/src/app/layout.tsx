@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { DM_Sans } from "next/font/google";
 import { Providers } from "../providers/providers";
 import "./globals.css";
-
-// Soumaki Sans (DM Sans) for all text levels
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "FortifyKitchen - Premium Food Ordering & Subscriptions",
@@ -34,7 +26,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
