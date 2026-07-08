@@ -4,13 +4,13 @@ name: Soumaki — Your Healthy Food Soulmate
 description: Vietnamese healthy meal-prep & sous-vide bowl brand. Warm, romantic "soulmate" tone wrapped in a clean, cream-and-green, appetite-forward layout.
 
 colors:
-  primary: "#2F4A3C"
-  secondary: "#7C8B7E"
-  tertiary: "#E8703A"
-  neutral: "#F7F3EC"
-  surface: "#FFFFFF"
-  border: "#E6E1D6"
-  on-primary: "#FFFFFF"
+  primary: "#1E2016"
+  secondary: "#7B8069"
+  tertiary: "#B0361B"
+  neutral: "#F0EBDA"
+  surface: "#F8F3E1"
+  border: "#E6DFCE"
+  on-primary: "#F8F3E1"
 
 typography:
   display:
@@ -107,23 +107,23 @@ The interface should feel like a caring partner, not a clinical nutrition app �
 
 # Colors
 
-- **Primary (`#2F4A3C`)**
-  Deep forest green. Headings, nav text, icon strokes, footer background.
+- **Primary (`#1E2016`)**
+  Deep Matcha Green. Headings, nav text, icon strokes, footer background.
 
-- **Secondary (`#7C8B7E`)**
-  Muted sage. Supporting copy, metadata (macro labels), borders on secondary elements.
+- **Secondary (`#7B8069`)**
+  Bamboo Sage Green. Supporting copy, metadata (macro labels), borders on secondary elements.
 
-- **Tertiary (`#E8703A`)**
-  Warm burnt-orange. The single accent color, reserved for primary CTAs ("Đặt ngay," "Đặt món ngay," "Tính calo ngay").
+- **Tertiary (`#B0361B`)**
+  Clay Red. The single accent color, reserved for primary CTAs ("Đặt ngay," "Đặt món ngay," "Tính calo ngay").
 
-- **Neutral (`#F7F3EC`)**
-  Warm cream page background — keeps long Vietnamese copy easy on the eyes.
+- **Neutral (`#F0EBDA`)**
+  Rice Paper Warm Neutral. Page background — keeps long Vietnamese/English copy easy on the eyes.
 
-- **Surface (`#FFFFFF`)**
-  Bowl cards, testimonial cards, blog cards.
+- **Surface (`#F8F3E1`)**
+  Warm Sand Cream. Bowl cards, testimonial cards, blog cards.
 
-- **Border (`#E6E1D6`)**
-  Card outlines, dividers between sections.
+- **Border (`#E6DFCE`)**
+  Rice Paper Border. Card outlines, dividers between sections.
 
 ---
 
