@@ -16,6 +16,7 @@ import { DeliveryModule } from "./modules/delivery/delivery.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { PrepListModule } from "./modules/prep-list/prep-list.module";
 import { UploadModule } from "./modules/upload/upload.module";
+import { HomeFramesModule } from "./modules/home-frames/home-frames.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UploadModule } from "./modules/upload/upload.module";
     DashboardModule,
     PrepListModule,
     UploadModule,
+    HomeFramesModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
