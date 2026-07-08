@@ -217,3 +217,15 @@ export interface Payment {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface HomeFrame {
+  id: string;
+  title?: string;
+  imageUrl: string;
+  linkUrl?: string;
+  order: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
