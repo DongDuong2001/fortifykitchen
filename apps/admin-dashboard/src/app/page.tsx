@@ -21,6 +21,9 @@ import {
   faBox,
   faInfoCircle,
   faClipboardCheck,
+  faWallet,
+  faCheck,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   PROTEIN_LABELS,
@@ -288,6 +291,7 @@ export default function AdminDashboard() {
     | "custom-plan-requests"
     | "customers"
     | "discounts"
+    | "subscription-plans"
     | "prep-list"
     | "home-frames"
   >("dashboard");
@@ -338,6 +342,15 @@ export default function AdminDashboard() {
   const [cprStatusFilter, setCprStatusFilter] = React.useState<"ALL" | CustomPlanRequestStatus>("ALL");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
+  // --- Subscription Plans (wallet top-up catalog) + pending top-ups queue ---
+  const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>([]);
+  const [pendingTopUps, setPendingTopUps] = React.useState<any[]>([]);
+  // Row id currently mid-flight on Confirm/Reject, so a double-click can't
+  // double-fire the request while it's in progress.
+  const [processingTopUpId, setProcessingTopUpId] = React.useState<string | null>(null);
+  // Staff-wide low-balance summary (wallet + subscription pool) shown as a
+  // Dashboard alert widget — same shape as the inventory alerts above it.
+  const [lowBalance, setLowBalance] = React.useState<any>({ poolsLow: [], walletsLow: [], totalCount: 0 });
   // --- Home Frames State ---
   const [homeFrames, setHomeFrames] = React.useState<any[]>([]);
   const [homeFramesPage, setHomeFramesPage] = React.useState(1);
@@ -362,6 +375,8 @@ export default function AdminDashboard() {
   const [subscriptionsPage, setSubscriptionsPage] = React.useState(1);
   const [customPlanRequestsPage, setCustomPlanRequestsPage] = React.useState(1);
   const [discountsPage, setDiscountsPage] = React.useState(1);
+  const [subscriptionPlansPage, setSubscriptionPlansPage] = React.useState(1);
+  const [pendingTopUpsPage, setPendingTopUpsPage] = React.useState(1);
   const [menuPageByProtein, setMenuPageByProtein] = React.useState<Record<string, number>>({});
   const [inventoryPageByProtein, setInventoryPageByProtein] = React.useState<Record<string, number>>({});
 
@@ -486,6 +501,17 @@ export default function AdminDashboard() {
   const [discountStarts, setDiscountStarts] = React.useState("2026-07-04T00:00:00Z");
   const [discountEnds, setDiscountEnds] = React.useState("2026-12-31T23:59:59Z");
 
+  // --- Subscription Plan (wallet top-up tier) form state — one form does
+  // double duty for create and edit, same as the Promotional Codes form,
+  // distinguished by editingSubPlanId being set or null. ---
+  const [editingSubPlanId, setEditingSubPlanId] = React.useState<string | null>(null);
+  const [subPlanName, setSubPlanName] = React.useState("");
+  const [subPlanPrice, setSubPlanPrice] = React.useState(1500000);
+  const [subPlanVoucherPercent, setSubPlanVoucherPercent] = React.useState(5);
+  const [subPlanDescription, setSubPlanDescription] = React.useState("");
+  const [subPlanIsActive, setSubPlanIsActive] = React.useState(true);
+  const [isSavingSubPlan, setIsSavingSubPlan] = React.useState(false);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   // Hydrate auth
@@ -529,16 +555,21 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (section === "dashboard") {
-        const [resStats, resMenu] = await Promise.all([
+        const [resStats, resMenu, resLowBalance] = await Promise.all([
           fetch(`${API_URL}/dashboard/stats`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/notifications/low-balance`, { headers }),
         ]);
-        if (handleUnauthorized([resStats, resMenu])) return;
+        if (handleUnauthorized([resStats, resMenu, resLowBalance])) return;
         if (resStats.ok) {
           const result = await resStats.json();
           setStats(result.data);
         }
         if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
+        if (resLowBalance.ok) {
+          const result = await resLowBalance.json();
+          setLowBalance(result.data || { poolsLow: [], walletsLow: [], totalCount: 0 });
+        }
       } else if (section === "orders") {
         // `orders` now covers every Order row regardless of source
         // (ONE_OFF or SUBSCRIPTION, per the unified Shopee-style model) —
@@ -609,6 +640,14 @@ export default function AdminDashboard() {
           const result = await res.json();
           setDiscounts(result.data || []);
         }
+      } else if (section === "subscription-plans") {
+        const [resPlans, resPending] = await Promise.all([
+          fetch(`${API_URL}/subscription-plans`, { headers }),
+          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }),
+        ]);
+        if (handleUnauthorized([resPlans, resPending])) return;
+        if (resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
+        if (resPending.ok) setPendingTopUps((await resPending.json()).data || []);
       } else if (section === "home-frames") {
         const res = await fetch(`${API_URL}/home-frames/admin`, { headers });
         if (handleUnauthorized([res])) return;
@@ -1495,6 +1534,136 @@ export default function AdminDashboard() {
     );
   };
 
+  // --- Subscription Plans (wallet top-up catalog) ---
+  const resetSubPlanForm = () => {
+    setEditingSubPlanId(null);
+    setSubPlanName("");
+    setSubPlanPrice(1500000);
+    setSubPlanVoucherPercent(5);
+    setSubPlanDescription("");
+    setSubPlanIsActive(true);
+  };
+
+  const handleEditSubPlanTrigger = (plan: any) => {
+    setEditingSubPlanId(plan.id);
+    setSubPlanName(plan.name);
+    setSubPlanPrice(plan.price);
+    setSubPlanVoucherPercent(plan.voucherPercent ?? 0);
+    setSubPlanDescription(plan.description || "");
+    setSubPlanIsActive(plan.isActive);
+  };
+
+  // Create or update a price tier — same form serves both, distinguished by
+  // editingSubPlanId (mirrors the Menu Item / Home Frame create-vs-edit
+  // pattern elsewhere in this console).
+  const handleSaveSubscriptionPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingSubPlan(true);
+      const payload = {
+        name: subPlanName,
+        price: Number(subPlanPrice),
+        voucherPercent: Number(subPlanVoucherPercent),
+        description: subPlanDescription || undefined,
+        isActive: subPlanIsActive,
+      };
+      const url = editingSubPlanId ? `${API_URL}/subscription-plans/${editingSubPlanId}` : `${API_URL}/subscription-plans`;
+      const method = editingSubPlanId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        resetSubPlanForm();
+        loadData();
+        toast({ title: editingSubPlanId ? "Đã cập nhật gói nạp" : "Đã tạo gói nạp mới", type: "success" });
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể lưu gói nạp", type: "error" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi lưu gói nạp", type: "error" });
+    } finally {
+      setIsSavingSubPlan(false);
+    }
+  };
+
+  const handleDeleteSubscriptionPlan = (id: string) => {
+    requestConfirm(
+      "Bạn chắc chắn muốn xóa gói nạp này?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/subscription-plans/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            if (editingSubPlanId === id) resetSubPlanForm();
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể xóa gói nạp", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
+  // --- Pending wallet top-ups queue ---
+  const handleConfirmTopUp = async (id: string) => {
+    try {
+      setProcessingTopUpId(id);
+      const res = await fetch(`${API_URL}/subscription-plan-purchases/${id}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast({ title: "Đã xác nhận chuyển khoản — ví khách hàng đã được cộng tiền", type: "success" });
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể xác nhận giao dịch", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi xác nhận giao dịch", type: "error" });
+    } finally {
+      setProcessingTopUpId(null);
+    }
+  };
+
+  const handleRejectTopUp = (id: string) => {
+    requestConfirm(
+      "Từ chối giao dịch nạp ví này? Ví khách hàng sẽ không được cộng tiền.",
+      async () => {
+        try {
+          setProcessingTopUpId(id);
+          const res = await fetch(`${API_URL}/subscription-plan-purchases/${id}/reject`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            toast({ title: "Đã từ chối giao dịch", type: "default" });
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể từ chối giao dịch", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setProcessingTopUpId(null);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
   const formatVND = (num: number) => {
     return `${num.toLocaleString()} ₫`;
   };
@@ -1662,6 +1831,7 @@ export default function AdminDashboard() {
                 { id: "custom-plan-requests", label: "Custom Plan Requests", icon: faClipboardCheck },
                 { id: "prep-list", label: "Prep List", icon: faUtensils },
                 { id: "discounts", label: "Promotional Codes", icon: faTag },
+                { id: "subscription-plans", label: "Subscription Plans", icon: faWallet },
                 { id: "home-frames", label: "Home Banners", icon: faThLarge },
               ].map((item) => (
                 <button
@@ -1876,6 +2046,59 @@ export default function AdminDashboard() {
                           </ul>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Low-balance alerts — customer wallets running low and
+                      subscription pools nearing depletion (fewer than ~3
+                      deliveries' worth left). In-app only, per
+                      docs/plan-and-credit-design.md. */}
+                  {(lowBalance.totalCount || 0) > 0 && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setSection("customers")}
+                        className="w-full text-left border border-amber-300 bg-amber-50 rounded-lg p-4 flex items-center justify-between hover:opacity-90 transition-smooth cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-md border border-amber-300 bg-amber-100 text-amber-700">
+                            <FontAwesomeIcon icon={faWallet} className="h-4 w-4" />
+                          </div>
+                          <span className="text-xs font-bold text-amber-800">
+                            {lowBalance.totalCount} cảnh báo số dư thấp cần chú ý
+                          </span>
+                        </div>
+                      </button>
+                      <div className="grid gap-6 sm:grid-cols-2">
+                        {(lowBalance.walletsLow || []).length > 0 && (
+                          <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
+                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Ví khách hàng sắp cạn</h3>
+                            <ul className="space-y-1.5 text-xs">
+                              {lowBalance.walletsLow.map((w: any) => (
+                                <li key={w.customerId} className="flex justify-between text-amber-700">
+                                  <span>{w.customerName}</span>
+                                  <span className="font-bold">{formatVND(w.walletBalance)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {(lowBalance.poolsLow || []).length > 0 && (
+                          <div className="border border-rose-200 bg-rose-50 rounded-2xl p-6">
+                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">Gói ăn sắp hết lượng</h3>
+                            <ul className="space-y-1.5 text-xs">
+                              {lowBalance.poolsLow.map((p: any) => (
+                                <li key={p.subscriptionId} className="flex justify-between text-rose-700 gap-2">
+                                  <span>
+                                    {p.customerName} · {p.packageName} · {PROTEIN_LABELS[p.protein as Protein] || p.protein}
+                                  </span>
+                                  <span className="font-bold whitespace-nowrap">{formatGrams(p.remainingGrams)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2451,6 +2674,12 @@ export default function AdminDashboard() {
                           <div className="text-[11px] text-muted-foreground bg-background p-2 rounded-lg border border-border/40">
                             <span className="font-semibold text-foreground">Địa chỉ:</span> {c.address || "—"}
                           </div>
+                          <div className="flex items-center justify-between text-[11px] bg-primary/5 border border-primary/20 p-2 rounded-lg">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <FontAwesomeIcon icon={faWallet} className="h-3 w-3 text-primary" /> Số dư ví:
+                            </span>
+                            <span className="font-bold text-primary">{formatVND(c.walletBalance || 0)}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2464,6 +2693,7 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">SĐT</th>
                             <th className="pb-3 font-semibold">Zalo</th>
                             <th className="pb-3 font-semibold">Địa chỉ</th>
+                            <th className="pb-3 font-semibold text-right">Số dư ví</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
@@ -2474,6 +2704,7 @@ export default function AdminDashboard() {
                               <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
                               <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
                               <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
+                              <td className="py-3.5 text-right font-bold text-primary">{formatVND(c.walletBalance || 0)}</td>
                               <td className="py-3.5">
                                 <div className="flex justify-center gap-2">
                                   <button
@@ -3316,6 +3547,245 @@ export default function AdminDashboard() {
                       totalItems={discounts.length}
                       pageSize={PAGE_SIZE}
                       onChange={setDiscountsPage}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION F: SUBSCRIPTION PLANS (wallet top-up catalog + pending queue) */}
+              {section === "subscription-plans" && (
+                <div className="space-y-8 animate-in fade-in duration-200">
+                  {/* Catalog management — mirrors the Promotional Codes
+                      create-form-plus-list layout, extended with edit
+                      support (a plan can be retired via isActive rather
+                      than only deleted). */}
+                  <div className="grid lg:grid-cols-3 gap-8">
+                    <div className="border border-border bg-card rounded-2xl p-6 shadow-sm h-fit">
+                      <h3 className="text-sm font-bold font-heading mb-4">
+                        {editingSubPlanId ? "Chỉnh sửa gói nạp" : "Tạo gói nạp mới"}
+                      </h3>
+                      <form onSubmit={handleSaveSubscriptionPlan} className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tên gói</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="vd: Gói 1.5 triệu"
+                            value={subPlanName}
+                            onChange={(e) => setSubPlanName(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Giá (VND)</label>
+                            <input
+                              type="number"
+                              required
+                              min={0}
+                              value={subPlanPrice}
+                              onChange={(e) => setSubPlanPrice(Number(e.target.value))}
+                              className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Voucher (%)</label>
+                            <input
+                              type="number"
+                              required
+                              min={0}
+                              max={100}
+                              value={subPlanVoucherPercent}
+                              onChange={(e) => setSubPlanVoucherPercent(Number(e.target.value))}
+                              className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mô tả (tùy chọn)</label>
+                          <textarea
+                            rows={2}
+                            value={subPlanDescription}
+                            onChange={(e) => setSubPlanDescription(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={subPlanIsActive}
+                            onChange={(e) => setSubPlanIsActive(e.target.checked)}
+                            className="h-3.5 w-3.5 cursor-pointer"
+                          />
+                          Đang hoạt động (hiển thị cho khách hàng)
+                        </label>
+
+                        <div className="flex gap-2">
+                          {editingSubPlanId && (
+                            <button
+                              type="button"
+                              onClick={resetSubPlanForm}
+                              className="flex-1 border border-border hover:bg-muted text-xs font-bold py-3.5 rounded-xl transition-all cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={isSavingSubPlan}
+                            className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {isSavingSubPlan ? "Đang lưu..." : editingSubPlanId ? "Lưu thay đổi" : "Tạo gói nạp"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div className="lg:col-span-2 border border-border bg-card rounded-2xl p-6 shadow-sm">
+                      <h3 className="text-sm font-bold font-heading mb-4">Danh mục gói nạp ({subscriptionPlans.length})</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="text-muted-foreground border-b border-border/50 pb-2">
+                              <th className="pb-3 font-semibold">Tên gói</th>
+                              <th className="pb-3 font-semibold">Giá</th>
+                              <th className="pb-3 font-semibold">Voucher</th>
+                              <th className="pb-3 font-semibold text-center">Trạng thái</th>
+                              <th className="pb-3 font-semibold text-center">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginate(
+                              subscriptionPlans,
+                              clampPage(subscriptionPlansPage, Math.ceil(subscriptionPlans.length / PAGE_SIZE) || 1),
+                              PAGE_SIZE,
+                            ).map((p: any) => (
+                              <tr key={p.id} className="border-b border-border/20 last:border-0">
+                                <td className="py-3.5 font-bold">{p.name}</td>
+                                <td className="py-3.5 font-bold text-primary">{formatVND(p.price)}</td>
+                                <td className="py-3.5 text-muted-foreground">{p.voucherPercent}%</td>
+                                <td className="py-3.5 text-center">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                      p.isActive
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-muted text-muted-foreground border-border"
+                                    }`}
+                                  >
+                                    {p.isActive ? "Hoạt động" : "Đã ẩn"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5">
+                                  <div className="flex justify-center gap-2">
+                                    <button
+                                      onClick={() => handleEditSubPlanTrigger(p)}
+                                      className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSubscriptionPlan(p.id)}
+                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                    >
+                                      <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {subscriptionPlans.length === 0 && (
+                        <div className="border border-dashed border-border rounded-lg py-12 text-center text-xs text-muted-foreground">
+                          Chưa có gói nạp nào
+                        </div>
+                      )}
+                      <PaginationControls
+                        page={subscriptionPlansPage}
+                        totalPages={Math.ceil(subscriptionPlans.length / PAGE_SIZE) || 1}
+                        totalItems={subscriptionPlans.length}
+                        pageSize={PAGE_SIZE}
+                        onChange={setSubscriptionPlansPage}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pending top-ups queue — bank transfers awaiting staff
+                      reconciliation. Confirming credits the customer's
+                      wallet + issues the tier's voucher; rejecting leaves
+                      the wallet untouched. Card-queue layout mirrors Custom
+                      Plan Requests. */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold font-heading">Chờ xác nhận chuyển khoản ({pendingTopUps.length})</h3>
+                    {pendingTopUps.length === 0 ? (
+                      <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                        Không có giao dịch nạp ví nào đang chờ xác nhận
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {paginate(
+                          pendingTopUps,
+                          clampPage(pendingTopUpsPage, Math.ceil(pendingTopUps.length / PAGE_SIZE) || 1),
+                          PAGE_SIZE,
+                        ).map((t: any) => (
+                          <div key={t.id} className="border border-border bg-card rounded-2xl p-5 shadow-sm space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-sm">{t.customerName}</p>
+                                <p className="text-[11px] text-muted-foreground">{t.planName}</p>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200">
+                                Chờ xác nhận
+                              </span>
+                            </div>
+
+                            <div className="text-xs space-y-1 bg-muted/30 border border-border/50 rounded-lg p-3">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Số tiền:</span>
+                                <span className="font-bold text-primary">{formatVND(t.amount)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Ngày tạo:</span>
+                                <span className="font-semibold">{new Date(t.createdAt).toLocaleString("vi-VN")}</span>
+                              </div>
+                              {t.transactionId && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Mã giao dịch:</span>
+                                  <span className="font-semibold">{t.transactionId}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                              <button
+                                onClick={() => handleConfirmTopUp(t.id)}
+                                disabled={processingTopUpId === t.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faCheck} className="h-3 w-3" /> Xác nhận
+                              </button>
+                              <button
+                                onClick={() => handleRejectTopUp(t.id)}
+                                disabled={processingTopUpId === t.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="h-3 w-3" /> Từ chối
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <PaginationControls
+                      page={pendingTopUpsPage}
+                      totalPages={Math.ceil(pendingTopUps.length / PAGE_SIZE) || 1}
+                      totalItems={pendingTopUps.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setPendingTopUpsPage}
                     />
                   </div>
                 </div>
