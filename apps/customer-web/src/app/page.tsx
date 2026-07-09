@@ -33,9 +33,9 @@ import {
 import { formatGrams } from "@fortifykitchen/shared";
 
 // Order status labels for the customer-facing "Track my order" lookup —
-// same underlying DeliveryStatus enum the admin Orders tab uses
-// (SCHEDULED/PREPPING/DELIVERED/SKIPPED/CANCELLED), just worded for a
-// customer audience in Vietnamese.
+// same unified OrderStatus enum the admin Orders tab uses
+// (PENDING_CONFIRMATION/CONFIRMED/PREPARING/OUT_FOR_DELIVERY/COMPLETED/
+// CANCELLED), just worded for a customer audience.
 const DICTIONARY = {
   vi: {
     // Navigation
@@ -273,19 +273,30 @@ const DICTIONARY = {
 
 const ORDER_STATUS_LABELS: Record<"vi" | "en", Record<string, string>> = {
   vi: {
-    SCHEDULED: "Đã đặt",
-    PREPPING: "Đang chuẩn bị",
-    DELIVERED: "Hoàn thành",
-    SKIPPED: "Đã bỏ qua",
+    PENDING_CONFIRMATION: "Chờ xác nhận",
+    CONFIRMED: "Đã xác nhận",
+    PREPARING: "Đang chuẩn bị",
+    OUT_FOR_DELIVERY: "Đang giao",
+    COMPLETED: "Hoàn thành",
     CANCELLED: "Đã huỷ",
   },
   en: {
-    SCHEDULED: "Scheduled",
-    PREPPING: "Prepping",
-    DELIVERED: "Delivered",
-    SKIPPED: "Skipped",
+    PENDING_CONFIRMATION: "Awaiting confirmation",
+    CONFIRMED: "Confirmed",
+    PREPARING: "Preparing",
+    OUT_FOR_DELIVERY: "Out for delivery",
+    COMPLETED: "Completed",
     CANCELLED: "Cancelled",
   }
+};
+
+const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
+  PENDING_CONFIRMATION: "bg-amber-50 text-amber-700 border-amber-200",
+  CONFIRMED: "bg-blue-50 text-blue-700 border-blue-200",
+  PREPARING: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  OUT_FOR_DELIVERY: "bg-purple-50 text-purple-700 border-purple-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  CANCELLED: "bg-red-50 text-red-700 border-red-200",
 };
 
 export default function CustomerPortal() {
@@ -443,6 +454,22 @@ export default function CustomerPortal() {
   const [isLookupLoading, setIsLookupLoading] = React.useState(false);
   const [lookupError, setLookupError] = React.useState<string | null>(null);
   const [hasLookedUp, setHasLookedUp] = React.useState(false);
+
+  // Custom plan request — the consultation-first flow: a customer with
+  // specific requests/preferences submits this instead of self-checking-out
+  // a subscription (subscriptions are always staff-created, see above).
+  // Staff review it in the admin dashboard's Custom Plan Requests tab and
+  // either build a matching Subscription or decline.
+  const [cprName, setCprName] = React.useState("");
+  const [cprPhone, setCprPhone] = React.useState("");
+  const [cprProteins, setCprProteins] = React.useState<Protein[]>([]);
+  const [cprEstimatedGrams, setCprEstimatedGrams] = React.useState("");
+  const [cprIntervalDays, setCprIntervalDays] = React.useState("");
+  const [cprBudget, setCprBudget] = React.useState("");
+  const [cprNotes, setCprNotes] = React.useState("");
+  const [isCprSubmitting, setIsCprSubmitting] = React.useState(false);
+  const [cprSubmitted, setCprSubmitted] = React.useState(false);
+  const [cprError, setCprError] = React.useState<string | null>(null);
 
   // Auth Modals State
   const [authModal, setAuthModal] = React.useState<"login" | "signup" | null>(null);
@@ -732,13 +759,13 @@ export default function CustomerPortal() {
     }
   };
 
-  const handlePostponeMyDelivery = (deliveryId: string) => {
+  const handlePostponeMyDelivery = (orderId: string) => {
     requestConfirm(
       "Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.",
       async () => {
         try {
           const res = await fetch(
-            `${API_URL}/subscriptions/public/${deliveryId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
+            `${API_URL}/subscriptions/public/${orderId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
             { method: "POST" },
           );
           if (res.ok) {
@@ -771,6 +798,57 @@ export default function CustomerPortal() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const toggleCprProtein = (p: Protein) => {
+    setCprProteins((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  };
+
+  const handleSubmitCustomPlanRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCprError(null);
+    if (!cprName.trim() || !cprPhone.trim()) {
+      setCprError(lang === "vi" ? "Vui lòng nhập tên và số điện thoại" : "Please enter your name and phone number");
+      return;
+    }
+    if (cprProteins.length === 0) {
+      setCprError(lang === "vi" ? "Vui lòng chọn ít nhất 1 loại protein" : "Please select at least one protein");
+      return;
+    }
+    setIsCprSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/custom-plan-requests/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: cprName.trim(),
+          phone: cprPhone.trim(),
+          desiredProteins: cprProteins,
+          estimatedTotalGrams: cprEstimatedGrams ? Number(cprEstimatedGrams) * 1000 : undefined,
+          preferredIntervalDays: cprIntervalDays ? Number(cprIntervalDays) : undefined,
+          budgetHint: cprBudget ? Number(cprBudget) : undefined,
+          notes: cprNotes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setCprSubmitted(true);
+        setCprName("");
+        setCprPhone("");
+        setCprProteins([]);
+        setCprEstimatedGrams("");
+        setCprIntervalDays("");
+        setCprBudget("");
+        setCprNotes("");
+      } else {
+        const result = await res.json().catch(() => null);
+        setCprError(result?.message || (lang === "vi" ? "Không thể gửi yêu cầu lúc này" : "Could not submit your request right now"));
+      }
+    } catch (err) {
+      console.error(err);
+      setCprError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+    } finally {
+      setIsCprSubmitting(false);
     }
   };
 
@@ -2147,19 +2225,9 @@ export default function CustomerPortal() {
                       </p>
                     </div>
                     <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${
-                        o.deliveryStatus === "PREPPING"
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : o.deliveryStatus === "DELIVERED"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : o.deliveryStatus === "CANCELLED"
-                              ? "bg-red-50 text-red-700 border-red-200"
-                              : o.deliveryStatus === "SKIPPED"
-                                ? "bg-muted text-muted-foreground border-border"
-                                : "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}
+                      className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[o.status] || "bg-amber-50 text-amber-700 border-amber-200"}`}
                     >
-                      {ORDER_STATUS_LABELS[lang][o.deliveryStatus] || o.deliveryStatus}
+                      {ORDER_STATUS_LABELS[lang][o.status] || o.status}
                     </span>
                   </div>
                 ))}
@@ -2260,15 +2328,15 @@ export default function CustomerPortal() {
                     })}
                   </div>
 
-                  {sub.upcomingDeliveries?.length > 0 && (
+                  {sub.upcomingOrders?.length > 0 && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
                       <h4 className="text-xs font-bold flex items-center gap-1.5">
                         <FontAwesomeIcon icon={faCalendarAlt} className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lịch giao sắp tới" : "Upcoming Deliveries"}
                       </h4>
-                      {sub.upcomingDeliveries.map((d: any) => (
+                      {sub.upcomingOrders.map((d: any) => (
                         <div key={d.id} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
-                            {new Date(d.scheduledDate).toLocaleDateString("vi-VN")} —{" "}
+                            {new Date(d.deliveryDate).toLocaleDateString("vi-VN")} —{" "}
                             {d.items.map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
                           </span>
                           <button
@@ -2283,6 +2351,154 @@ export default function CustomerPortal() {
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Custom Plan Request — the consultation-first path: since
+                subscriptions are always staff-created (see the header note
+                above), a customer with specific requests/preferences submits
+                this instead. Staff review it in the admin dashboard and
+                either build a matching Subscription or decline. */}
+            <div className="max-w-2xl mx-auto mt-16 pt-12 border-t border-border/60">
+              <div className="text-center mb-8 space-y-3">
+                <h2 className="text-2xl font-extrabold tracking-tight font-heading">
+                  {lang === "vi" ? "Muốn một gói riêng cho bạn?" : "Want a plan tailored to you?"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {lang === "vi"
+                    ? "Cho chúng tôi biết sở thích và nhu cầu của bạn — đội ngũ Fortify Kitchen sẽ tư vấn và thiết kế gói phù hợp trước khi triển khai."
+                    : "Tell us your preferences — the Fortify Kitchen team will consult with you and build a matching plan before it goes live."}
+                </p>
+              </div>
+
+              {cprSubmitted ? (
+                <div className="text-center py-10 border border-dashed border-emerald-200 bg-emerald-50 rounded-xl">
+                  <FontAwesomeIcon icon={faCheckCircle} className="h-8 w-8 mx-auto text-emerald-600 mb-2" />
+                  <p className="text-sm font-bold text-emerald-700">
+                    {lang === "vi" ? "Đã gửi yêu cầu!" : "Request submitted!"}
+                  </p>
+                  <p className="text-xs text-emerald-700/80 mt-1">
+                    {lang === "vi"
+                      ? "Chúng tôi sẽ liên hệ với bạn sớm để tư vấn gói phù hợp."
+                      : "We'll reach out soon to consult on a plan that fits."}
+                  </p>
+                  <button
+                    onClick={() => setCprSubmitted(false)}
+                    className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    {lang === "vi" ? "Gửi yêu cầu khác" : "Submit another request"}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitCustomPlanRequest} className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      required
+                      placeholder={lang === "vi" ? "Họ và tên" : "Full name"}
+                      value={cprName}
+                      onChange={(e) => setCprName(e.target.value)}
+                      className="bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                    />
+                    <input
+                      type="tel"
+                      required
+                      placeholder={lang === "vi" ? "Số điện thoại" : "Phone number"}
+                      value={cprPhone}
+                      onChange={(e) => setCprPhone(e.target.value)}
+                      className="bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      {lang === "vi" ? "Protein mong muốn" : "Desired proteins"}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["CHICKEN", "BEEF", "SHRIMP"] as Protein[]).map((p) => (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() => toggleCprProtein(p)}
+                          className={`text-xs font-bold px-3.5 py-2 rounded-lg border cursor-pointer transition-colors ${
+                            cprProteins.includes(p)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-input border-border text-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          {PROTEIN_LABELS[p] || p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Tổng khối lượng (kg)" : "Total weight (kg)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprEstimatedGrams}
+                        onChange={(e) => setCprEstimatedGrams(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Chu kỳ giao (ngày)" : "Delivery cadence (days)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprIntervalDays}
+                        onChange={(e) => setCprIntervalDays(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Ngân sách (VNĐ)" : "Budget (VND)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprBudget}
+                        onChange={(e) => setCprBudget(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      {lang === "vi" ? "Ghi chú / sở thích riêng" : "Notes / specific preferences"}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder={lang === "vi" ? "Ví dụ: muốn tăng cơ, ít tinh bột, giao 3 lần/tuần buổi sáng..." : "e.g. muscle gain, low carb, deliver 3x/week in the morning..."}
+                      value={cprNotes}
+                      onChange={(e) => setCprNotes(e.target.value)}
+                      className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground resize-none"
+                    />
+                  </div>
+
+                  {cprError && <p className="text-xs text-red-500">{cprError}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={isCprSubmitting}
+                    className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isCprSubmitting && <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />}
+                    {lang === "vi" ? "Gửi yêu cầu tư vấn" : "Submit request"}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}
