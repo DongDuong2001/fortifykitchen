@@ -87,3 +87,25 @@ Visual/UI work should stay in sync with the root `DESIGN.md` (colors,
 typography, spacing, component conventions). When only partial UI surface
 area can be redesigned in a session, say so explicitly rather than
 implying full coverage.
+
+## Git lock files on this sandbox's mounted folder
+
+When working from an agent sandbox with the repo mounted from the host
+filesystem, `git add`/`git commit` can leave a stale `.git/index.lock` (or
+`.git/HEAD.lock`, or `.git/objects/**/tmp_obj_*`) that a plain `rm -f`
+cannot remove (`Operation not permitted` — the mount allows `rename()` but
+not `unlink()` on files git itself just created). `mv` works where `rm`
+doesn't. Before every git command that writes to the index/refs, run:
+```
+[ -f .git/index.lock ] && mv .git/index.lock ".git/index.lock.stale.$$" 2>/dev/null
+[ -f .git/HEAD.lock ] && mv .git/HEAD.lock ".git/HEAD.lock.stale.$$" 2>/dev/null
+```
+then proceed with the actual `git add`/`git commit`. Ignore any "warning:
+unable to unlink ... Operation not permitted" noise printed during the
+command itself — it's non-fatal as long as the command's final result
+(the commit hash, `git status` afterward) confirms it worked. This isn't
+specific to any one file — it can recur on any commit. The same
+`rm`-fails-`mv`-works quirk also applies to arbitrary tracked/untracked
+files (a stray old module directory can't be physically deleted with
+`rm -rf` either — see "Renaming or deleting a module/entity" above, which
+already documents the `git rm --cached` fallback for that case).

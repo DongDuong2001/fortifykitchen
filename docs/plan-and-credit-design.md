@@ -1,6 +1,11 @@
 # Design: Subscription Plans, Wallet, and Autonomous Ordering (v4 — confirmed, ready to build)
 
-Status: **confirmed — all open questions resolved. Implementation in progress.**
+Status: **implemented** — Prisma schema, API, admin-dashboard, and
+customer-web are all built on `feature/unify-orders-subscriptions`. Needs a
+real `pnpm db:push && pnpm db:generate` run (and a fresh look at the admin
+dashboard/customer-web UI in a browser) once this branch reaches a machine
+with DB/network access — see CLAUDE.md's "Verifying without a live
+DB/network" note.
 
 v4 correction: your last message drops the whole "self-serve, build-your-
 own autonomous plan straight from wallet balance" idea from v2/v3. That
@@ -107,9 +112,18 @@ this part of the code at all.
 
 ---
 
-## Status: in progress
+## Status: implemented
 
-All open questions are resolved. Implementation is underway: Prisma schema
-→ API → admin dashboard → customer-web pass, the same way as the
-Order/Delivery unification — one commit per completed piece, committed as
-soon as each piece is working rather than batched.
+Prisma schema → API → admin dashboard → customer-web are all built, one
+commit per completed piece:
+- `feat(db): add SubscriptionPlan catalog, wallet balance, and WALLET payment method`
+- `feat(api): add SubscriptionPlan module — catalog, purchase, staff reconciliation`
+- `feat(api): pay one-off orders from wallet balance`
+- `feat(api): fund a Subscription in full from wallet balance`
+- `feat(api): add low-balance notifications for wallet and subscription pools`
+- `feat(admin-dashboard): add Subscription Plans catalog, wallet top-up queue, and low-balance alerts`
+- `feat(customer-web): add wallet, plan purchases, and low-balance banner`
+
+Not yet done: a real `pnpm db:push && pnpm db:generate` run against a live
+database (the agent sandbox this was built in has no DB/network access —
+see CLAUDE.md), and a manual click-through in a browser.
