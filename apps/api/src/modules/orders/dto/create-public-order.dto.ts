@@ -16,14 +16,35 @@ import { Type } from "class-transformer";
 import { PaymentMethod } from "@fortifykitchen/database";
 
 class PublicOrderItemDto {
-  @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098" })
+  @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098", required: false })
   @IsUUID()
-  menuItemId!: string;
+  @IsOptional()
+  menuItemId?: string;
 
   @ApiProperty({ example: 2 })
   @IsInt()
   @Min(1)
   qty!: number;
+
+  @ApiProperty({ example: "CHICKEN", required: false })
+  @IsString()
+  @IsOptional()
+  protein?: string;
+
+  @ApiProperty({ example: "Custom Bowl: Chicken 150g", required: false })
+  @IsString()
+  @IsOptional()
+  flavor?: string;
+
+  @ApiProperty({ example: 150, required: false })
+  @IsInt()
+  @IsOptional()
+  sizeGrams?: number;
+
+  @ApiProperty({ example: 25000, required: false })
+  @IsInt()
+  @IsOptional()
+  unitPrice?: number;
 }
 
 // Customer self-checkout — there is no customer login system yet, so the
