@@ -13,6 +13,8 @@ import {
   PaymentState,
   OrderFulfillmentType,
   PaymentMethod,
+  PaymentStatus,
+  Decimal,
   Prisma,
 } from "@fortifykitchen/database";
 
@@ -221,25 +223,43 @@ export class OrdersService {
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
     const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
+    const total = Math.round(pricing.finalTotal);
 
     const order = await this.db.client.$transaction(async (tx) => {
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
         await this.decrementStock(tx, requiredByMenuItem);
       }
 
-      return tx.order.create({
+      // Wallet orders are always paid in full at placement (decided: never
+      // negative, no admin override) — a guarded updateMany makes the
+      // balance check + deduction atomic against concurrent spends, same
+      // race-safety pattern as decrementStock above. If it doesn't match,
+      // the balance was short and the whole order rolls back.
+      let resolvedPaymentStatus = paymentStatus ?? PaymentState.UNPAID;
+      if (paymentMethod === PaymentMethod.WALLET) {
+        const result = await tx.customer.updateMany({
+          where: { id: customer.id, walletBalance: { gte: total } },
+          data: { walletBalance: { decrement: total } },
+        });
+        if (result.count === 0) {
+          throw new BadRequestException("Wallet balance is insufficient to pay for this order.");
+        }
+        resolvedPaymentStatus = PaymentState.PAID;
+      }
+
+      const created = await tx.order.create({
         data: {
           customerId: customer.id,
           customerName: customer.name,
           deliveryDate,
-          paymentStatus: paymentStatus ?? PaymentState.UNPAID,
+          paymentStatus: resolvedPaymentStatus,
           status: OrderStatus.PENDING_CONFIRMATION,
           fulfillmentType,
           paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
           deliveryAddress,
           subtotal: Math.round(pricing.lineSubtotal),
           discountAmount: Math.round(pricing.orderDiscountAmount),
-          total: Math.round(pricing.finalTotal),
+          total,
           notes,
           source: OrderSource.ONE_OFF,
           items: {
@@ -255,6 +275,22 @@ export class OrdersService {
         },
         include: { items: true, subscription: { select: { packageName: true } } },
       });
+
+      // Ledger entry so wallet spend shows up alongside plan-purchase
+      // top-ups in the Payment table.
+      if (paymentMethod === PaymentMethod.WALLET) {
+        await tx.payment.create({
+          data: {
+            orderId: created.id,
+            customerId: customer.id,
+            amount: new Decimal(total),
+            method: PaymentMethod.WALLET,
+            status: PaymentStatus.COMPLETED,
+          },
+        });
+      }
+
+      return created;
     });
 
     return this.mapOrder(order);
