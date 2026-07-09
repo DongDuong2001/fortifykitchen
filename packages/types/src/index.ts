@@ -22,6 +22,10 @@ export interface Customer {
   zalo?: string;
   address?: string;
   notes?: string;
+  // Spendable balance in whole VND, topped up by buying a SubscriptionPlan
+  // and spent on wallet-paid orders or in full toward a staff-built
+  // Subscription. Never negative. See docs/plan-and-credit-design.md.
+  walletBalance: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -203,18 +207,58 @@ export type PaymentMethod =
   | "PAYPAL"
   | "STRIPE"
   | "CASH_ON_DELIVERY"
-  | "BANK_TRANSFER";
+  | "BANK_TRANSFER"
+  | "WALLET"; // paid from Customer.walletBalance
 
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
 
+// Also doubles as the wallet top-up ledger — a SubscriptionPlan purchase
+// creates a row here (customerId + subscriptionPlanId set, orderId/
+// subscriptionId undefined) that starts PENDING until staff confirm the
+// bank transfer, which is what actually credits walletBalance and issues
+// the voucher. See docs/plan-and-credit-design.md.
 export interface Payment {
   id: string;
   orderId?: string;
   subscriptionId?: string;
+  customerId?: string;
+  subscriptionPlanId?: string;
   amount: number;
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// A purchasable price tier (e.g. 1,500,000đ, 3,000,000đ) — buying one
+// credits Customer.walletBalance by `price` and issues a percentage-off
+// Discount voucher sized by `voucherPercent`. Never grants autonomous/
+// recurring delivery by itself — that always goes through a
+// CustomPlanRequest. See docs/plan-and-credit-design.md.
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  voucherPercent: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Coupon-style code. A public code (customerId undefined) or a voucher
+// auto-issued to one customer when they buy a SubscriptionPlan (customerId
+// set).
+export interface Discount {
+  id: string;
+  code: string;
+  type: "PERCENTAGE" | "FIXED";
+  amount: number;
+  isActive: boolean;
+  startsAt: Date;
+  endsAt: Date;
+  customerId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

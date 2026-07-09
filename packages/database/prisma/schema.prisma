@@ -92,6 +92,7 @@ enum PaymentMethod {
   STRIPE
   CASH_ON_DELIVERY
   BANK_TRANSFER
+  WALLET // paid from Customer.walletBalance — see docs/plan-and-credit-design.md
 }
 
 model User {
@@ -153,6 +154,15 @@ model Customer {
   zalo          String?
   address       String?
   notes         String?
+
+  // Spendable balance in whole VND, topped up by buying a SubscriptionPlan
+  // (see SubscriptionPlan) and spent on one-off orders (PaymentMethod.WALLET)
+  // or in full toward a staff-built Subscription from an approved
+  // CustomPlanRequest. Never negative — any wallet-funded payment is
+  // rejected outright if this is short, no admin override. See
+  // docs/plan-and-credit-design.md.
+  walletBalance Int @default(0)
+
   orders             Order[]
   subscriptions      Subscription[]
   customPlanRequests CustomPlanRequest[]
@@ -380,39 +390,76 @@ model CustomPlanRequest {
   @@index([matchedSubscriptionId])
 }
 
-// Coupon-style promo codes — not part of the migrated feature set yet (the
-// current discount engine is fully computed, not code-based) but kept for
-// a future promo-code feature.
+// Coupon-style promo codes. Two origins now share this table: (1) a public
+// code an admin creates by hand (customerId null), and (2) a voucher
+// auto-issued to one specific customer when they buy a SubscriptionPlan
+// (customerId set, code auto-generated — see SubscriptionPlansService) —
+// the tiered "5% off / 10% off" reward described in
+// docs/plan-and-credit-design.md.
 model Discount {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  type      String // PERCENTAGE | FIXED
-  amount    Decimal  @db.Decimal(10, 2)
-  isActive  Boolean  @default(true)
-  startsAt  DateTime
-  endsAt    DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(uuid())
+  code       String    @unique
+  type       String // PERCENTAGE | FIXED
+  amount     Decimal   @db.Decimal(10, 2)
+  isActive   Boolean   @default(true)
+  startsAt   DateTime
+  endsAt     DateTime
+  customerId String? // set only for a plan-purchase voucher; null for a public code
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([code])
+  @@index([customerId])
+}
+
+// A purchasable price tier (e.g. 1,500,000đ, 3,000,000đ) — buying one
+// credits Customer.walletBalance by `price` and issues that customer a
+// percentage-off Discount voucher sized by `voucherPercent`. This is the
+// ONLY self-serve purchase a customer can make; it never grants
+// autonomous/recurring delivery by itself — that always goes through a
+// CustomPlanRequest, reviewed by staff (see docs/plan-and-credit-design.md).
+model SubscriptionPlan {
+  id             String   @id @default(uuid())
+  name           String // e.g. "Gói 1.5 triệu"
+  price          Int // VND, credited 1:1 to Customer.walletBalance on purchase
+  voucherPercent Int      @default(0) // % off voucher granted on purchase, admin-configurable per tier
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
 }
 
 // Ledger of actual payment transactions (future real payment processing).
 // Distinct from Order.paymentStatus / Subscription.paymentStatus, which are
 // the simple staff-tracked status shown in the UI today.
+//
+// Also doubles as the wallet top-up ledger: a SubscriptionPlan purchase
+// creates a row here with customerId + subscriptionPlanId set (orderId/
+// subscriptionId null) and starts PENDING — the customer bank-transfers the
+// amount, and staff mark it COMPLETED once received, which is what actually
+// credits Customer.walletBalance and issues the voucher (see
+// docs/plan-and-credit-design.md). orderId/subscriptionId/customerId/
+// subscriptionPlanId are deliberately plain ids (not Prisma relations),
+// matching the existing loose-ledger style of this table.
 model Payment {
-  id             String        @id @default(uuid())
-  orderId        String?
-  subscriptionId String?
-  amount         Decimal       @db.Decimal(10, 2)
-  method         PaymentMethod
-  status         PaymentStatus @default(PENDING)
-  transactionId  String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                 String        @id @default(uuid())
+  orderId            String?
+  subscriptionId     String?
+  customerId         String?
+  subscriptionPlanId String?
+  amount             Decimal       @db.Decimal(10, 2)
+  method             PaymentMethod
+  status             PaymentStatus @default(PENDING)
+  transactionId      String?       @unique
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([orderId])
   @@index([subscriptionId])
+  @@index([customerId])
+  @@index([subscriptionPlanId])
   @@index([status])
 }
 
