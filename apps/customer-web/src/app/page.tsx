@@ -28,7 +28,8 @@ import {
   faCreditCard,
   faCheck,
   faSearch,
-  faCalendarAlt
+  faCalendarAlt,
+  faWallet
 } from "@fortawesome/free-solid-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
@@ -455,6 +456,31 @@ export default function CustomerPortal() {
   const [lookupError, setLookupError] = React.useState<string | null>(null);
   const [hasLookedUp, setHasLookedUp] = React.useState(false);
 
+  // Wallet balance for the logged-in customer — populated from /customers/me
+  // (see the "Sync checkout address when user logs in" effect below, which
+  // now also reads walletBalance). Drives the WALLET checkout option, the
+  // "Buy a Plan" balance display, and the low-balance banner.
+  const [walletBalance, setWalletBalance] = React.useState<number>(0);
+
+  // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
+  // top-up (see docs/plan-and-credit-design.md). Public to browse, login
+  // required to buy.
+  const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = React.useState(false);
+  const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
+  const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
+
+  // Pay-from-wallet on an UNPAID/DEPOSIT Subscription — see the phone-lookup
+  // and dashboard subscription views below.
+  const [payingSubscriptionId, setPayingSubscriptionId] = React.useState<string | null>(null);
+
+  // In-app low-balance notifications (wallet + subscription pools) — see
+  // GET /notifications/me. Dismissal is session-only (plain component
+  // state, not persisted) so the banner resurfaces on the next visit if
+  // still true.
+  const [notifications, setNotifications] = React.useState<any | null>(null);
+  const [dismissedBanners, setDismissedBanners] = React.useState<string[]>([]);
+
   // Custom plan request — the consultation-first flow: a customer with
   // specific requests/preferences submits this instead of self-checking-out
   // a subscription (subscriptions are always staff-created, see above).
@@ -638,11 +664,68 @@ export default function CustomerPortal() {
         .then((result) => {
           if (result.success && result.data) {
             setCheckoutAddress(result.data.address);
+            setWalletBalance(result.data.walletBalance ?? 0);
           }
         })
         .catch(console.error);
+    } else {
+      setWalletBalance(0);
     }
   }, [user, API_URL]);
+
+  // Wallet is only a valid checkout option while logged in — if the
+  // customer logs out mid-checkout, fall back to COD rather than leaving an
+  // unusable selection active.
+  React.useEffect(() => {
+    if (!user && paymentMethod === "WALLET") {
+      setPaymentMethod("CASH_ON_DELIVERY");
+    }
+  }, [user, paymentMethod]);
+
+  // SubscriptionPlan catalog — public, no login needed to browse.
+  React.useEffect(() => {
+    async function loadPlans() {
+      try {
+        setIsLoadingPlans(true);
+        const res = await fetch(`${API_URL}/subscription-plans/public`);
+        const result = await res.json().catch(() => null);
+        if (res.ok) {
+          setSubscriptionPlans(result?.data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingPlans(false);
+      }
+    }
+    loadPlans();
+  }, [API_URL]);
+
+  // Low-balance notifications — wallet + subscription pools, customer-web
+  // banner. Only meaningful while logged in.
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/notifications/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setNotifications(result?.data || null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [API_URL]);
+
+  React.useEffect(() => {
+    if (user) {
+      loadNotifications();
+    } else {
+      setNotifications(null);
+      setDismissedBanners([]);
+    }
+  }, [user, loadNotifications]);
 
   const loadDashboard = React.useCallback(async () => {
     try {
@@ -798,6 +881,98 @@ export default function CustomerPortal() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Buy a SubscriptionPlan tier — opens a PENDING bank-transfer top-up (no
+  // instant credit; staff reconcile the transfer, see
+  // docs/plan-and-credit-design.md). Requires login, same gate the cart
+  // checkout uses.
+  const handleBuyPlan = async (plan: any) => {
+    if (!user) {
+      setAuthModal("login");
+      return;
+    }
+    setPurchasingPlanId(plan.id);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscription-plans/public/${plan.id}/purchase`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setPlanPurchaseResult(result?.data);
+      } else {
+        toast({
+          title:
+            result?.message ||
+            (lang === "vi" ? "Không thể mua gói này lúc này" : "Could not purchase this plan right now"),
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    } finally {
+      setPurchasingPlanId(null);
+    }
+  };
+
+  // Pay a UNPAID/DEPOSIT Subscription in full from wallet balance — never
+  // partial (design decision: wallet covers 100% or the customer arranges a
+  // fresh bank transfer instead). 400s with a short-balance message if the
+  // wallet can't fully cover it.
+  const handlePayFromWallet = async (subscriptionId: string) => {
+    setPayingSubscriptionId(subscriptionId);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        toast({
+          title: lang === "vi" ? "Thanh toán thành công" : "Payment successful",
+          description:
+            lang === "vi"
+              ? "Đã thanh toán trọn gói bằng số dư Ví."
+              : "Subscription fully paid from your wallet balance.",
+          type: "success",
+        });
+        loadDashboard();
+        loadNotifications();
+        if (lookupPhone.trim()) {
+          handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+        }
+        fetch(`${API_URL}/customers/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .then((rr) => {
+            if (rr.success && rr.data) setWalletBalance(rr.data.walletBalance ?? 0);
+          })
+          .catch(() => {});
+      } else {
+        toast({
+          title:
+            result?.message ||
+            (lang === "vi" ? "Không thể thanh toán bằng Ví lúc này" : "Could not pay from wallet right now"),
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    } finally {
+      setPayingSubscriptionId(null);
     }
   };
 
@@ -1249,6 +1424,55 @@ export default function CustomerPortal() {
           </div>
         </div>
       </header>
+
+      {/* IN-APP LOW-BALANCE BANNER — wallet balance low and/or a
+          Subscription pool running low, from GET /notifications/me.
+          Dismissal is session-only (not persisted). */}
+      {user &&
+        notifications &&
+        (notifications.walletLow || (notifications.poolsLow && notifications.poolsLow.length > 0)) && (
+          <div className="max-w-7xl mx-auto px-6 pt-4 space-y-2">
+            {notifications.walletLow && !dismissedBanners.includes("wallet") && (
+              <div className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                  {lang === "vi"
+                    ? `Số dư Ví của bạn đang thấp (còn ${formatVND(notifications.walletBalance)}). Nạp thêm gói để tiếp tục thanh toán bằng Ví.`
+                    : `Your wallet balance is running low (${formatVND(notifications.walletBalance)} left). Buy a plan to top up.`}
+                </span>
+                <button
+                  onClick={() => setDismissedBanners((prev) => [...prev, "wallet"])}
+                  className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {(notifications.poolsLow || []).map((p: any) => {
+              const key = `pool:${p.subscriptionId}:${p.protein}`;
+              if (dismissedBanners.includes(key)) return null;
+              return (
+                <div
+                  key={key}
+                  className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3"
+                >
+                  <span className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                    {lang === "vi"
+                      ? `Gói "${p.packageName}" của bạn sắp hết ${PROTEIN_LABELS[p.protein as Protein] || p.protein} (còn ${formatGrams(p.remainingGrams)}).`
+                      : `Your "${p.packageName}" plan is running low on ${PROTEIN_LABELS[p.protein as Protein] || p.protein} (${formatGrams(p.remainingGrams)} left).`}
+                  </span>
+                  <button
+                    onClick={() => setDismissedBanners((prev) => [...prev, key])}
+                    className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       {/* 2. HERO SECTION (Apple, Linear, Aesop inspired) */}
       {activeTab === "home" && (
@@ -2241,6 +2465,90 @@ export default function CustomerPortal() {
             balance per protein and postpone today's delivery themselves) */}
         {activeTab === "subscriptions" && (
           <div>
+            {/* WALLET & PLAN PURCHASE — buying a SubscriptionPlan tier tops
+                up Customer.walletBalance (once staff confirm the bank
+                transfer) and issues a percentage-off voucher. Wallet
+                balance itself never grants autonomous delivery — that's
+                still always the Custom Plan Request flow below. See
+                docs/plan-and-credit-design.md. */}
+            <div className="max-w-3xl mx-auto mb-16 pb-14 border-b border-border/60">
+              <div className="text-center mb-8 space-y-3">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
+                  {lang === "vi" ? "Ví & Gói trả trước" : "Wallet & Prepaid Plans"}
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                  {lang === "vi"
+                    ? "Mua một gói trả trước để nạp vào Ví Fortify Kitchen và nhận voucher giảm giá. Số dư Ví có thể dùng để thanh toán đơn lẻ hoặc thanh toán trọn gói cho một Subscription do đội ngũ chúng tôi thiết lập."
+                    : "Buy a prepaid tier to top up your Fortify Kitchen wallet and get a discount voucher. Wallet balance can pay for one-off orders, or fund a staff-built Subscription in full."}
+                </p>
+              </div>
+
+              {user ? (
+                <div className="max-w-sm mx-auto mb-8 border border-border bg-card rounded-2xl p-5 text-center shadow-sm">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center justify-center gap-1.5">
+                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                    {lang === "vi" ? "Số dư Ví hiện tại" : "Current Wallet Balance"}
+                  </span>
+                  <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                </div>
+              ) : (
+                <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi" ? "Đăng nhập để xem số dư Ví và mua gói." : "Log in to see your wallet balance and buy a plan."}
+                  </p>
+                  <button
+                    onClick={() => setAuthModal("login")}
+                    className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    {t("btn_signin")}
+                  </button>
+                </div>
+              )}
+
+              {isLoadingPlans ? (
+                <div className="flex justify-center py-10">
+                  <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : subscriptionPlans.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi" ? "Hiện chưa có gói trả trước nào." : "No prepaid plans available right now."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {subscriptionPlans.map((plan) => (
+                    <div key={plan.id} className="border border-border bg-card rounded-xl p-5 space-y-3 shadow-sm flex flex-col">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
+                        {plan.voucherPercent > 0 && (
+                          <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                            +{plan.voucherPercent}% voucher
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-lg font-bold text-primary">{formatVND(plan.price)}</p>
+                      {plan.description && <p className="text-xs text-muted-foreground flex-1">{plan.description}</p>}
+                      <button
+                        onClick={() => handleBuyPlan(plan)}
+                        disabled={purchasingPlanId === plan.id}
+                        className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {purchasingPlanId === plan.id ? (
+                          <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                            {lang === "vi" ? "Mua gói" : "Buy plan"}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? "Gói đăng ký của bạn" : "Your Subscriptions"}
@@ -2327,6 +2635,46 @@ export default function CustomerPortal() {
                       );
                     })}
                   </div>
+
+                  {/* Pay in full from wallet — no split payment (design
+                      decision): either the wallet fully covers totalPrice,
+                      or the customer arranges a fresh bank transfer
+                      instead. Requires login since pay-from-wallet is a JWT
+                      + ownership-checked action. */}
+                  {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
+                    <div className="pt-4 border-t border-border/50 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {lang === "vi" ? "Trạng thái thanh toán: " : "Payment status: "}
+                          <span className="font-bold text-amber-600">{sub.paymentStatus}</span>
+                        </span>
+                        <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                      </div>
+                      {user ? (
+                        <button
+                          onClick={() => handlePayFromWallet(sub.id)}
+                          disabled={payingSubscriptionId === sub.id}
+                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-bold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {payingSubscriptionId === sub.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                              {lang === "vi" ? "Thanh toán trọn gói bằng Ví" : "Pay in full from wallet"}
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setAuthModal("login")}
+                          className="w-full border border-border text-[11px] font-bold py-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                        >
+                          {lang === "vi" ? "Đăng nhập để thanh toán bằng Ví" : "Log in to pay from wallet"}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {sub.upcomingOrders?.length > 0 && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
@@ -2687,6 +3035,33 @@ export default function CustomerPortal() {
                             </div>
                           </div>
 
+                          {/* Pay in full from wallet — no split payment, see
+                              docs/plan-and-credit-design.md. This view is
+                              already logged-in (/subscriptions/me), so no
+                              extra auth gate is needed here. */}
+                          {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
+                            <div className="pt-3 border-t border-border/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                <span>{lang === "vi" ? "Cần thanh toán:" : "Payment due:"}</span>
+                                <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                              </div>
+                              <button
+                                onClick={() => handlePayFromWallet(sub.id)}
+                                disabled={payingSubscriptionId === sub.id}
+                                className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[10px] font-extrabold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                {payingSubscriptionId === sub.id ? (
+                                  <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                                    {lang === "vi" ? "Thanh toán bằng Ví" : "Pay from Wallet"}
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+
                           <div className="pt-3 border-t border-border/50 flex gap-2">
                             <button
                               onClick={() => handlePauseSubscription(sub.id, sub.status)}
@@ -2924,7 +3299,7 @@ export default function CustomerPortal() {
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                       {t("cart_payment")}
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid ${user ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
@@ -2949,7 +3324,36 @@ export default function CustomerPortal() {
                         <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
                         {t("payment_vietqr")}
                       </button>
+                      {/* WALLET — an account-only option (Customer.walletBalance),
+                          only shown once logged in. Greyed out/warns if the
+                          balance can't fully cover the cart total, since the
+                          API rejects a WALLET order outright when short. */}
+                      {user && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("WALLET")}
+                          disabled={walletBalance < cartTotal + 30000}
+                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                            paymentMethod === "WALLET"
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-background hover:bg-muted"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1">
+                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 shrink-0" />
+                            {lang === "vi" ? "Ví" : "Wallet"}
+                          </span>
+                          <span className="text-[9px] font-normal text-muted-foreground">{formatVND(walletBalance)}</span>
+                        </button>
+                      )}
                     </div>
+                    {user && walletBalance < cartTotal + 30000 && (
+                      <p className="text-[9px] text-amber-600 font-medium mt-1">
+                        {lang === "vi"
+                          ? "Số dư Ví không đủ để thanh toán trọn đơn này."
+                          : "Wallet balance isn't enough to cover this order in full."}
+                      </p>
+                    )}
                   </div>
 
                   <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
@@ -2974,7 +3378,12 @@ export default function CustomerPortal() {
 
                   <button
                     type="submit"
-                    disabled={isSubmittingOrder || !checkoutAgreeTerms || !checkoutAddress}
+                    disabled={
+                      isSubmittingOrder ||
+                      !checkoutAgreeTerms ||
+                      !checkoutAddress ||
+                      (paymentMethod === "WALLET" && walletBalance < cartTotal + 30000)
+                    }
                     className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
                   >
                     {isSubmittingOrder ? (
@@ -2982,7 +3391,11 @@ export default function CustomerPortal() {
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faCheck} className="h-4 w-4" />
-                        {paymentMethod === "CASH_ON_DELIVERY" ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)") : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
+                        {paymentMethod === "CASH_ON_DELIVERY"
+                          ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)")
+                          : paymentMethod === "WALLET"
+                          ? (lang === "vi" ? "Thanh toán bằng Ví" : "Pay with Wallet")
+                          : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
                       </>
                     )}
                   </button>
@@ -3405,6 +3818,75 @@ export default function CustomerPortal() {
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
             >
               {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PLAN PURCHASE PENDING — bank-transfer instructions for a
+          SubscriptionPlan top-up. No instant credit: the wallet is only
+          credited once staff confirm the transfer arrived (status stays
+          PENDING until then). Reuses the same bank account shown at
+          checkout. */}
+      {planPurchaseResult && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setPlanPurchaseResult(null)} />
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
+            <FontAwesomeIcon icon={faClock} className="h-10 w-10 mx-auto text-amber-500" />
+            <h3 className="text-base font-bold font-heading">
+              {lang === "vi" ? "Đang chờ chuyển khoản" : "Awaiting Bank Transfer"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {lang === "vi"
+                ? `Bạn đã đăng ký mua gói "${planPurchaseResult.planName}". Vui lòng chuyển khoản theo thông tin bên dưới — số dư Ví sẽ được cộng ngay khi đội ngũ Fortify Kitchen xác nhận đã nhận được tiền.`
+                : `You've requested the "${planPurchaseResult.planName}" plan. Please transfer the amount below — your wallet will be credited once our team confirms the transfer arrived.`}
+            </p>
+
+            <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
+              <p className="text-xs font-bold text-foreground text-center">
+                {lang === "vi" ? "Quét mã VietQR để chuyển khoản" : "Scan VietQR to Transfer"}
+              </p>
+              <div className="bg-white p-2 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
+                <img
+                  src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${planPurchaseResult.amount}&addInfo=FK${planPurchaseResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
+                  alt="VietQR Payment Code"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="text-[11px] space-y-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Ngân hàng:" : "Bank:"}</span>
+                  <span className="font-bold text-foreground">MB Bank</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Số tài khoản:" : "Account Number:"}</span>
+                  <span className="font-bold text-foreground font-mono">19035678901234</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Chủ tài khoản:" : "Account Holder:"}</span>
+                  <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Số tiền:" : "Amount:"}</span>
+                  <span className="font-bold text-primary font-mono">{formatVND(planPurchaseResult.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Nội dung chuyển khoản:" : "Transfer Reference:"}</span>
+                  <span className="font-bold text-primary font-mono">FK{planPurchaseResult.id.slice(0, 8).toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 text-center leading-normal">
+                {lang === "vi"
+                  ? "Trạng thái: Đang chờ xác nhận (PENDING). Ví sẽ được cộng tiền sau khi đội ngũ xác nhận đã nhận được chuyển khoản."
+                  : "Status: PENDING confirmation. Your wallet will be credited once our team confirms the transfer arrived."}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setPlanPurchaseResult(null)}
+              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+            >
+              {lang === "vi" ? "Đã hiểu / Đóng" : "Got it / Close"}
             </button>
           </div>
         </div>
