@@ -6,8 +6,30 @@ import { CreatePublicOrderDto } from "../dto/create-public-order.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
 import { parsePagination } from "../../../common/utils/pagination.util";
 import { calculateOrderTotal } from "@fortifykitchen/shared";
-import { Order, OrderItem, LineItem } from "@fortifykitchen/types";
-import { DeliveryStatus, PaymentState, OrderFulfillmentType, PaymentMethod, Prisma } from "@fortifykitchen/database";
+import { Order, LineItem } from "@fortifykitchen/types";
+import {
+  OrderStatus,
+  OrderSource,
+  PaymentState,
+  OrderFulfillmentType,
+  PaymentMethod,
+  Prisma,
+} from "@fortifykitchen/database";
+
+// Statuses that still count as "in flight" — mirrors
+// packages/shared's ACTIVE_ORDER_STATUSES, duplicated as a Prisma-enum-typed
+// const here since the API layer works with the Prisma enum, not the
+// string-literal type from @fortifykitchen/types.
+const ACTIVE_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING_CONFIRMATION,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PREPARING,
+  OrderStatus.OUT_FOR_DELIVERY,
+];
+
+type OrderWithItemsAndSub = Prisma.OrderGetPayload<{
+  include: { items: true; subscription: { select: { packageName: true } } };
+}>;
 
 @Injectable()
 export class OrdersService {
@@ -69,10 +91,7 @@ export class OrdersService {
   // concurrent orders can't drive stock negative — if the guard doesn't
   // match (someone else grabbed the stock first) this throws, and the whole
   // order creation rolls back.
-  private async decrementStock(
-    tx: Prisma.TransactionClient,
-    requiredByMenuItem: Map<string, number>,
-  ): Promise<void> {
+  private async decrementStock(tx: Prisma.TransactionClient, requiredByMenuItem: Map<string, number>): Promise<void> {
     for (const [menuItemId, qty] of requiredByMenuItem) {
       const result = await tx.menuItem.updateMany({
         where: { id: menuItemId, stockQuantity: { gte: qty } },
@@ -89,10 +108,7 @@ export class OrdersService {
   // Restores stockQuantity for every menu item in a previously-IMMEDIATE
   // order — used when that order is edited, cancelled, or deleted before
   // being delivered, so stock counts stay accurate.
-  private async restockItems(
-    tx: Prisma.TransactionClient,
-    requiredByMenuItem: Map<string, number>,
-  ): Promise<void> {
+  private async restockItems(tx: Prisma.TransactionClient, requiredByMenuItem: Map<string, number>): Promise<void> {
     for (const [menuItemId, qty] of requiredByMenuItem) {
       await tx.menuItem.updateMany({
         where: { id: menuItemId },
@@ -101,9 +117,7 @@ export class OrdersService {
     }
   }
 
-  private requiredByMenuItemFromOrderItems(
-    items: { menuItemId: string | null; qty: number }[],
-  ): Map<string, number> {
+  private requiredByMenuItemFromOrderItems(items: { menuItemId: string | null; qty: number }[]): Map<string, number> {
     const map = new Map<string, number>();
     for (const item of items) {
       if (!item.menuItemId) continue; // menu item was deleted since — nothing to restock
@@ -175,18 +189,9 @@ export class OrdersService {
       });
     }
 
-    const fallbackDeliveryDate =
-      dto.deliveryDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const fallbackDeliveryDate = dto.deliveryDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    return this.createForCustomer(
-      customer,
-      dto.items,
-      fallbackDeliveryDate,
-      undefined,
-      dto.notes,
-      dto.paymentMethod,
-      dto.address,
-    );
+    return this.createForCustomer(customer, dto.items, fallbackDeliveryDate, undefined, dto.notes, dto.paymentMethod, dto.address);
   }
 
   // Order history for the customer-web "My Orders" view — same phone-based
@@ -196,7 +201,7 @@ export class OrdersService {
     if (!customer) return [];
     const orders = await this.db.client.order.findMany({
       where: { customerId: customer.id },
-      include: { items: true },
+      include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { createdAt: "desc" },
     });
     return orders.map((o) => this.mapOrder(o));
@@ -215,8 +220,7 @@ export class OrdersService {
     const pricing = calculateOrderTotal(lineItems);
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
-    const deliveryDate =
-      fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
+    const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
 
     const order = await this.db.client.$transaction(async (tx) => {
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
@@ -229,7 +233,7 @@ export class OrdersService {
           customerName: customer.name,
           deliveryDate,
           paymentStatus: paymentStatus ?? PaymentState.UNPAID,
-          deliveryStatus: DeliveryStatus.SCHEDULED,
+          status: OrderStatus.PENDING_CONFIRMATION,
           fulfillmentType,
           paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
           deliveryAddress,
@@ -237,6 +241,7 @@ export class OrdersService {
           discountAmount: Math.round(pricing.orderDiscountAmount),
           total: Math.round(pricing.finalTotal),
           notes,
+          source: OrderSource.ONE_OFF,
           items: {
             create: lineItems.map((l) => ({
               menuItemId: l.menuItemId,
@@ -248,10 +253,56 @@ export class OrdersService {
             })),
           },
         },
-        include: { items: true },
+        include: { items: true, subscription: { select: { packageName: true } } },
       });
     });
 
+    return this.mapOrder(order);
+  }
+
+  // Creates one subscription-generated occurrence as a normal Order row —
+  // called by SubscriptionsService.syncUpcomingOrders. Subscription
+  // occurrences are never IMMEDIATE (they're not fulfilled from live
+  // storefront stock — the whole point of a subscription pool is prepped
+  // ahead of the scheduled date), so fulfillmentType is always SCHEDULED
+  // and no stock decrement happens here.
+  async createFromSubscription(params: {
+    subscriptionId: string;
+    customerId: string | null;
+    customerName: string;
+    deliveryAddress?: string;
+    deliveryDate: Date;
+    items: { menuItemId: string; protein: LineItem["protein"]; flavor: string; sizeGrams: number; unitPrice: number; qty: number }[];
+  }): Promise<Order> {
+    const pricing = calculateOrderTotal(params.items);
+    const order = await this.db.client.order.create({
+      data: {
+        customerId: params.customerId ?? undefined,
+        customerName: params.customerName,
+        deliveryDate: params.deliveryDate,
+        paymentStatus: PaymentState.UNPAID,
+        status: OrderStatus.PENDING_CONFIRMATION,
+        fulfillmentType: OrderFulfillmentType.SCHEDULED,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        deliveryAddress: params.deliveryAddress,
+        subtotal: Math.round(pricing.lineSubtotal),
+        discountAmount: Math.round(pricing.orderDiscountAmount),
+        total: Math.round(pricing.finalTotal),
+        source: OrderSource.SUBSCRIPTION,
+        subscriptionId: params.subscriptionId,
+        items: {
+          create: params.items.map((l) => ({
+            menuItemId: l.menuItemId,
+            protein: l.protein,
+            flavor: l.flavor,
+            sizeGrams: l.sizeGrams,
+            unitPrice: l.unitPrice,
+            qty: l.qty,
+          })),
+        },
+      },
+      include: { items: true, subscription: { select: { packageName: true } } },
+    });
     return this.mapOrder(order);
   }
 
@@ -260,16 +311,24 @@ export class OrdersService {
     if (!customer) return [];
     const orders = await this.db.client.order.findMany({
       where: { customerId: customer.id },
-      include: { items: true },
+      include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { createdAt: "desc" },
     });
     return orders.map((o) => this.mapOrder(o));
   }
 
-  async findAll(page?: string, limit?: string): Promise<Order[]> {
-    const { skip, take } = parsePagination(page, limit);
+  // General-purpose list — covers what used to be three separate admin
+  // views (Orders / Orders from Subscriptions / Deliveries): both order
+  // sources live in the same table now, so `source` is just a filter.
+  async findAll(filters?: { page?: string; limit?: string; source?: OrderSource; status?: OrderStatus; date?: string }): Promise<Order[]> {
+    const { skip, take } = parsePagination(filters?.page, filters?.limit);
     const orders = await this.db.client.order.findMany({
-      include: { items: true },
+      where: {
+        source: filters?.source,
+        status: filters?.status,
+        deliveryDate: filters?.date ? new Date(filters.date) : undefined,
+      },
+      include: { items: true, subscription: { select: { packageName: true } } },
       // Oldest first — matches the admin Orders tab, which lists orders
       // chronologically so the oldest still-open ones surface first.
       orderBy: { deliveryDate: "asc" },
@@ -279,10 +338,76 @@ export class OrdersService {
     return orders.map((o) => this.mapOrder(o));
   }
 
+  // Upcoming (today onward, still-active) orders of either source, grouped
+  // by day/ISO-week/month — replaces DeliveryService.findUpcomingGrouped.
+  async findUpcomingGrouped(groupBy: "day" | "week" | "month" = "week") {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const orders = await this.db.client.order.findMany({
+      where: { deliveryDate: { gte: today }, status: { in: ACTIVE_STATUSES } },
+      include: { items: true, subscription: { select: { packageName: true } } },
+      orderBy: { deliveryDate: "asc" },
+    });
+    const upcoming = orders.map((o) => this.mapOrder(o));
+
+    const groups = new Map<string, Order[]>();
+    for (const entry of upcoming) {
+      const d = new Date(entry.deliveryDate);
+      let key: string;
+      if (groupBy === "day") {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      } else if (groupBy === "month") {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        // ISO-ish week key: year + week number (Mon-start)
+        const dayNum = (d.getDay() + 6) % 7;
+        const thursday = new Date(d);
+        thursday.setDate(d.getDate() - dayNum + 3);
+        const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+        const weekNum =
+          1 + Math.round(((thursday.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+        key = `${thursday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+      }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    }
+
+    return Array.from(groups.entries()).map(([key, entries]) => ({
+      key,
+      count: entries.length,
+      totalItems: entries.reduce((s, e) => s + e.items.reduce((si, i) => si + i.qty, 0), 0),
+      entries,
+    }));
+  }
+
+  // Full order history for one subscription — replaces
+  // SubscriptionsService.findDeliveries / DeliveryService.findBySubscription.
+  async findBySubscription(subscriptionId: string): Promise<Order[]> {
+    const orders = await this.db.client.order.findMany({
+      where: { subscriptionId },
+      include: { items: true, subscription: { select: { packageName: true } } },
+      orderBy: { deliveryDate: "asc" },
+    });
+    return orders.map((o) => this.mapOrder(o));
+  }
+
+  // Upcoming (still-active), next-N occurrences for one subscription — used
+  // by the public phone-lookup view (PublicSubscriptionsController.lookup).
+  async findUpcomingForSubscription(subscriptionId: string, limit = 5): Promise<Order[]> {
+    const orders = await this.db.client.order.findMany({
+      where: { subscriptionId, status: { in: ACTIVE_STATUSES } },
+      include: { items: true, subscription: { select: { packageName: true } } },
+      orderBy: { deliveryDate: "asc" },
+      take: limit,
+    });
+    return orders.map((o) => this.mapOrder(o));
+  }
+
   async findOne(id: string): Promise<Order> {
     const order = await this.db.client.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: { items: true, subscription: { select: { packageName: true } } },
     });
 
     if (!order) {
@@ -290,6 +415,18 @@ export class OrdersService {
     }
 
     return this.mapOrder(order);
+  }
+
+  // Verifies an order actually belongs to a subscription owned by the
+  // customer with this phone number, before allowing the public postpone
+  // action — prevents anyone from postponing an arbitrary order id.
+  async verifySubscriptionOrderOwnership(orderId: string, phone: string): Promise<boolean> {
+    const order = await this.db.client.order.findUnique({
+      where: { id: orderId },
+      include: { subscription: { include: { customer: true } } },
+    });
+    if (!order?.subscription) return false;
+    return normalizePhone(order.subscription.customer?.phone ?? "") === normalizePhone(phone);
   }
 
   // Edits resend the full form and get repriced from scratch — old line
@@ -338,16 +475,13 @@ export class OrdersService {
           break;
         }
       }
-      const fulfillmentType = allInStock
-        ? OrderFulfillmentType.IMMEDIATE
-        : OrderFulfillmentType.SCHEDULED;
+      const fulfillmentType = allInStock ? OrderFulfillmentType.IMMEDIATE : OrderFulfillmentType.SCHEDULED;
 
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
         await this.decrementStock(tx, requiredByMenuItem);
       }
 
-      const deliveryDate =
-        fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(dto.deliveryDate);
+      const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(dto.deliveryDate);
 
       await tx.orderItem.deleteMany({ where: { orderId: id } });
       return tx.order.update({
@@ -373,17 +507,25 @@ export class OrdersService {
             })),
           },
         },
-        include: { items: true },
+        include: { items: true, subscription: { select: { packageName: true } } },
       });
     });
 
     return this.mapOrder(order);
   }
 
-  // Cancelling an IMMEDIATE order frees its stock back up — but only once
-  // (guarded by checking the previous status wasn't already CANCELLED), so
-  // repeated no-op status updates can't double-restock.
-  async updateDeliveryStatus(id: string, deliveryStatus: DeliveryStatus): Promise<Order> {
+  // Unified status transition for both order sources.
+  //  - CANCELLED: frees stock back up for a previously-IMMEDIATE order
+  //    (guarded so repeated no-op updates can't double-restock).
+  //  - COMPLETED: for a subscription-sourced order, also deducts the
+  //    delivered grams from the matching protein pool(s) — see
+  //    markCompleted, which this delegates to so the deduction can never be
+  //    skipped by calling this generic method directly.
+  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+    if (status === OrderStatus.COMPLETED) {
+      return this.markCompleted(id);
+    }
+
     const existing = await this.db.client.order.findUnique({
       where: { id },
       include: { items: true },
@@ -393,23 +535,122 @@ export class OrdersService {
     }
 
     const order = await this.db.client.$transaction(async (tx) => {
-      if (
-        deliveryStatus === DeliveryStatus.CANCELLED &&
-        existing.deliveryStatus !== DeliveryStatus.CANCELLED &&
-        existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE
-      ) {
+      if (status === OrderStatus.CANCELLED && existing.status !== OrderStatus.CANCELLED && existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
         const required = this.requiredByMenuItemFromOrderItems(existing.items);
         await this.restockItems(tx, required);
       }
 
       return tx.order.update({
         where: { id },
-        data: { deliveryStatus },
-        include: { items: true },
+        data: { status },
+        include: { items: true, subscription: { select: { packageName: true } } },
       });
     });
 
     return this.mapOrder(order);
+  }
+
+  // Marks an order COMPLETED and, if it belongs to a subscription, deducts
+  // the delivered grams from each matching protein pool in the same
+  // transaction. Idempotent — calling this on an already-COMPLETED order is
+  // a no-op rather than double-deducting, protecting balance integrity even
+  // against duplicate/retried requests.
+  async markCompleted(id: string): Promise<Order> {
+    const existing = await this.db.client.order.findUnique({
+      where: { id },
+      include: { items: true, subscription: { include: { pools: true } } },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+    if (existing.status === OrderStatus.COMPLETED) {
+      return this.findOne(id);
+    }
+    if (existing.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException("Không thể hoàn thành một đơn đã bị hủy");
+    }
+
+    await this.db.client.$transaction(async (tx) => {
+      if (existing.subscription) {
+        const gramsByProtein: Record<string, number> = {};
+        for (const item of existing.items) {
+          gramsByProtein[item.protein] = (gramsByProtein[item.protein] ?? 0) + item.qty * item.sizeGrams;
+        }
+        for (const pool of existing.subscription.pools) {
+          const deduction = gramsByProtein[pool.protein];
+          if (!deduction) continue;
+          await tx.subscriptionPool.update({
+            where: { id: pool.id },
+            data: { remainingGrams: Math.max(0, pool.remainingGrams - deduction) },
+          });
+        }
+      }
+
+      await tx.order.update({ where: { id }, data: { status: OrderStatus.COMPLETED } });
+
+      // If every pool is fully consumed, close out the subscription.
+      if (existing.subscriptionId) {
+        const refreshedPools = await tx.subscriptionPool.findMany({ where: { subscriptionId: existing.subscriptionId } });
+        const allDepleted = refreshedPools.length > 0 && refreshedPools.every((p) => p.remainingGrams <= 0);
+        if (allDepleted) {
+          await tx.subscription.update({ where: { id: existing.subscriptionId }, data: { status: "COMPLETED" } });
+        }
+      }
+    });
+
+    return this.findOne(id);
+  }
+
+  // Postpones a not-yet-completed subscription-sourced order — the
+  // conserve-for-later requirement: no pool deduction happens (deduction
+  // only ever happens in markCompleted), and rather than leaving a gap, the
+  // WHOLE remaining schedule for that subscription shifts forward by one
+  // delivery interval so spacing between occurrences stays consistent.
+  async postpone(id: string): Promise<Order> {
+    const order = await this.db.client.order.findUnique({
+      where: { id },
+      include: { subscription: true },
+    });
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+    if (!order.subscription) {
+      throw new BadRequestException("Chỉ có thể hoãn các đơn thuộc gói đăng ký");
+    }
+    if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException("Chỉ có thể hoãn các đơn đang chờ hoặc đang xử lý");
+    }
+
+    const interval = order.subscription.deliveryIntervalDays;
+    const affected = await this.db.client.order.findMany({
+      where: {
+        subscriptionId: order.subscriptionId,
+        deliveryDate: { gte: order.deliveryDate },
+        status: { in: ACTIVE_STATUSES },
+      },
+      orderBy: { deliveryDate: "asc" },
+    });
+
+    await this.db.client.$transaction(async (tx) => {
+      for (const o of affected) {
+        const newDate = new Date(o.deliveryDate);
+        newDate.setDate(newDate.getDate() + interval);
+        const noteLine = `Hoãn từ ${o.deliveryDate.toISOString().split("T")[0]} sang ${newDate.toISOString().split("T")[0]}`;
+        await tx.order.update({
+          where: { id: o.id },
+          data: {
+            deliveryDate: newDate,
+            notes: o.notes ? `${o.notes}\n${noteLine}` : noteLine,
+          },
+        });
+      }
+      await tx.subscription.update({
+        where: { id: order.subscriptionId! },
+        data: { postponedCount: { increment: 1 } },
+      });
+    });
+
+    return this.findOne(id);
   }
 
   async updatePaymentStatus(id: string, paymentStatus: PaymentState): Promise<Order> {
@@ -417,7 +658,7 @@ export class OrdersService {
     const order = await this.db.client.order.update({
       where: { id },
       data: { paymentStatus },
-      include: { items: true },
+      include: { items: true, subscription: { select: { packageName: true } } },
     });
     return this.mapOrder(order);
   }
@@ -434,10 +675,7 @@ export class OrdersService {
     }
 
     await this.db.client.$transaction(async (tx) => {
-      if (
-        existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE &&
-        existing.deliveryStatus !== DeliveryStatus.DELIVERED
-      ) {
+      if (existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE && existing.status !== OrderStatus.COMPLETED) {
         const required = this.requiredByMenuItemFromOrderItems(existing.items);
         await this.restockItems(tx, required);
       }
@@ -445,40 +683,14 @@ export class OrdersService {
     });
   }
 
-  private mapOrder(order: {
-    id: string;
-    customerId: string | null;
-    customerName: string;
-    deliveryDate: Date;
-    paymentStatus: string;
-    deliveryStatus: string;
-    fulfillmentType: string;
-    paymentMethod: string;
-    deliveryAddress: string | null;
-    subtotal: number;
-    discountAmount: number;
-    total: number;
-    notes: string | null;
-    items: Array<{
-      id: string;
-      orderId: string;
-      menuItemId: string | null;
-      protein: string;
-      flavor: string;
-      sizeGrams: number;
-      unitPrice: number;
-      qty: number;
-    }>;
-    createdAt: Date;
-    updatedAt: Date;
-  }): Order {
+  private mapOrder(order: OrderWithItemsAndSub): Order {
     return {
       id: order.id,
       customerId: order.customerId ?? undefined,
       customerName: order.customerName,
       deliveryDate: order.deliveryDate,
       paymentStatus: order.paymentStatus as Order["paymentStatus"],
-      deliveryStatus: order.deliveryStatus as Order["deliveryStatus"],
+      status: order.status as Order["status"],
       fulfillmentType: order.fulfillmentType as Order["fulfillmentType"],
       paymentMethod: order.paymentMethod as Order["paymentMethod"],
       deliveryAddress: order.deliveryAddress ?? undefined,
@@ -486,18 +698,19 @@ export class OrdersService {
       discountAmount: order.discountAmount,
       total: order.total,
       notes: order.notes ?? undefined,
-      items: order.items.map(
-        (i): OrderItem => ({
-          id: i.id,
-          orderId: i.orderId,
-          menuItemId: i.menuItemId ?? undefined,
-          protein: i.protein as OrderItem["protein"],
-          flavor: i.flavor,
-          sizeGrams: i.sizeGrams,
-          unitPrice: i.unitPrice,
-          qty: i.qty,
-        }),
-      ),
+      items: order.items.map((i) => ({
+        id: i.id,
+        orderId: i.orderId,
+        menuItemId: i.menuItemId ?? undefined,
+        protein: i.protein as Order["items"][number]["protein"],
+        flavor: i.flavor,
+        sizeGrams: i.sizeGrams,
+        unitPrice: i.unitPrice,
+        qty: i.qty,
+      })),
+      source: order.source as Order["source"],
+      subscriptionId: order.subscriptionId ?? undefined,
+      packageName: order.subscription?.packageName,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
