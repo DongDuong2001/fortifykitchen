@@ -2900,7 +2900,7 @@ export default function CustomerPortal() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
-                                {formatVND(order.totalAmount)}
+                                {formatVND(order.total)}
                               </span>
                               <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
                                 {order.status}
@@ -2910,12 +2910,12 @@ export default function CustomerPortal() {
 
                           {/* List order items */}
                           <div className="space-y-3.5">
-                            {order.items.map((i: any) => (
+                            {(order.items || []).map((i: any) => (
                               <div key={i.id} className="flex justify-between items-center text-xs">
                                 <span className="font-semibold text-foreground/90">
-                                  {i.menuItem?.name || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.quantity}</span>
+                                  {i.flavor || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.qty}</span>
                                 </span>
-                                <span className="text-muted-foreground font-medium">{formatVND(i.price * i.quantity)}</span>
+                                <span className="text-muted-foreground font-medium">{formatVND(i.unitPrice * i.qty)}</span>
                               </div>
                             ))}
                           </div>
