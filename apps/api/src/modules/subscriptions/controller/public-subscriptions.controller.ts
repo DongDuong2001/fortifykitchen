@@ -1,19 +1,19 @@
 import { BadRequestException, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { SubscriptionsService } from "../service/subscriptions.service";
-import { DeliveryService } from "../../delivery/service/delivery.service";
+import { OrdersService } from "../../orders/service/orders.service";
 
 // Customer-web self-service — there is no customer login system in this
 // product yet, so a phone number (already collected on every Customer
 // record) is used as a lightweight identity check for read-only balance
-// viewing and the "postpone today's delivery" action. No JWT/roles guard
-// on purpose: this is meant to be reachable directly from the storefront.
+// viewing and the "postpone today's order" action. No JWT/roles guard on
+// purpose: this is meant to be reachable directly from the storefront.
 @ApiTags("public-subscriptions")
 @Controller("subscriptions/public")
 export class PublicSubscriptionsController {
   constructor(
     private readonly subscriptionsService: SubscriptionsService,
-    private readonly deliveryService: DeliveryService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   @Get()
@@ -25,32 +25,28 @@ export class PublicSubscriptionsController {
       throw new BadRequestException("Query param 'phone' is required");
     }
     const subscriptions = await this.subscriptionsService.findForPhone(phone);
-    const withDeliveries = await Promise.all(
+    const withUpcoming = await Promise.all(
       subscriptions.map(async (sub) => {
-        const deliveries = await this.deliveryService.findBySubscription(sub.id);
-        const upcoming = deliveries
-          .filter((d) => d.status === "SCHEDULED" || d.status === "PREPPING")
-          .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
-          .slice(0, 5);
-        return { ...sub, upcomingDeliveries: upcoming };
+        const upcomingOrders = await this.ordersService.findUpcomingForSubscription(sub.id, 5);
+        return { ...sub, upcomingOrders };
       }),
     );
-    return withDeliveries;
+    return withUpcoming;
   }
 
-  @Post(":deliveryId/postpone")
-  @ApiOperation({ summary: "Postpone a delivery — verifies the phone number owns it first" })
+  @Post(":orderId/postpone")
+  @ApiOperation({ summary: "Postpone a subscription order — verifies the phone number owns it first" })
   @ApiQuery({ name: "phone", required: true, type: String })
   @ApiResponse({ status: 200, description: "Schedule shifted." })
-  @ApiResponse({ status: 403, description: "Phone number doesn't match this delivery's subscription" })
-  async postpone(@Param("deliveryId", ParseUUIDPipe) deliveryId: string, @Query("phone") phone?: string) {
+  @ApiResponse({ status: 403, description: "Phone number doesn't match this order's subscription" })
+  async postpone(@Param("orderId", ParseUUIDPipe) orderId: string, @Query("phone") phone?: string) {
     if (!phone) {
       throw new BadRequestException("Query param 'phone' is required");
     }
-    const owns = await this.subscriptionsService.verifyDeliveryOwnership(deliveryId, phone);
+    const owns = await this.ordersService.verifySubscriptionOrderOwnership(orderId, phone);
     if (!owns) {
-      throw new ForbiddenException("Số điện thoại không khớp với đơn giao này");
+      throw new ForbiddenException("Số điện thoại không khớp với đơn này");
     }
-    return this.deliveryService.postpone(deliveryId);
+    return this.ordersService.postpone(orderId);
   }
 }

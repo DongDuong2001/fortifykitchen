@@ -52,19 +52,12 @@ export class SubscriptionsController {
     return this.subscriptionsService.findOne(id);
   }
 
-  @Get(":id/deliveries")
-  @ApiOperation({ summary: "Get the full delivery history/schedule for one subscription" })
-  @ApiResponse({ status: 200, description: "Returns this subscription's Delivery rows." })
-  async findDeliveries(@Param("id", ParseUUIDPipe) id: string) {
-    return this.subscriptionsService.findDeliveries(id);
-  }
-
   @Post()
   @ApiOperation({
     summary:
-      "Create a volume-based subscription (one or more protein pools + a delivery cadence) and materialize its first week of deliveries",
+      "Create a volume-based subscription (one or more protein pools + a delivery cadence) and materialize its first week of orders. Always staff-created — see the CustomPlanRequest flow for customer-initiated asks.",
   })
-  @ApiResponse({ status: 201, description: "Subscription, its pools, and the first week's deliveries created." })
+  @ApiResponse({ status: 201, description: "Subscription, its pools, and the first week's orders created." })
   @ApiResponse({ status: 400, description: "No available menu item for a purchased protein" })
   async create(@Body() dto: CreateSubscriptionDto): Promise<Subscription> {
     return this.subscriptionsService.create(dto);
@@ -72,7 +65,7 @@ export class SubscriptionsController {
 
   @Put(":id")
   @ApiOperation({
-    summary: "Update package name / price / payment / status / cadence. Does not touch already-materialized deliveries.",
+    summary: "Update package name / price / payment / status / cadence. Does not touch already-materialized orders.",
   })
   @ApiResponse({ status: 200, description: "Subscription updated." })
   @ApiResponse({ status: 404, description: "Subscription not found" })
@@ -85,24 +78,24 @@ export class SubscriptionsController {
 
   @Post(":id/top-up")
   @ApiOperation({ summary: "Add more purchased weight to a protein pool (or start a new one)" })
-  @ApiResponse({ status: 200, description: "Pool topped up and near-term deliveries re-synced." })
+  @ApiResponse({ status: 200, description: "Pool topped up and near-term orders re-synced." })
   async topUpPool(@Param("id", ParseUUIDPipe) id: string, @Body() dto: TopUpPoolDto): Promise<Subscription> {
     return this.subscriptionsService.topUpPool(id, dto);
   }
 
-  @Post("sync-deliveries")
+  @Post("sync-orders")
   @ApiOperation({
-    summary: "Materialize any due-within-7-days Delivery rows across all active subscriptions (safe to call repeatedly)",
+    summary: "Materialize any due-within-7-days Order rows across all active subscriptions (safe to call repeatedly)",
   })
-  @ApiResponse({ status: 200, description: "Returns how many new Delivery rows were created." })
-  async syncDeliveries() {
-    return this.subscriptionsService.syncUpcomingDeliveries();
+  @ApiResponse({ status: 200, description: "Returns how many new Order rows were created." })
+  async syncOrders() {
+    return this.subscriptionsService.syncUpcomingOrders();
   }
 
   @Delete(":id")
   @Roles("ADMIN", "MANAGER")
-  @ApiOperation({ summary: "Delete a subscription, its pools, and its whole delivery schedule" })
-  @ApiResponse({ status: 200, description: "Subscription and its deliveries deleted." })
+  @ApiOperation({ summary: "Delete a subscription, its pools, and its whole order schedule" })
+  @ApiResponse({ status: 200, description: "Subscription and its orders deleted." })
   @ApiResponse({ status: 404, description: "Subscription not found" })
   async remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.subscriptionsService.remove(id);
