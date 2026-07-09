@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
@@ -7,7 +7,7 @@ import { normalizePhone } from "../../../common/utils/phone.util";
 import { OrdersService } from "../../orders/service/orders.service";
 import { calculatePoolPricing, addDays } from "@fortifykitchen/shared";
 import { Subscription, SubscriptionPool } from "@fortifykitchen/types";
-import { PaymentState, Protein, CustomPlanRequestStatus } from "@fortifykitchen/database";
+import { PaymentState, Protein, CustomPlanRequestStatus, PaymentMethod, PaymentStatus, Decimal } from "@fortifykitchen/database";
 
 // How far ahead of "today" a subscription's Order occurrences get
 // materialized. See syncUpcomingOrders — this is what makes requirement
@@ -228,6 +228,63 @@ export class SubscriptionsService {
     // A top-up means there's more to schedule — pull forward what we can
     // within the usual 7-day horizon right away.
     await this.syncUpcomingOrders(id);
+
+    return this.findOne(id);
+  }
+
+  // Funds a staff-built Subscription (typically from an approved
+  // CustomPlanRequest) straight from the customer's wallet balance —
+  // decided: this only ever happens in FULL, never a partial/split payment
+  // with a bank transfer covering the rest. If the balance is short, the
+  // customer tops up first (buys a SubscriptionPlan) or pays the whole
+  // totalPrice by bank transfer instead (the existing `update()` /
+  // paymentStatus flow), leaving the wallet untouched. See
+  // docs/plan-and-credit-design.md. `Subscription` itself needs no schema
+  // change for this — it's recorded via the Payment ledger, same as a
+  // wallet-paid order.
+  async payFromWallet(id: string, requestingUser?: { id: string; role: string }): Promise<Subscription> {
+    const sub = await this.db.client.subscription.findUnique({ where: { id } });
+    if (!sub) {
+      throw new NotFoundException(`Subscription with ID ${id} not found`);
+    }
+    if (!sub.customerId) {
+      throw new BadRequestException("This subscription has no linked customer to charge.");
+    }
+    if (sub.paymentStatus === PaymentState.PAID) {
+      throw new BadRequestException("This subscription is already paid.");
+    }
+
+    // A customer can only pay for their own subscription; staff can pay on
+    // behalf of any customer (e.g. while on the phone finalizing a custom
+    // plan request).
+    if (requestingUser?.role === "CUSTOMER") {
+      const customer = await this.db.client.customer.findFirst({ where: { userId: requestingUser.id } });
+      if (!customer || customer.id !== sub.customerId) {
+        throw new ForbiddenException("You can only pay for your own subscription.");
+      }
+    }
+
+    await this.db.client.$transaction(async (tx) => {
+      const result = await tx.customer.updateMany({
+        where: { id: sub.customerId!, walletBalance: { gte: sub.totalPrice } },
+        data: { walletBalance: { decrement: sub.totalPrice } },
+      });
+      if (result.count === 0) {
+        throw new BadRequestException("Wallet balance is insufficient to cover this subscription in full.");
+      }
+
+      await tx.subscription.update({ where: { id }, data: { paymentStatus: PaymentState.PAID } });
+
+      await tx.payment.create({
+        data: {
+          subscriptionId: id,
+          customerId: sub.customerId!,
+          amount: new Decimal(sub.totalPrice),
+          method: PaymentMethod.WALLET,
+          status: PaymentStatus.COMPLETED,
+        },
+      });
+    });
 
     return this.findOne(id);
   }

@@ -83,6 +83,18 @@ export class SubscriptionsController {
     return this.subscriptionsService.topUpPool(id, dto);
   }
 
+  @Post(":id/pay-from-wallet")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({
+    summary: "Fund this subscription's totalPrice in full from the customer's wallet balance — never a partial payment.",
+  })
+  @ApiResponse({ status: 200, description: "Wallet debited in full, subscription marked PAID." })
+  @ApiResponse({ status: 400, description: "Already paid, or wallet balance doesn't fully cover it" })
+  @ApiResponse({ status: 403, description: "A customer tried to pay for someone else's subscription" })
+  async payFromWallet(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: any): Promise<Subscription> {
+    return this.subscriptionsService.payFromWallet(id, user);
+  }
+
   @Post("sync-orders")
   @ApiOperation({
     summary: "Materialize any due-within-7-days Order rows across all active subscriptions (safe to call repeatedly)",
