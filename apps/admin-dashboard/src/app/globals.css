@@ -43,34 +43,36 @@
   --radius-4xl: 64px;
 
   /* Custom shadows */
-  --shadow-xs: 0 1px 0 rgba(47, 74, 60, 0.04);
-  --shadow-sm: 0 1px 2px rgba(47, 74, 60, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(47, 74, 60, 0.08), 0 2px 4px -1px rgba(47, 74, 60, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(47, 74, 60, 0.1), 0 10px 10px -5px rgba(47, 74, 60, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(47, 74, 60, 0.15);
+  --shadow-xs: 0 1px 0 rgba(30, 32, 22, 0.04);
+  --shadow-sm: 0 1px 2px rgba(30, 32, 22, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(30, 32, 22, 0.08), 0 2px 4px -1px rgba(30, 32, 22, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(30, 32, 22, 0.08), 0 4px 6px -2px rgba(30, 32, 22, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(30, 32, 22, 0.1), 0 10px 10px -5px rgba(30, 32, 22, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(30, 32, 22, 0.15);
 }
 
 :root {
-  --background: #f7f3ec;        /* Warm cream */
-  --foreground: #2f4a3c;        /* Deep forest green */
-  --primary: #e8703a;           /* Burnt orange */
-  --primary-foreground: #ffffff;
-  --secondary: #7c8b7e;         /* Muted sage */
-  --secondary-foreground: #ffffff;
-  --muted: #e6e1d6;
-  --muted-foreground: #7c8b7e;  
-  --accent: #e8703a;
-  --accent-foreground: #ffffff;
-  --destructive: #c1453a;
-  --destructive-foreground: #ffffff;
-  --border: #e6e1d6;            /* Card outlines, dividers */
-  --input: #ffffff;             
-  --ring: #e8703a;
-  --card: #ffffff;              /* Card background */
-  --card-foreground: #2f4a3c;
-  --popover: #ffffff;
-  --popover-foreground: #2f4a3c;
+  /* Kept in sync with the root DESIGN.md palette (Deep Matcha / Bamboo Sage
+     / Clay Red / Rice Paper) — same tokens apps/customer-web uses. */
+  --background: #f0ebda; /* Rice Paper warm neutral */
+  --foreground: #1e2016; /* Deep Matcha primary */
+  --primary: #b0361b; /* Clay Red tertiary — the one accent color */
+  --primary-foreground: #f8f3e1;
+  --secondary: #7b8069; /* Bamboo Sage secondary */
+  --secondary-foreground: #f8f3e1;
+  --muted: #e6dfce;
+  --muted-foreground: #7b8069;
+  --accent: #b0361b;
+  --accent-foreground: #f8f3e1;
+  --destructive: #b0361b;
+  --destructive-foreground: #f8f3e1;
+  --border: #e6dfce; /* Card outlines, dividers */
+  --input: #f8f3e1;
+  --ring: #b0361b;
+  --card: #f8f3e1; /* Warm Sand Cream surface */
+  --card-foreground: #1e2016;
+  --popover: #f8f3e1;
+  --popover-foreground: #1e2016;
 }
 
 body {
@@ -92,10 +94,10 @@ h6 {
 }
 
 .shadow-warm {
-  box-shadow: 0 4px 6px -1px rgba(47, 74, 60, 0.05), 0 2px 4px -1px rgba(47, 74, 60, 0.02);
+  box-shadow: 0 4px 6px -1px rgba(30, 32, 22, 0.05), 0 2px 4px -1px rgba(30, 32, 22, 0.02);
 }
 .shadow-warm-lg {
-  box-shadow: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
+  box-shadow: 0 10px 15px -3px rgba(30, 32, 22, 0.08), 0 4px 6px -2px rgba(30, 32, 22, 0.04);
 }
 
 .transition-smooth {
