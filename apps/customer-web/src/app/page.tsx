@@ -557,6 +557,10 @@ export default function CustomerPortal() {
   const [myOrders, setMyOrders] = React.useState<any[]>([]);
   const [mySubscriptions, setMySubscriptions] = React.useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = React.useState(false);
+  // Sub-navigation within the private dashboard tab — Overview / Orders /
+  // Subscriptions each get their own screen instead of everything stacked
+  // into one long page.
+  const [dashboardSection, setDashboardSection] = React.useState<"overview" | "orders" | "subscriptions">("overview");
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -2854,7 +2858,7 @@ export default function CustomerPortal() {
         {/* TAB 3: CUSTOMER DASHBOARD */}
         {activeTab === "dashboard" && user && (
           <div>
-            <div className="mb-10">
+            <div className="mb-8">
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? `Chào mừng trở lại, ${user.firstName}` : `Welcome back, ${user.firstName}`}
               </h2>
@@ -2863,232 +2867,348 @@ export default function CustomerPortal() {
               </p>
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-12">
-              {/* Left 2 Cols: Orders list */}
-              <div className="lg:col-span-2 space-y-8">
-                <div>
-                  <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5 text-primary" />
-                    {t("dash_orders_title")}
-                  </h3>
+            {/* Sub-navigation — Overview / Orders / Subscriptions each get
+                their own screen instead of everything stacked into one
+                long, cramped page. */}
+            <div className="flex gap-1 border-b border-border mb-8 overflow-x-auto">
+              {(
+                [
+                  { key: "overview", label: lang === "vi" ? "Tổng quan" : "Overview", icon: faUser },
+                  {
+                    key: "orders",
+                    label: `${t("dash_orders_title")}${myOrders.length ? ` (${myOrders.length})` : ""}`,
+                    icon: faShoppingBag,
+                  },
+                  {
+                    key: "subscriptions",
+                    label: `${t("nav_sub")}${mySubscriptions.length ? ` (${mySubscriptions.length})` : ""}`,
+                    icon: faMagic,
+                  },
+                ] as const
+              ).map((tabItem) => (
+                <button
+                  key={tabItem.key}
+                  onClick={() => setDashboardSection(tabItem.key)}
+                  className={`flex items-center gap-1.5 px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer ${
+                    dashboardSection === tabItem.key
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={tabItem.icon} className="h-3.5 w-3.5" />
+                  {tabItem.label}
+                </button>
+              ))}
+            </div>
 
-                  {isLoadingDashboard ? (
-                    <div className="py-10 text-center">
-                      <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <span className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Đang tải đơn hàng..." : "Retrieving orders..."}
-                      </span>
+            {isLoadingDashboard ? (
+              <div className="py-10 text-center">
+                <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                <span className="text-xs text-muted-foreground">
+                  {lang === "vi" ? "Đang tải..." : "Loading..."}
+                </span>
+              </div>
+            ) : (
+              <>
+                {/* OVERVIEW — quick-glance summary + shortcuts into the
+                    other two sub-tabs, so the customer isn't dropped into a
+                    wall of every order/subscription at once. */}
+                {dashboardSection === "overview" && (
+                  <div className="space-y-8">
+                    <div className="grid sm:grid-cols-3 gap-5">
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                          {lang === "vi" ? "Số dư Ví" : "Wallet Balance"}
+                        </span>
+                        <p className="text-xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                        <button
+                          onClick={() => setActiveTab("subscriptions")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Nạp thêm →" : "Top up →"}
+                        </button>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faShoppingBag} className="h-3 w-3" />
+                          {t("dash_orders_title")}
+                        </span>
+                        <p className="text-xl font-bold mt-1.5">{myOrders.length}</p>
+                        <button
+                          onClick={() => setDashboardSection("orders")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                        </button>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faMagic} className="h-3 w-3" />
+                          {t("nav_sub")}
+                        </span>
+                        <p className="text-xl font-bold mt-1.5">{mySubscriptions.length}</p>
+                        <button
+                          onClick={() => setDashboardSection("subscriptions")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                        </button>
+                      </div>
                     </div>
-                  ) : myOrders.length === 0 ? (
-                    <div className="p-8 text-center border border-dashed border-border rounded-xl">
-                      <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
-                      <button
-                        onClick={() => setActiveTab("menu")}
-                        className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
-                      >
-                        {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {myOrders.map((order) => (
-                        <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
-                            <div>
-                              <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
-                              <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+
+                    {myOrders.length === 0 && mySubscriptions.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                        <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("menu")}
+                          className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
+                        </button>
+                      </div>
+                    ) : (
+                      myOrders.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center justify-between">
+                            {lang === "vi" ? "Đơn hàng gần nhất" : "Most recent order"}
+                            <button
+                              onClick={() => setDashboardSection("orders")}
+                              className="text-[11px] font-bold text-primary hover:underline cursor-pointer normal-case tracking-normal"
+                            >
+                              {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                            </button>
+                          </h3>
+                          <div className="border border-border bg-card rounded-2xl p-5 flex items-center justify-between gap-3 shadow-sm">
+                            <div className="min-w-0">
+                              <div className="text-xs font-mono font-semibold text-foreground/80 truncate">{myOrders[0].id}</div>
+                              <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                                {(myOrders[0].items || []).map((i: any) => i.flavor).join(", ")}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
-                                {formatVND(order.total)}
+                                {formatVND(myOrders[0].total)}
                               </span>
                               <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
-                                {order.status}
+                                {myOrders[0].status}
                               </span>
                             </div>
-                          </div>
-
-                          {/* List order items */}
-                          <div className="space-y-3.5">
-                            {(order.items || []).map((i: any) => (
-                              <div key={i.id} className="flex justify-between items-center text-xs">
-                                <span className="font-semibold text-foreground/90">
-                                  {i.flavor || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.qty}</span>
-                                </span>
-                                <span className="text-muted-foreground font-medium">{formatVND(i.unitPrice * i.qty)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Live Step Progress Indicator for COD/Shipment */}
-                          <div>
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                              {t("status_label")}
-                            </div>
-                            <div className="grid grid-cols-4 gap-2 relative">
-                              {/* Horizontal connecting line */}
-                              <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
-
-                              {[
-                                { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
-                                { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
-                                { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
-                                { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
-                              ].map((step) => {
-                                const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
-                                const currentIdx = statuses.indexOf(order.status);
-                                const targetIdx = statuses.indexOf(step.key === "DELIVERED" ? "DELIVERED" : step.key);
-                                const isPassed = currentIdx >= targetIdx;
-
-                                return (
-                                  <div key={step.key} className="flex flex-col items-center text-center">
-                                    <div
-                                      className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
-                                        isPassed
-                                          ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
-                                          : "bg-muted border-border text-muted-foreground"
-                                      }`}
-                                    >
-                                      <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
-                                    </div>
-                                    <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Shipment details */}
-                          <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
-                            <span className="flex items-center gap-1">
-                              <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
-                              {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
-                            </span>
-                            <span className="font-semibold text-foreground/80">
-                              {lang === "vi"
-                                ? `Thanh toán: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Đã trả" : "Chưa trả"})`
-                                : `Payment: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Paid" : "Unpaid"})`}
-                            </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+                      )
+                    )}
+                  </div>
+                )}
 
-              {/* Right Col: Active subscriptions */}
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faMagic} className="h-5 w-5 text-primary" />
-                    {t("nav_sub")}
-                  </h3>
-
-                  {isLoadingDashboard ? (
-                    <div className="py-6 text-center">
-                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
-                    </div>
-                  ) : mySubscriptions.length === 0 ? (
-                    <div className="p-6 text-center border border-dashed border-border rounded-xl bg-muted/10">
-                      <p className="text-xs text-muted-foreground">{t("dash_subs_empty")}</p>
-                      <button
-                        onClick={() => setActiveTab("subscriptions")}
-                        className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
-                      >
-                        {lang === "vi" ? "Đăng ký các gói hàng ngày/tuần" : "Subscribe to daily/weekly plans"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {mySubscriptions.map((sub) => (
-                        <div key={sub.id} className="border border-border bg-card rounded-2xl p-5 space-y-4 shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                                {lang === "vi" ? `${sub.deliveryIntervalDays} ngày/lần` : `Every ${sub.deliveryIntervalDays}d`}
-                              </span>
-                              <h4 className="text-sm font-bold font-heading mt-1.5">{sub.packageName}</h4>
+                {/* ORDERS — full order history, full width now that it's
+                    not squeezed into a 2/3 column next to subscriptions. */}
+                {dashboardSection === "orders" && (
+                  <div>
+                    {myOrders.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                        <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("menu")}
+                          className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="max-w-3xl space-y-6">
+                        {myOrders.map((order) => (
+                          <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
+                              <div>
+                                <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
+                                <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
+                                  {formatVND(order.total)}
+                                </span>
+                                <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
+                                  {order.status}
+                                </span>
+                              </div>
                             </div>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                sub.status === "ACTIVE"
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                  : "bg-amber-50 border-amber-200 text-amber-700"
-                              }`}
-                            >
-                              {sub.status}
-                            </span>
-                          </div>
 
-                          <div className="text-[11px] text-muted-foreground space-y-1">
-                            <div>
-                              {lang === "vi" ? "Tổng giá trị gói: " : "Package price: "} <span className="font-semibold text-foreground">{formatVND(sub.totalPrice)}</span>
-                            </div>
-                            <div>
-                              {lang === "vi" ? "Bắt đầu: " : "Started: "}{" "}
-                              <span className="font-semibold text-foreground">
-                                {new Date(sub.startDate).toLocaleDateString("vi-VN")}
-                              </span>
-                            </div>
-                          </div>
-
-                          {(sub.pools || []).length > 0 && (
-                            <div className="space-y-1.5">
-                              {sub.pools.map((pool: any) => (
-                                <div key={pool.id} className="flex items-center justify-between text-[11px]">
-                                  <span className="text-muted-foreground font-medium">{pool.protein}</span>
-                                  <span className="font-semibold text-foreground">
-                                    {(pool.remainingGrams / 1000).toFixed(1)}kg / {(pool.totalGrams / 1000).toFixed(1)}kg{" "}
-                                    {lang === "vi" ? "còn lại" : "left"}
+                            {/* List order items */}
+                            <div className="space-y-3.5">
+                              {(order.items || []).map((i: any) => (
+                                <div key={i.id} className="flex justify-between items-center text-xs">
+                                  <span className="font-semibold text-foreground/90">
+                                    {i.flavor || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.qty}</span>
                                   </span>
+                                  <span className="text-muted-foreground font-medium">{formatVND(i.unitPrice * i.qty)}</span>
                                 </div>
                               ))}
                             </div>
-                          )}
 
-                          {/* Pay in full from wallet — no split payment, see
-                              docs/plan-and-credit-design.md. This view is
-                              already logged-in (/subscriptions/me), so no
-                              extra auth gate is needed here. */}
-                          {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
-                            <div className="pt-3 border-t border-border/50 space-y-2">
-                              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                <span>{lang === "vi" ? "Cần thanh toán:" : "Payment due:"}</span>
-                                <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                            {/* Live Step Progress Indicator for COD/Shipment */}
+                            <div>
+                              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
+                                {t("status_label")}
                               </div>
-                              <button
-                                onClick={() => handlePayFromWallet(sub.id)}
-                                disabled={payingSubscriptionId === sub.id}
-                                className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[10px] font-extrabold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              <div className="grid grid-cols-4 gap-2 relative">
+                                {/* Horizontal connecting line */}
+                                <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
+
+                                {[
+                                  { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
+                                  { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
+                                  { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
+                                  { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
+                                ].map((step) => {
+                                  const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+                                  const currentIdx = statuses.indexOf(order.status);
+                                  const targetIdx = statuses.indexOf(step.key === "DELIVERED" ? "DELIVERED" : step.key);
+                                  const isPassed = currentIdx >= targetIdx;
+
+                                  return (
+                                    <div key={step.key} className="flex flex-col items-center text-center">
+                                      <div
+                                        className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
+                                          isPassed
+                                            ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
+                                            : "bg-muted border-border text-muted-foreground"
+                                        }`}
+                                      >
+                                        <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
+                                      </div>
+                                      <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Shipment details */}
+                            <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
+                              <span className="flex items-center gap-1">
+                                <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
+                                {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
+                              </span>
+                              <span className="font-semibold text-foreground/80">
+                                {lang === "vi"
+                                  ? `Thanh toán: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Đã trả" : "Chưa trả"})`
+                                  : `Payment: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Paid" : "Unpaid"})`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SUBSCRIPTIONS — full width now too. */}
+                {dashboardSection === "subscriptions" && (
+                  <div>
+                    {mySubscriptions.length === 0 ? (
+                      <div className="p-6 text-center border border-dashed border-border rounded-xl bg-muted/10">
+                        <p className="text-xs text-muted-foreground">{t("dash_subs_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("subscriptions")}
+                          className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Đăng ký các gói hàng ngày/tuần" : "Subscribe to daily/weekly plans"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="max-w-2xl space-y-4">
+                        {mySubscriptions.map((sub) => (
+                          <div key={sub.id} className="border border-border bg-card rounded-2xl p-5 space-y-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                  {lang === "vi" ? `${sub.deliveryIntervalDays} ngày/lần` : `Every ${sub.deliveryIntervalDays}d`}
+                                </span>
+                                <h4 className="text-sm font-bold font-heading mt-1.5">{sub.packageName}</h4>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                  sub.status === "ACTIVE"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-amber-50 border-amber-200 text-amber-700"
+                                }`}
                               >
-                                {payingSubscriptionId === sub.id ? (
-                                  <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
-                                    {lang === "vi" ? "Thanh toán bằng Ví" : "Pay from Wallet"}
-                                  </>
-                                )}
+                                {sub.status}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-muted-foreground space-y-1">
+                              <div>
+                                {lang === "vi" ? "Tổng giá trị gói: " : "Package price: "} <span className="font-semibold text-foreground">{formatVND(sub.totalPrice)}</span>
+                              </div>
+                              <div>
+                                {lang === "vi" ? "Bắt đầu: " : "Started: "}{" "}
+                                <span className="font-semibold text-foreground">
+                                  {new Date(sub.startDate).toLocaleDateString("vi-VN")}
+                                </span>
+                              </div>
+                            </div>
+
+                            {(sub.pools || []).length > 0 && (
+                              <div className="space-y-1.5">
+                                {sub.pools.map((pool: any) => (
+                                  <div key={pool.id} className="flex items-center justify-between text-[11px]">
+                                    <span className="text-muted-foreground font-medium">{pool.protein}</span>
+                                    <span className="font-semibold text-foreground">
+                                      {(pool.remainingGrams / 1000).toFixed(1)}kg / {(pool.totalGrams / 1000).toFixed(1)}kg{" "}
+                                      {lang === "vi" ? "còn lại" : "left"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Pay in full from wallet — no split payment, see
+                                docs/plan-and-credit-design.md. This view is
+                                already logged-in (/subscriptions/me), so no
+                                extra auth gate is needed here. */}
+                            {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
+                              <div className="pt-3 border-t border-border/50 space-y-2">
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                  <span>{lang === "vi" ? "Cần thanh toán:" : "Payment due:"}</span>
+                                  <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                                </div>
+                                <button
+                                  onClick={() => handlePayFromWallet(sub.id)}
+                                  disabled={payingSubscriptionId === sub.id}
+                                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[10px] font-extrabold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                >
+                                  {payingSubscriptionId === sub.id ? (
+                                    <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                                      {lang === "vi" ? "Thanh toán bằng Ví" : "Pay from Wallet"}
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="pt-3 border-t border-border/50 flex gap-2">
+                              <button
+                                onClick={() => handlePauseSubscription(sub.id, sub.status)}
+                                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-[10px] font-extrabold py-2 px-3 rounded-lg border border-border transition-colors cursor-pointer"
+                              >
+                                {sub.status === "ACTIVE" ? (lang === "vi" ? "Tạm dừng" : "Pause") : (lang === "vi" ? "Kích hoạt lại" : "Resume")}
                               </button>
                             </div>
-                          )}
-
-                          <div className="pt-3 border-t border-border/50 flex gap-2">
-                            <button
-                              onClick={() => handlePauseSubscription(sub.id, sub.status)}
-                              className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-[10px] font-extrabold py-2 px-3 rounded-lg border border-border transition-colors cursor-pointer"
-                            >
-                              {sub.status === "ACTIVE" ? (lang === "vi" ? "Tạm dừng" : "Pause") : (lang === "vi" ? "Kích hoạt lại" : "Resume")}
-                            </button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </main>
