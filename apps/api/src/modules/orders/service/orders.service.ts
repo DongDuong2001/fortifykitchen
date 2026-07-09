@@ -16,21 +16,35 @@ export class OrdersService {
   // Looks up each menuItemId's current protein/flavor/size/price and builds
   // the LineItem[] shape the shared discount engine expects — the server
   // is the source of truth for pricing, never the client.
-  private async buildLineItems(items: { menuItemId: string; qty: number }[]): Promise<LineItem[]> {
+  private async buildLineItems(items: any[]): Promise<LineItem[]> {
     const lineItems: LineItem[] = [];
-    for (const { menuItemId, qty } of items) {
-      const menuItem = await this.db.client.menuItem.findUnique({ where: { id: menuItemId } });
-      if (!menuItem) {
-        throw new BadRequestException(`Menu item ${menuItemId} not found`);
+    for (const item of items) {
+      if (item.menuItemId) {
+        const menuItem = await this.db.client.menuItem.findUnique({ where: { id: item.menuItemId } });
+        if (!menuItem) {
+          throw new BadRequestException(`Menu item ${item.menuItemId} not found`);
+        }
+        lineItems.push({
+          menuItemId: menuItem.id,
+          protein: menuItem.protein as LineItem["protein"],
+          flavor: menuItem.flavor,
+          sizeGrams: menuItem.sizeGrams,
+          unitPrice: menuItem.price,
+          qty: item.qty,
+        });
+      } else {
+        if (!item.protein || !item.flavor || !item.sizeGrams || item.unitPrice === undefined) {
+          throw new BadRequestException("Custom items must specify protein, flavor, sizeGrams, and unitPrice");
+        }
+        lineItems.push({
+          menuItemId: null as any,
+          protein: item.protein.toUpperCase() as LineItem["protein"],
+          flavor: item.flavor,
+          sizeGrams: item.sizeGrams,
+          unitPrice: item.unitPrice,
+          qty: item.qty,
+        });
       }
-      lineItems.push({
-        menuItemId: menuItem.id,
-        protein: menuItem.protein as LineItem["protein"],
-        flavor: menuItem.flavor,
-        sizeGrams: menuItem.sizeGrams,
-        unitPrice: menuItem.price,
-        qty,
-      });
     }
     return lineItems;
   }
@@ -41,19 +55,26 @@ export class OrdersService {
   // its items clear this bar; a single short item pushes the WHOLE order to
   // SCHEDULED rather than splitting it.
   private async resolveFulfillment(
-    items: { menuItemId: string; qty: number }[],
+    items: any[],
   ): Promise<{ fulfillmentType: OrderFulfillmentType; requiredByMenuItem: Map<string, number> }> {
     const requiredByMenuItem = new Map<string, number>();
-    for (const { menuItemId, qty } of items) {
-      requiredByMenuItem.set(menuItemId, (requiredByMenuItem.get(menuItemId) ?? 0) + qty);
+    let allInStock = true;
+
+    for (const item of items) {
+      if (!item.menuItemId) {
+        allInStock = false;
+        continue;
+      }
+      requiredByMenuItem.set(item.menuItemId, (requiredByMenuItem.get(item.menuItemId) ?? 0) + item.qty);
     }
 
-    let allInStock = true;
-    for (const [menuItemId, requiredQty] of requiredByMenuItem) {
-      const menuItem = await this.db.client.menuItem.findUnique({ where: { id: menuItemId } });
-      if (!menuItem || menuItem.stockQuantity < requiredQty) {
-        allInStock = false;
-        break;
+    if (allInStock) {
+      for (const [menuItemId, requiredQty] of requiredByMenuItem) {
+        const menuItem = await this.db.client.menuItem.findUnique({ where: { id: menuItemId } });
+        if (!menuItem || menuItem.stockQuantity < requiredQty) {
+          allInStock = false;
+          break;
+        }
       }
     }
 
@@ -204,7 +225,7 @@ export class OrdersService {
 
   private async createForCustomer(
     customer: { id: string; name: string },
-    items: { menuItemId: string; qty: number }[],
+    items: any[],
     deliveryDateInput: string,
     paymentStatus: PaymentState | undefined,
     notes: string | undefined,
@@ -327,15 +348,21 @@ export class OrdersService {
 
       // Re-resolve fulfillment against post-restock stock levels.
       const requiredByMenuItem = new Map<string, number>();
-      for (const { menuItemId, qty } of dto.items) {
-        requiredByMenuItem.set(menuItemId, (requiredByMenuItem.get(menuItemId) ?? 0) + qty);
-      }
       let allInStock = true;
-      for (const [menuItemId, requiredQty] of requiredByMenuItem) {
-        const menuItem = await tx.menuItem.findUnique({ where: { id: menuItemId } });
-        if (!menuItem || menuItem.stockQuantity < requiredQty) {
+      for (const item of dto.items) {
+        if (!item.menuItemId) {
           allInStock = false;
-          break;
+          continue;
+        }
+        requiredByMenuItem.set(item.menuItemId, (requiredByMenuItem.get(item.menuItemId) ?? 0) + item.qty);
+      }
+      if (allInStock) {
+        for (const [menuItemId, requiredQty] of requiredByMenuItem) {
+          const menuItem = await tx.menuItem.findUnique({ where: { id: menuItemId } });
+          if (!menuItem || menuItem.stockQuantity < requiredQty) {
+            allInStock = false;
+            break;
+          }
         }
       }
       const fulfillmentType = allInStock
