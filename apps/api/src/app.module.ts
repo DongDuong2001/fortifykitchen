@@ -14,6 +14,7 @@ import { OrdersModule } from "./modules/orders/orders.module";
 import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
 import { CustomPlanRequestsModule } from "./modules/custom-plan-requests/custom-plan-requests.module";
 import { SubscriptionPlansModule } from "./modules/subscription-plans/subscription-plans.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { PrepListModule } from "./modules/prep-list/prep-list.module";
 import { UploadModule } from "./modules/upload/upload.module";
@@ -33,6 +34,7 @@ import { HomeFramesModule } from "./modules/home-frames/home-frames.module";
     SubscriptionsModule,
     CustomPlanRequestsModule,
     SubscriptionPlansModule,
+    NotificationsModule,
     DashboardModule,
     PrepListModule,
     UploadModule,
