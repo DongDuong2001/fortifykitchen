@@ -1112,7 +1112,692 @@ export default function CustomerPortal() {
               }`}
             >
               {t("nav_order")}
-              {/* TAB 1.5: ORDER NOW — supports Standard flow (today's menu) and Custom flow (outside menu, 24h advance) */}
+              {activeTab === "order-now" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("calculator")}
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "calculator" ? "text-foreground font-semibold" : "text-secondary"
+              }`}
+            >
+              {t("nav_calculator")}
+              {activeTab === "calculator" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("about")}
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "about" ? "text-foreground font-semibold" : "text-secondary"
+              }`}
+            >
+              {t("nav_about")}
+              {activeTab === "about" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("subscriptions")}
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "subscriptions" ? "text-foreground font-semibold" : "text-secondary"
+              }`}
+            >
+              {t("nav_sub")}
+              {activeTab === "subscriptions" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            {user && (
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                  activeTab === "dashboard" ? "text-foreground font-semibold" : "text-secondary"
+                }`}
+              >
+                {t("nav_dashboard")}
+                {activeTab === "dashboard" && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                )}
+              </button>
+            )}
+          </nav>
+
+          <div className="flex items-center gap-6">
+            {/* Premium Minimal Language Switcher */}
+            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-secondary font-sans select-none shrink-0 border border-border/40 rounded-full px-3 py-1 bg-card/45">
+              <button
+                type="button"
+                onClick={() => changeLang("vi")}
+                className={`hover:text-foreground transition-colors cursor-pointer ${
+                  lang === "vi" ? "text-primary font-bold" : ""
+                }`}
+              >
+                VI
+              </button>
+              <span className="text-border/40">|</span>
+              <button
+                type="button"
+                onClick={() => changeLang("en")}
+                className={`hover:text-foreground transition-colors cursor-pointer ${
+                  lang === "en" ? "text-primary font-bold" : ""
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-card/40"
+            >
+              <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+              {cartCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
+              )}
+            </button>
+
+            {/* Auth / Profile Area */}
+            <div className="hidden md:flex items-center gap-3">
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <div
+                    onClick={() => setActiveTab("dashboard")}
+                    className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-card/30 hover:bg-card/80 transition-all text-xs font-medium"
+                  >
+                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                    <span>{user.firstName}</span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
+                    title={t("btn_logout")}
+                  >
+                    <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAuthModal("login")}
+                  className="border border-border/60 hover:border-foreground text-foreground text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
+                >
+                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-secondary" />
+                  <span>{t("btn_signin")}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* 2. HERO SECTION (Apple, Linear, Aesop inspired) */}
+      {activeTab === "home" && (
+        <section className="relative bg-background pt-16 pb-24 lg:pt-24 lg:pb-36 overflow-hidden border-b border-border/10">
+          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-12 gap-16 lg:gap-8 items-center">
+            {/* Left Editorial Column */}
+            <div className="lg:col-span-7 space-y-10 text-left">
+              <div className="inline-flex items-center gap-2.5 text-[10px] uppercase tracking-[0.25em] font-medium text-secondary">
+                <span className="h-1.5 w-1.5 bg-primary rounded-full shrink-0" />
+                Fortify Kitchen · Tri kỷ dinh dưỡng chuẩn xác
+              </div>
+              
+              <h1 className="text-5xl sm:text-6xl lg:text-[4.75rem] font-normal tracking-tight font-heading leading-[1.02] text-foreground">
+                {lang === "vi" ? (
+                  <>Sức khỏe khởi từ <br /><span className="font-italic italic font-light text-primary">sự thấu cảm.</span></>
+                ) : (
+                  <>Wellness begins with <br /><span className="font-italic italic font-light text-primary">compassion.</span></>
+                )}
+              </h1>
+
+              <p className="text-sm sm:text-base text-secondary/90 leading-relaxed max-w-xl font-sans font-light">
+                {lang === "vi"
+                  ? "Chúng tôi tái định nghĩa trải nghiệm ẩm thực lành mạnh với sự chính xác tuyệt đối từ công thức chế biến nấu chậm (sous-vide) khép kín. Mỗi đĩa ăn là sự kết hợp hoàn hảo giữa chỉ số macros rõ ràng và hương vị nguyên bản ngọt mọng tự nhiên, đồng hành chân thành cùng hành trình sức khỏe của riêng bạn."
+                  : "We redefine nutritious dining with absolute precision through closed-loop sous-vide slow-cooking. Every dish achieves the perfect balance of clear macronutrients and tender, succulent flavor, accompanying you personally on your journey."}
+              </p>
+
+              <div className="flex flex-wrap gap-4 items-center pt-2">
+                <button
+                  onClick={() => setActiveTab("menu")}
+                  className="bg-primary hover:bg-[#95260f] text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md active:scale-98"
+                >
+                  {lang === "vi" ? "Khám phá thực đơn" : "Explore menu"}
+                </button>
+                <button
+                  onClick={() => setActiveTab("subscriptions")}
+                  className="border border-border/80 hover:border-foreground text-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase bg-transparent transition-all duration-300 cursor-pointer hover:bg-card/30 active:scale-98"
+                >
+                  {lang === "vi" ? "Xem Gói hội viên" : "Subscription plans"}
+                </button>
+              </div>
+
+              {/* Social Proof Line (Editorial style) */}
+              <div className="pt-8 border-t border-border/30 max-w-lg">
+                <p className="text-xs text-secondary/80 leading-relaxed font-sans font-light">
+                  {lang === "vi"
+                    ? "Chế độ dinh dưỡng cân bằng đang đồng hành cùng hơn 2,000+ thành viên tại TP. Hồ Chí Minh năng động mỗi ngày."
+                    : "Balanced nutrition is powering over 2,000+ active members in Ho Chi Minh City daily."}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Asymmetrical Composition Column (Aesop-like organic layout) */}
+            <div className="lg:col-span-5 relative flex items-center justify-center lg:justify-end">
+              <div className="relative w-full max-w-[400px] lg:max-w-full aspect-[4/5] rounded-[16px] overflow-hidden border border-border/40 bg-card p-4 shadow-sm transition-all duration-500 hover:shadow-md">
+                <img
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800"
+                  alt="Premium nutritious plate"
+                  className="w-full h-full object-cover rounded-[8px]"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 3. MAIN CONTENTS */}
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        {/* TAB 0: HOME / LANDING PAGE */}
+        {activeTab === "home" && (
+          <div className="space-y-24">
+            {/* Promo / Hero Extra commitments */}
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
+                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+                  <FontAwesomeIcon icon={faCheck} className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Nguyên liệu hữu cơ 100%" : "100% Organic Ingredients"}</h3>
+                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
+                  {lang === "vi" ? "Đạt chuẩn VietGAP từ các trang trại organic uy tín tại Đà Lạt, được lựa chọn kỹ lưỡng mỗi sáng." : "VietGAP certified from prestigious organic farms in Dalat, handpicked every single morning."}
+                </p>
+              </div>
+              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
+                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+                  <FontAwesomeIcon icon={faClock} className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Công nghệ Sous-vide mọng nước" : "Sous-vide Precision Cooking"}</h3>
+                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
+                  {lang === "vi" ? "Chế biến nấu chậm ở nhiệt độ thấp trong môi trường chân không, giữ trọn vẹn 99% dưỡng chất tự nhiên." : "Slow-cooked at low temperature under vacuum to preserve 99% of natural micro-nutrients."}
+                </p>
+              </div>
+              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
+                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+                  <FontAwesomeIcon icon={faUtensils} className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Định lượng Calo chuẩn xác" : "Precise Macro Calculation"}</h3>
+                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
+                  {lang === "vi" ? "Mỗi phần ăn được cân đo chi tiết lượng tinh bột, đạm và chất béo tốt để tối ưu hoá mục tiêu cá nhân." : "Every single plate is measured strictly on protein, carb, and healthy fats to match your goals."}
+                </p>
+              </div>
+            </div>
+
+            {/* Featured Menu Section */}
+            <div className="space-y-10 text-center">
+              <div className="space-y-3">
+                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">{lang === "vi" ? "Món ăn nổi bật hôm nay" : "Signature Bowls Today"}</h2>
+                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                  {lang === "vi" ? "Những sự kết hợp hoàn hảo giữa hương vị tinh tế và chỉ số dinh dưỡng tối ưu." : "The perfect pairings between exquisite flavors and optimized nutritional profiles."}
+                </p>
+              </div>
+              
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {menuItems.slice(0, 3).map((item) => (
+                  <div key={item.id} className="border border-border bg-card rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="aspect-[4/3] w-full overflow-hidden bg-muted/20 border-b border-border/40 relative">
+                        <img src={item.imageUrl} alt={getMenuItemLabel(item)} className="w-full h-full object-cover" />
+                        <span className="absolute top-4 right-4 bg-primary text-primary-foreground font-mono text-[10px] font-bold py-1 px-2.5 rounded-full uppercase tracking-wider">
+                          {t(`filter_${item.protein}` as any)}
+                        </span>
+                      </div>
+                      <div className="p-6 text-left space-y-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="text-base font-bold font-heading">{getMenuItemLabel(item)}</h3>
+                          <span className="text-sm font-bold text-primary">{formatVND(item.price)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-sans line-clamp-2 leading-relaxed">{item.description}</p>
+                      </div>
+                    </div>
+                    <div className="px-6 pb-6 pt-2">
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                        {lang === "vi" ? "Thêm vào giỏ" : "Add to Cart"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4">
+                <button
+                  onClick={() => setActiveTab("menu")}
+                  className="bg-primary hover:bg-[#95260f] text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md"
+                >
+                  {lang === "vi" ? "Xem toàn bộ thực đơn" : "View Entire Menu"}
+                </button>
+              </div>
+            </div>
+
+            {/* Testimonials */}
+            <div className="bg-[#D4EFE4]/30 border border-[#D4EFE4]/70 p-12 rounded-3xl space-y-8 text-center max-w-4xl mx-auto">
+              <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-[#2F4A3C]">Đánh giá từ khách hàng</span>
+              <p className="text-xl sm:text-2xl font-light italic leading-relaxed text-[#2F4A3C] font-heading">
+                {lang === "vi" 
+                  ? "“Ăn uống lành mạnh chưa bao giờ dễ dàng và mọng nước đến thế! Ức gà nấu sous-vide của Fortify Kitchen mềm ngọt như tan trong miệng, vượt xa mọi quán ăn healthy mình từng thử.”" 
+                  : "“Healthy eating has never been this effortless and juicy! The sous-vide chicken from Fortify Kitchen melts in your mouth. It goes way beyond any healthy diner I've ever tried.”"}
+              </p>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-[#2F4A3C]">Minh Anh</p>
+                <p className="text-[10px] text-[#2F4A3C]/70">Hội viên 6 tháng · Quận 1, TP. HCM</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 0.5: FOOD CALORIES CALCULATOR */}
+        {activeTab === "calculator" && (
+          <div className="space-y-12">
+            <div className="text-center max-w-2xl mx-auto space-y-4">
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">
+                {lang === "vi" ? "Thiết kế đĩa ăn & Tính Macro" : "Custom Plate Macro Calculator"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {lang === "vi" 
+                  ? "Tự chọn nguồn đạm, tinh bột phức và xốt để tính lượng Calories, Protein, Carbs và Fat tức thời." 
+                  : "Select your protein, complex carbs, and clean sauces to calculate live Calories, Protein, Carbs and Fat values."}
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-12 gap-12 items-start">
+              {/* Selector Columns */}
+              <div className="lg:col-span-8 space-y-8">
+                {/* 1. Protein Selection */}
+                <div className="space-y-3.5">
+                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">1</span>
+                    {lang === "vi" ? "Chọn Nguồn Đạm (Protein)" : "Select Protein"}
+                  </h3>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {PROTEIN_OPTIONS.map((opt) => {
+                      const sizeSpecs = opt.sizes[customSize as 150 | 250] || opt.sizes[150];
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setCustomProtein(opt.id)}
+                          className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                            customProtein === opt.id
+                              ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                              : "border-border bg-card hover:bg-muted"
+                          }`}
+                        >
+                          <span className="text-xs font-bold font-heading">{opt.label}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono mt-1">
+                            {sizeSpecs.pro}g Pro · {sizeSpecs.fat}g Fat · {sizeSpecs.kcal} kcal
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 1.5. Portion Size Selection */}
+                <div className="space-y-3.5">
+                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">1.5</span>
+                    {lang === "vi" ? "Chọn Định Lượng (Portion)" : "Select Portion"}
+                  </h3>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setCustomSize(150)}
+                      className={`px-6 py-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        customSize === 150
+                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                          : "border-border bg-card hover:bg-muted"
+                      }`}
+                    >
+                      150g
+                    </button>
+                    <button
+                      disabled={customProtein !== "chicken"}
+                      onClick={() => setCustomSize(250)}
+                      className={`px-6 py-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                        customSize === 250
+                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                          : "border-border bg-card hover:bg-muted"
+                      }`}
+                    >
+                      250g {customProtein !== "chicken" && (lang === "vi" ? "(Chỉ có cho Gà)" : "(Chicken only)")}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Carb Selection */}
+                <div className="space-y-3.5">
+                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">2</span>
+                    {lang === "vi" ? "Chọn Tinh Bột (Carbohydrates)" : "Select Carbohydrates"}
+                  </h3>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {CARB_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setCustomCarb(opt.id)}
+                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          customCarb === opt.id
+                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                            : "border-border bg-card hover:bg-muted"
+                        }`}
+                      >
+                        <span className="text-xs font-bold font-heading">{opt.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono mt-1">
+                          {opt.carb}g Carb · {opt.kcal} kcal
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Toppings Selection */}
+                <div className="space-y-3.5">
+                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">3</span>
+                    {lang === "vi" ? "Chọn Rau củ & Topping ăn kèm" : "Select Sides & Toppings"}
+                  </h3>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {TOPPING_OPTIONS.map((opt) => {
+                      const isSelected = customToppings.includes(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setCustomToppings(customToppings.filter((t) => t !== opt.id));
+                            } else {
+                              setCustomToppings([...customToppings, opt.id]);
+                            }
+                          }}
+                          className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                            isSelected
+                              ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                              : "border-border bg-card hover:bg-muted"
+                          }`}
+                        >
+                          <span className="text-xs font-bold font-heading">{opt.label}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono mt-1">
+                            +{opt.kcal} kcal · +{formatVND(opt.price)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Sauce Selection */}
+                <div className="space-y-3.5">
+                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">4</span>
+                    {lang === "vi" ? "Chọn Xốt Dinh Dưỡng" : "Select Clean Sauce"}
+                  </h3>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {SAUCE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setCustomSauce(opt.id)}
+                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          customSauce === opt.id
+                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                            : "border-border bg-card hover:bg-muted"
+                        }`}
+                      >
+                        <span className="text-xs font-bold font-heading">{opt.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono mt-1">
+                          +{opt.kcal} kcal
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculator Live Panel */}
+              <div className="lg:col-span-4 border border-border/80 bg-card rounded-2xl p-6 space-y-6 shadow-sm sticky top-24">
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-bold text-secondary uppercase tracking-[0.2em] font-sans">
+                    {lang === "vi" ? "Bảng chỉ số dinh dưỡng" : "Macros Dashboard"}
+                  </span>
+                  <h3 className="text-lg font-bold font-heading">
+                    {lang === "vi" ? "Đĩa Ăn Tự Chọn" : "Your Custom Plate"}
+                  </h3>
+                </div>
+
+                <div className="border-t border-border/30 pt-4 flex flex-col gap-3 font-mono text-xs text-secondary">
+                  <div className="flex justify-between items-center">
+                    <span className="tracking-wider">PROTEIN</span>
+                    <span className="font-bold text-foreground">{calculateCustomMacros().pro}g</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="tracking-wider">CARBS</span>
+                    <span className="font-bold text-foreground">{calculateCustomMacros().carb}g</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="tracking-wider">FAT</span>
+                    <span className="font-bold text-foreground">{calculateCustomMacros().fat}g</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
+                    <span className="tracking-wider font-bold">CALORIES</span>
+                    <span className="font-bold text-primary text-base">{calculateCustomMacros().kcal} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
+                    <span className="tracking-wider font-bold">{lang === "vi" ? "GIÁ TIỀN" : "PRICE"}</span>
+                    <span className="font-bold text-foreground text-sm">{formatVND(calculateCustomMacros().price)}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddCustomBowl}
+                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                  {lang === "vi" ? "Thêm Combo vào giỏ" : "Add Combo to Cart"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 0.7: ABOUT US */}
+        {activeTab === "about" && (
+          <div className="max-w-3xl mx-auto space-y-12 text-left">
+            <div className="space-y-4 text-center">
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">
+                {lang === "vi" ? "Wellness begins with compassion." : "Wellness begins with compassion."}
+              </h2>
+              <div className="h-[1px] w-24 bg-primary/40 mx-auto" />
+            </div>
+
+            <p className="text-base text-secondary/90 leading-relaxed font-sans font-light">
+              {lang === "vi" 
+                ? "Fortify Kitchen ra đời với sứ mệnh tái định nghĩa cách tiếp cận dinh dưỡng lành mạnh của người Việt. Không chạy theo các trào lưu ăn kiêng cực đoan, chúng tôi tin tưởng vào sức mạnh của một chế độ ăn uống cân bằng, minh bạch và chân thật."
+                : "Fortify Kitchen was born with a mission to redefine healthy dining. Far from following extreme diet fads, we believe in a balanced, transparent, and authentic relationship with food."}
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-8 pt-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Kỹ nghệ Sous-vide" : "Sous-vide Craftsmanship"}</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {lang === "vi"
+                    ? "Chúng tôi áp dụng phương pháp nấu chậm chân không ở nhiệt độ chuẩn xác để bảo vệ toàn vẹn liên kết cơ và dinh dưỡng tự nhiên, giúp các loại thịt luôn mềm mọng nước mà không cần lạm dụng chất tạo ngọt nhân tạo."
+                    : "We use precise vacuum slow-cooking to preserve protein structures and natural juices, keeping our meats tender and succulent without the need for artificial flavorings."}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Nông sản VietGAP" : "VietGAP Organic Farm"}</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {lang === "vi"
+                    ? "Toàn bộ rau xanh và củ quả được liên kết nhập trực tiếp từ các hợp tác xã nông sản sạch Đà Lạt mỗi sáng, đảm bảo tiêu chuẩn an toàn sinh học cao nhất."
+                    : "All vegetables and greens are sourced directly from biological certified Dalat cooperatives every morning, ensuring the highest standards of safety and freshness."}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-muted/20 border border-border/40">
+              <img 
+                src="https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=1200" 
+                alt="Nutritious kitchen workflow" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* TAB 1: MENU CATALOG */}
+        {activeTab === "menu" && (
+          <div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
+                  {t("menu_title")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t("menu_subtitle")}
+                </p>
+              </div>
+
+              {/* Protein Filter */}
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  onClick={() => setSelectedProtein("")}
+                  className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                    selectedProtein === ""
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "bg-muted/40 border-border hover:bg-muted"
+                  }`}
+                >
+                  {t("filter_all")}
+                </button>
+                {proteinsPresent.map((protein) => (
+                  <button
+                    key={protein}
+                    onClick={() => setSelectedProtein(protein)}
+                    className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                      selectedProtein === protein
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-muted/40 border-border hover:bg-muted"
+                    }`}
+                  >
+                    {t(`filter_${protein}` as any)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Menu Items Grid */}
+            {isLoadingMenu ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <FontAwesomeIcon icon={faSpinner} className="h-10 w-10 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground font-semibold">
+                  {lang === "vi" ? "Đang tải thực đơn dinh dưỡng..." : "Loading nutritious menu..."}
+                </span>
+              </div>
+            ) : filteredMenu.length === 0 ? (
+              <div className="text-center py-20 border border-dashed border-border rounded-xl">
+                <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground font-medium">
+                  {lang === "vi" ? "Không tìm thấy món ăn nào trong danh mục này." : "No menu items found in this category."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {groupedMenu.map(({ protein, dishes }) => (
+                  <div key={protein} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                        {t(`filter_${protein}` as any)}
+                      </h3>
+                      <span className="text-xs font-mono text-muted-foreground">({dishes.length})</span>
+                      <div className="flex-1 border-t border-border" />
+                    </div>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {dishes.map((dish) => {
+                        const dishKey = `${dish.protein}::${dish.flavor}`;
+                        const selected = getSelectedSize(dish);
+                        return (
+                          <div
+                            key={dishKey}
+                            className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-lg overflow-hidden transition-all"
+                          >
+                            <div>
+                              {/* Image placeholder with premium styling */}
+                              <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
+                                {selected.imageUrl ? (
+                                  <img
+                                    src={selected.imageUrl}
+                                    alt={getMenuItemLabel(selected)}
+                                    className="object-cover h-full w-full"
+                                  />
+                                ) : (
+                                  <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
+                                )}
+                                <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
+                                  {formatVND(selected.price)}
+                                </span>
+                              </div>
+
+                              <div className="p-6">
+                                <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
+                                  {dish.flavor}
+                                </h3>
+                                {selected.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                                    {selected.description}
+                                  </p>
+                                )}
+                                {dish.sizes.length > 1 && (
+                                  <div className="flex gap-1.5">
+                                    {dish.sizes.map((size) => (
+                                      <button
+                                        key={size.id}
+                                        onClick={() =>
+                                          setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))
+                                        }
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                          selected.id === size.id
+                                            ? "bg-primary border-primary text-primary-foreground"
+                                            : "bg-muted/40 border-border hover:bg-muted"
+                                        }`}
+                                      >
+                                        {size.sizeGrams}g
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="px-6 pb-6 pt-3">
+                              <button
+                                onClick={() => addToCart(selected)}
+                                className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                                {t("btn_add_cart")}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 1.5: ORDER NOW — supports Standard flow (today's menu) and Custom flow (outside menu, 24h advance) */}
         {activeTab === "order-now" && (
           <div>
             <div className="text-center max-w-2xl mx-auto mb-6 space-y-4">
@@ -2019,1095 +2704,6 @@ export default function CustomerPortal() {
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-            </button>
-            <button
-              onClick={() => setActiveTab("subscriptions")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "subscriptions" ? "text-foreground font-semibold" : "text-secondary"
-              }`}
-            >
-              {t("nav_sub")}
-              {activeTab === "subscriptions" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
-              )}
-            </button>
-            {user && (
-              <button
-                onClick={() => setActiveTab("dashboard")}
-                className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                  activeTab === "dashboard" ? "text-foreground font-semibold" : "text-secondary"
-                }`}
-              >
-                {t("nav_dashboard")}
-                {activeTab === "dashboard" && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
-                )}
-              </button>
-            )}
-          </nav>
-
-          <div className="flex items-center gap-6">
-            {/* Premium Minimal Language Switcher */}
-            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-secondary font-sans select-none shrink-0 border border-border/40 rounded-full px-3 py-1 bg-card/45">
-              <button
-                type="button"
-                onClick={() => changeLang("vi")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "vi" ? "text-primary font-bold" : ""
-                }`}
-              >
-                VI
-              </button>
-              <span className="text-border/40">|</span>
-              <button
-                type="button"
-                onClick={() => changeLang("en")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "en" ? "text-primary font-bold" : ""
-                }`}
-              >
-                EN
-              </button>
-            </div>
-
-            <button
-              onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-card/40"
-            >
-              <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
-              {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
-              )}
-            </button>
-
-            {/* Auth / Profile Area */}
-            <div className="hidden md:flex items-center gap-3">
-              {user ? (
-                <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => setActiveTab("dashboard")}
-                    className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-card/30 hover:bg-card/80 transition-all text-xs font-medium"
-                  >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
-                    <span>{user.firstName}</span>
-                  </div>
-                  <button
-                    onClick={logout}
-                    className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
-                    title={t("btn_logout")}
-                  >
-                    <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setAuthModal("login")}
-                  className="border border-border/60 hover:border-foreground text-foreground text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
-                >
-                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-secondary" />
-                  <span>{t("btn_signin")}</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* 2. HERO SECTION (Apple, Linear, Aesop inspired) */}
-      {activeTab === "home" && (
-        <section className="relative bg-background pt-16 pb-24 lg:pt-24 lg:pb-36 overflow-hidden border-b border-border/10">
-          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-12 gap-16 lg:gap-8 items-center">
-            {/* Left Editorial Column */}
-            <div className="lg:col-span-7 space-y-10 text-left">
-              <div className="inline-flex items-center gap-2.5 text-[10px] uppercase tracking-[0.25em] font-medium text-secondary">
-                <span className="h-1.5 w-1.5 bg-primary rounded-full shrink-0" />
-                Fortify Kitchen · Tri kỷ dinh dưỡng chuẩn xác
-              </div>
-              
-              <h1 className="text-5xl sm:text-6xl lg:text-[4.75rem] font-normal tracking-tight font-heading leading-[1.02] text-foreground">
-                {lang === "vi" ? (
-                  <>Sức khỏe khởi từ <br /><span className="font-italic italic font-light text-primary">sự thấu cảm.</span></>
-                ) : (
-                  <>Wellness begins with <br /><span className="font-italic italic font-light text-primary">compassion.</span></>
-                )}
-              </h1>
-
-              <p className="text-sm sm:text-base text-secondary/90 leading-relaxed max-w-xl font-sans font-light">
-                {lang === "vi"
-                  ? "Chúng tôi tái định nghĩa trải nghiệm ẩm thực lành mạnh với sự chính xác tuyệt đối từ công thức chế biến nấu chậm (sous-vide) khép kín. Mỗi đĩa ăn là sự kết hợp hoàn hảo giữa chỉ số macros rõ ràng và hương vị nguyên bản ngọt mọng tự nhiên, đồng hành chân thành cùng hành trình sức khỏe của riêng bạn."
-                  : "We redefine nutritious dining with absolute precision through closed-loop sous-vide slow-cooking. Every dish achieves the perfect balance of clear macronutrients and tender, succulent flavor, accompanying you personally on your journey."}
-              </p>
-
-              <div className="flex flex-wrap gap-4 items-center pt-2">
-                <button
-                  onClick={() => setActiveTab("menu")}
-                  className="bg-primary hover:bg-[#95260f] text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md active:scale-98"
-                >
-                  {lang === "vi" ? "Khám phá thực đơn" : "Explore menu"}
-                </button>
-                <button
-                  onClick={() => setActiveTab("subscriptions")}
-                  className="border border-border/80 hover:border-foreground text-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase bg-transparent transition-all duration-300 cursor-pointer hover:bg-card/30 active:scale-98"
-                >
-                  {lang === "vi" ? "Xem Gói hội viên" : "Subscription plans"}
-                </button>
-              </div>
-
-              {/* Social Proof Line (Editorial style) */}
-              <div className="pt-8 border-t border-border/30 max-w-lg">
-                <p className="text-xs text-secondary/80 leading-relaxed font-sans font-light">
-                  {lang === "vi"
-                    ? "Chế độ dinh dưỡng cân bằng đang đồng hành cùng hơn 2,000+ thành viên tại TP. Hồ Chí Minh năng động mỗi ngày."
-                    : "Balanced nutrition is powering over 2,000+ active members in Ho Chi Minh City daily."}
-                </p>
-              </div>
-            </div>
-
-            {/* Right Asymmetrical Composition Column (Aesop-like organic layout) */}
-            <div className="lg:col-span-5 relative flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[400px] lg:max-w-full aspect-[4/5] rounded-[16px] overflow-hidden border border-border/40 bg-card p-4 shadow-sm transition-all duration-500 hover:shadow-md">
-                <img
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800"
-                  alt="Premium nutritious plate"
-                  className="w-full h-full object-cover rounded-[8px]"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 3. MAIN CONTENTS */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        {/* TAB 0: HOME / LANDING PAGE */}
-        {activeTab === "home" && (
-          <div className="space-y-24">
-            {/* Promo / Hero Extra commitments */}
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
-                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
-                  <FontAwesomeIcon icon={faCheck} className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Nguyên liệu hữu cơ 100%" : "100% Organic Ingredients"}</h3>
-                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
-                  {lang === "vi" ? "Đạt chuẩn VietGAP từ các trang trại organic uy tín tại Đà Lạt, được lựa chọn kỹ lưỡng mỗi sáng." : "VietGAP certified from prestigious organic farms in Dalat, handpicked every single morning."}
-                </p>
-              </div>
-              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
-                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
-                  <FontAwesomeIcon icon={faClock} className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Công nghệ Sous-vide mọng nước" : "Sous-vide Precision Cooking"}</h3>
-                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
-                  {lang === "vi" ? "Chế biến nấu chậm ở nhiệt độ thấp trong môi trường chân không, giữ trọn vẹn 99% dưỡng chất tự nhiên." : "Slow-cooked at low temperature under vacuum to preserve 99% of natural micro-nutrients."}
-                </p>
-              </div>
-              <div className="border border-border/40 bg-card p-8 rounded-2xl shadow-sm text-left space-y-4">
-                <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary">
-                  <FontAwesomeIcon icon={faUtensils} className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold font-heading">{lang === "vi" ? "Định lượng Calo chuẩn xác" : "Precise Macro Calculation"}</h3>
-                <p className="text-sm text-secondary/80 leading-relaxed font-sans font-light">
-                  {lang === "vi" ? "Mỗi phần ăn được cân đo chi tiết lượng tinh bột, đạm và chất béo tốt để tối ưu hoá mục tiêu cá nhân." : "Every single plate is measured strictly on protein, carb, and healthy fats to match your goals."}
-                </p>
-              </div>
-            </div>
-
-            {/* Featured Menu Section */}
-            <div className="space-y-10 text-center">
-              <div className="space-y-3">
-                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">{lang === "vi" ? "Món ăn nổi bật hôm nay" : "Signature Bowls Today"}</h2>
-                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-                  {lang === "vi" ? "Những sự kết hợp hoàn hảo giữa hương vị tinh tế và chỉ số dinh dưỡng tối ưu." : "The perfect pairings between exquisite flavors and optimized nutritional profiles."}
-                </p>
-              </div>
-              
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {menuItems.slice(0, 3).map((item) => (
-                  <div key={item.id} className="border border-border bg-card rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between">
-                    <div>
-                      <div className="aspect-[4/3] w-full overflow-hidden bg-muted/20 border-b border-border/40 relative">
-                        <img src={item.imageUrl} alt={getMenuItemLabel(item)} className="w-full h-full object-cover" />
-                        <span className="absolute top-4 right-4 bg-primary text-primary-foreground font-mono text-[10px] font-bold py-1 px-2.5 rounded-full uppercase tracking-wider">
-                          {t(`filter_${item.protein}` as any)}
-                        </span>
-                      </div>
-                      <div className="p-6 text-left space-y-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="text-base font-bold font-heading">{getMenuItemLabel(item)}</h3>
-                          <span className="text-sm font-bold text-primary">{formatVND(item.price)}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-sans line-clamp-2 leading-relaxed">{item.description}</p>
-                      </div>
-                    </div>
-                    <div className="px-6 pb-6 pt-2">
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
-                        {lang === "vi" ? "Thêm vào giỏ" : "Add to Cart"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4">
-                <button
-                  onClick={() => setActiveTab("menu")}
-                  className="bg-primary hover:bg-[#95260f] text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md"
-                >
-                  {lang === "vi" ? "Xem toàn bộ thực đơn" : "View Entire Menu"}
-                </button>
-              </div>
-            </div>
-
-            {/* Testimonials */}
-            <div className="bg-[#D4EFE4]/30 border border-[#D4EFE4]/70 p-12 rounded-3xl space-y-8 text-center max-w-4xl mx-auto">
-              <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-[#2F4A3C]">Đánh giá từ khách hàng</span>
-              <p className="text-xl sm:text-2xl font-light italic leading-relaxed text-[#2F4A3C] font-heading">
-                {lang === "vi" 
-                  ? "“Ăn uống lành mạnh chưa bao giờ dễ dàng và mọng nước đến thế! Ức gà nấu sous-vide của Fortify Kitchen mềm ngọt như tan trong miệng, vượt xa mọi quán ăn healthy mình từng thử.”" 
-                  : "“Healthy eating has never been this effortless and juicy! The sous-vide chicken from Fortify Kitchen melts in your mouth. It goes way beyond any healthy diner I've ever tried.”"}
-              </p>
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-[#2F4A3C]">Minh Anh</p>
-                <p className="text-[10px] text-[#2F4A3C]/70">Hội viên 6 tháng · Quận 1, TP. HCM</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 0.5: FOOD CALORIES CALCULATOR */}
-        {activeTab === "calculator" && (
-          <div className="space-y-12">
-            <div className="text-center max-w-2xl mx-auto space-y-4">
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Thiết kế đĩa ăn & Tính Macro" : "Custom Plate Macro Calculator"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {lang === "vi" 
-                  ? "Tự chọn nguồn đạm, tinh bột phức và xốt để tính lượng Calories, Protein, Carbs và Fat tức thời." 
-                  : "Select your protein, complex carbs, and clean sauces to calculate live Calories, Protein, Carbs and Fat values."}
-              </p>
-            </div>
-
-            <div className="grid lg:grid-cols-12 gap-12 items-start">
-              {/* Selector Columns */}
-              <div className="lg:col-span-8 space-y-8">
-                {/* 1. Protein Selection */}
-                <div className="space-y-3.5">
-                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">1</span>
-                    {lang === "vi" ? "Chọn Nguồn Đạm (Protein)" : "Select Protein"}
-                  </h3>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {PROTEIN_OPTIONS.map((opt) => {
-                      const sizeSpecs = opt.sizes[customSize as 150 | 250] || opt.sizes[150];
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => setCustomProtein(opt.id)}
-                          className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                            customProtein === opt.id
-                              ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                              : "border-border bg-card hover:bg-muted"
-                          }`}
-                        >
-                          <span className="text-xs font-bold font-heading">{opt.label}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono mt-1">
-                            {sizeSpecs.pro}g Pro · {sizeSpecs.fat}g Fat · {sizeSpecs.kcal} kcal
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 1.5. Portion Size Selection */}
-                <div className="space-y-3.5">
-                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">1.5</span>
-                    {lang === "vi" ? "Chọn Định Lượng (Portion)" : "Select Portion"}
-                  </h3>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setCustomSize(150)}
-                      className={`px-6 py-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        customSize === 150
-                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                          : "border-border bg-card hover:bg-muted"
-                      }`}
-                    >
-                      150g
-                    </button>
-                    <button
-                      disabled={customProtein !== "chicken"}
-                      onClick={() => setCustomSize(250)}
-                      className={`px-6 py-3.5 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
-                        customSize === 250
-                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                          : "border-border bg-card hover:bg-muted"
-                      }`}
-                    >
-                      250g {customProtein !== "chicken" && (lang === "vi" ? "(Chỉ có cho Gà)" : "(Chicken only)")}
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Carb Selection */}
-                <div className="space-y-3.5">
-                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">2</span>
-                    {lang === "vi" ? "Chọn Tinh Bột (Carbohydrates)" : "Select Carbohydrates"}
-                  </h3>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {CARB_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setCustomCarb(opt.id)}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                          customCarb === opt.id
-                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                            : "border-border bg-card hover:bg-muted"
-                        }`}
-                      >
-                        <span className="text-xs font-bold font-heading">{opt.label}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono mt-1">
-                          {opt.carb}g Carb · {opt.kcal} kcal
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. Toppings Selection */}
-                <div className="space-y-3.5">
-                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">3</span>
-                    {lang === "vi" ? "Chọn Rau củ & Topping ăn kèm" : "Select Sides & Toppings"}
-                  </h3>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {TOPPING_OPTIONS.map((opt) => {
-                      const isSelected = customToppings.includes(opt.id);
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => {
-                            if (isSelected) {
-                              setCustomToppings(customToppings.filter((t) => t !== opt.id));
-                            } else {
-                              setCustomToppings([...customToppings, opt.id]);
-                            }
-                          }}
-                          className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                            isSelected
-                              ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                              : "border-border bg-card hover:bg-muted"
-                          }`}
-                        >
-                          <span className="text-xs font-bold font-heading">{opt.label}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono mt-1">
-                            +{opt.kcal} kcal · +{formatVND(opt.price)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 4. Sauce Selection */}
-                <div className="space-y-3.5">
-                  <h3 className="text-sm font-bold font-heading flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-mono">4</span>
-                    {lang === "vi" ? "Chọn Xốt Dinh Dưỡng" : "Select Clean Sauce"}
-                  </h3>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {SAUCE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setCustomSauce(opt.id)}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                          customSauce === opt.id
-                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                            : "border-border bg-card hover:bg-muted"
-                        }`}
-                      >
-                        <span className="text-xs font-bold font-heading">{opt.label}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono mt-1">
-                          +{opt.kcal} kcal
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Calculator Live Panel */}
-              <div className="lg:col-span-4 border border-border/80 bg-card rounded-2xl p-6 space-y-6 shadow-sm sticky top-24">
-                <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-secondary uppercase tracking-[0.2em] font-sans">
-                    {lang === "vi" ? "Bảng chỉ số dinh dưỡng" : "Macros Dashboard"}
-                  </span>
-                  <h3 className="text-lg font-bold font-heading">
-                    {lang === "vi" ? "Đĩa Ăn Tự Chọn" : "Your Custom Plate"}
-                  </h3>
-                </div>
-
-                <div className="border-t border-border/30 pt-4 flex flex-col gap-3 font-mono text-xs text-secondary">
-                  <div className="flex justify-between items-center">
-                    <span className="tracking-wider">PROTEIN</span>
-                    <span className="font-bold text-foreground">{calculateCustomMacros().pro}g</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="tracking-wider">CARBS</span>
-                    <span className="font-bold text-foreground">{calculateCustomMacros().carb}g</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="tracking-wider">FAT</span>
-                    <span className="font-bold text-foreground">{calculateCustomMacros().fat}g</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
-                    <span className="tracking-wider font-bold">CALORIES</span>
-                    <span className="font-bold text-primary text-base">{calculateCustomMacros().kcal} kcal</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
-                    <span className="tracking-wider font-bold">{lang === "vi" ? "GIÁ TIỀN" : "PRICE"}</span>
-                    <span className="font-bold text-foreground text-sm">{formatVND(calculateCustomMacros().price)}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleAddCustomBowl}
-                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
-                  {lang === "vi" ? "Thêm Combo vào giỏ" : "Add Combo to Cart"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 0.7: ABOUT US */}
-        {activeTab === "about" && (
-          <div className="max-w-3xl mx-auto space-y-12 text-left">
-            <div className="space-y-4 text-center">
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Wellness begins with compassion." : "Wellness begins with compassion."}
-              </h2>
-              <div className="h-[1px] w-24 bg-primary/40 mx-auto" />
-            </div>
-
-            <p className="text-base text-secondary/90 leading-relaxed font-sans font-light">
-              {lang === "vi" 
-                ? "Fortify Kitchen ra đời với sứ mệnh tái định nghĩa cách tiếp cận dinh dưỡng lành mạnh của người Việt. Không chạy theo các trào lưu ăn kiêng cực đoan, chúng tôi tin tưởng vào sức mạnh của một chế độ ăn uống cân bằng, minh bạch và chân thật."
-                : "Fortify Kitchen was born with a mission to redefine healthy dining. Far from following extreme diet fads, we believe in a balanced, transparent, and authentic relationship with food."}
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Kỹ nghệ Sous-vide" : "Sous-vide Craftsmanship"}</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {lang === "vi"
-                    ? "Chúng tôi áp dụng phương pháp nấu chậm chân không ở nhiệt độ chuẩn xác để bảo vệ toàn vẹn liên kết cơ và dinh dưỡng tự nhiên, giúp các loại thịt luôn mềm mọng nước mà không cần lạm dụng chất tạo ngọt nhân tạo."
-                    : "We use precise vacuum slow-cooking to preserve protein structures and natural juices, keeping our meats tender and succulent without the need for artificial flavorings."}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Nông sản VietGAP" : "VietGAP Organic Farm"}</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {lang === "vi"
-                    ? "Toàn bộ rau xanh và củ quả được liên kết nhập trực tiếp từ các hợp tác xã nông sản sạch Đà Lạt mỗi sáng, đảm bảo tiêu chuẩn an toàn sinh học cao nhất."
-                    : "All vegetables and greens are sourced directly from biological certified Dalat cooperatives every morning, ensuring the highest standards of safety and freshness."}
-                </p>
-              </div>
-            </div>
-
-            <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-muted/20 border border-border/40">
-              <img 
-                src="https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=1200" 
-                alt="Nutritious kitchen workflow" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* TAB 1: MENU CATALOG */}
-        {activeTab === "menu" && (
-          <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                  {t("menu_title")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t("menu_subtitle")}
-                </p>
-              </div>
-
-              {/* Protein Filter */}
-              <div className="flex flex-wrap gap-2.5">
-                <button
-                  onClick={() => setSelectedProtein("")}
-                  className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
-                    selectedProtein === ""
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : "bg-muted/40 border-border hover:bg-muted"
-                  }`}
-                >
-                  {t("filter_all")}
-                </button>
-                {proteinsPresent.map((protein) => (
-                  <button
-                    key={protein}
-                    onClick={() => setSelectedProtein(protein)}
-                    className={`px-4 py-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
-                      selectedProtein === protein
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : "bg-muted/40 border-border hover:bg-muted"
-                    }`}
-                  >
-                    {t(`filter_${protein}` as any)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Menu Items Grid */}
-            {isLoadingMenu ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <FontAwesomeIcon icon={faSpinner} className="h-10 w-10 animate-spin text-primary" />
-                <span className="text-xs text-muted-foreground font-semibold">
-                  {lang === "vi" ? "Đang tải thực đơn dinh dưỡng..." : "Loading nutritious menu..."}
-                </span>
-              </div>
-            ) : filteredMenu.length === 0 ? (
-              <div className="text-center py-20 border border-dashed border-border rounded-xl">
-                <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground font-medium">
-                  {lang === "vi" ? "Không tìm thấy món ăn nào trong danh mục này." : "No menu items found in this category."}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-10">
-                {groupedMenu.map(({ protein, dishes }) => (
-                  <div key={protein} className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground">
-                        {t(`filter_${protein}` as any)}
-                      </h3>
-                      <span className="text-xs font-mono text-muted-foreground">({dishes.length})</span>
-                      <div className="flex-1 border-t border-border" />
-                    </div>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {dishes.map((dish) => {
-                        const dishKey = `${dish.protein}::${dish.flavor}`;
-                        const selected = getSelectedSize(dish);
-                        return (
-                          <div
-                            key={dishKey}
-                            className="group flex flex-col justify-between border border-border hover:border-primary/50 bg-card rounded-lg overflow-hidden transition-all"
-                          >
-                            <div>
-                              {/* Image placeholder with premium styling */}
-                              <div className="h-48 w-full bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
-                                {selected.imageUrl ? (
-                                  <img
-                                    src={selected.imageUrl}
-                                    alt={getMenuItemLabel(selected)}
-                                    className="object-cover h-full w-full"
-                                  />
-                                ) : (
-                                  <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
-                                )}
-                                <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
-                                  {formatVND(selected.price)}
-                                </span>
-                              </div>
-
-                              <div className="p-6">
-                                <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
-                                  {dish.flavor}
-                                </h3>
-                                {selected.description && (
-                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
-                                    {selected.description}
-                                  </p>
-                                )}
-                                {dish.sizes.length > 1 && (
-                                  <div className="flex gap-1.5">
-                                    {dish.sizes.map((size) => (
-                                      <button
-                                        key={size.id}
-                                        onClick={() =>
-                                          setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))
-                                        }
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
-                                          selected.id === size.id
-                                            ? "bg-primary border-primary text-primary-foreground"
-                                            : "bg-muted/40 border-border hover:bg-muted"
-                                        }`}
-                                      >
-                                        {size.sizeGrams}g
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="px-6 pb-6 pt-3">
-                              <button
-                                onClick={() => addToCart(selected)}
-                                className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                              >
-                                <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
-                                {t("btn_add_cart")}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 1.5: ORDER NOW — in-stock items only, ready today, no account
-            needed. Separate from the cart/checkout flow above on purpose:
-            this should be the fastest possible path to a hot meal. */}
-        {activeTab === "order-now" && (
-          <div>
-            <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
-              <h2 className="text-3xl font-extrabold tracking-tight font-heading">{t("order_title")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("order_subtitle")}
-              </p>
-            </div>
-
-            {orderNowResult ? (
-              <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-4 shadow-sm">
-                <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
-                <h3 className="text-sm font-bold font-heading">{t("success_title")}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {orderNowResult.fulfillmentType === "IMMEDIATE"
-                    ? t("txt_order_ready")
-                    : t("txt_order_scheduled")}
-                </p>
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t("txt_total")}</span>
-                  <p className="text-lg font-bold text-primary">{formatVND(orderNowResult.total)}</p>
-                </div>
-
-                {orderNowResult.paymentMethod === "BANK_TRANSFER" && (
-                  <div className="border border-border bg-muted/20 rounded-xl p-4 space-y-3 text-left">
-                    <p className="text-xs font-bold text-foreground text-center">{lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR Code to Pay"}</p>
-                    <div className="bg-white p-2.5 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
-                      <img
-                        src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${orderNowResult.total}&addInfo=FK${orderNowResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
-                        alt="VietQR Payment Code"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="text-[11px] space-y-1 text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>{t("bank_name")}:</span>
-                        <span className="font-bold text-foreground">MB Bank</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_acc")}:</span>
-                        <span className="font-bold text-foreground font-mono">19035678901234</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_holder")}:</span>
-                        <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_amount")}:</span>
-                        <span className="font-bold text-primary font-mono">{formatVND(orderNowResult.total)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_memo")}:</span>
-                        <span className="font-bold text-primary font-mono">FK{orderNowResult.id.slice(0, 8).toUpperCase()}</span>
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 text-center leading-normal">
-                      {lang === "vi"
-                        ? "Vui lòng chuyển khoản đúng số tiền và nội dung chuyển khoản để đơn hàng được xác nhận tự động."
-                        : "Please transfer the exact amount and note to auto-confirm your order."}
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => {
-                    setOrderNowResult(null);
-                    setOrderNowName("");
-                    setOrderNowPhone("");
-                    setOrderNowAddress("");
-                    setOrderNowNotes("");
-                    setOrderNowProvince("");
-                    setOrderNowWard("");
-                    setOrderNowStreet("");
-                    setOrderNowAgreeTerms(false);
-                  }}
-                  className="w-full text-xs font-bold py-2.5 rounded-xl border border-border hover:bg-muted cursor-pointer transition-colors"
-                >
-                  {t("btn_order_more")}
-                </button>
-              </div>
-            ) : (
-              <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                  {/* Protein Filter for Order Now */}
-                  <div className="flex flex-wrap gap-2 mb-4 bg-muted/20 p-2 rounded-xl border border-border/40">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProteinOrderNow("")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        selectedProteinOrderNow === ""
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-transparent text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {t("filter_all")}
-                    </button>
-                    {["BEEF", "CHICKEN", "SHRIMP", "PORK", "FISH", "VEGAN"].map((protein) => {
-                      // Only show categories that have items in stock
-                      const hasItems = readyNowItems.some((m) => m.protein === protein);
-                      if (!hasItems) return null;
-                      return (
-                        <button
-                          key={protein}
-                          type="button"
-                          onClick={() => setSelectedProteinOrderNow(protein as any)}
-                          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            selectedProteinOrderNow === protein
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "bg-transparent text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {t(`filter_${protein}` as any)}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {isLoadingMenu ? (
-                    <div className="flex justify-center py-16">
-                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : filteredReadyNowItems.length === 0 ? (
-                    <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                      <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay trong danh mục này." : "No ready dishes currently available in this category."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      {groupByFlavor(filteredReadyNowItems).map((dish) => {
-                        const dishKey = `${dish.protein}::${dish.flavor}`;
-                        const selected = getSelectedSize(dish);
-                        const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
-                        return (
-                          <div key={dishKey} className="border border-border bg-card rounded-xl p-4 space-y-3">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="min-w-0">
-                                <h4 className="text-sm font-bold font-heading truncate">{dish.flavor}</h4>
-                              </div>
-                              <span className="text-xs font-bold text-primary shrink-0">{formatVND(selected.price)}</span>
-                            </div>
-                            {dish.sizes.length > 1 && (
-                              <div className="flex gap-1.5">
-                                {dish.sizes.map((size) => (
-                                  <button
-                                    key={size.id}
-                                    onClick={() => setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))}
-                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
-                                      selected.id === size.id
-                                        ? "bg-primary border-primary text-primary-foreground"
-                                        : "bg-muted/40 border-border hover:bg-muted"
-                                    }`}
-                                  >
-                                    {size.sizeGrams}g
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {selected.stockQuantity} {t("unit_stock")}
-                              </span>
-                              {inCart ? (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
-                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
-                                  >
-                                    <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
-                                  </button>
-                                  <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
-                                  <button
-                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty + 1)}
-                                    disabled={inCart.qty >= selected.stockQuantity}
-                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
-                                  >
-                                    <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => addToOrderNowCart(selected)}
-                                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
-                                >
-                                  {lang === "vi" ? "Thêm" : "Add"}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="border border-border bg-card rounded-2xl p-6 space-y-4 h-fit shadow-sm">
-                  <h3 className="text-sm font-bold font-heading">{t("txt_your_order")}</h3>
-                  {orderNowCart.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{t("txt_empty_cart")}</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {orderNowCart.map((l) => (
-                        <div key={l.menuItem.id} className="flex justify-between text-xs">
-                          <span className="truncate pr-2">{l.menuItem.flavor} ×{l.qty}</span>
-                          <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
-                        <span>{t("txt_total")}</span>
-                        <span className="text-primary">{formatVND(orderNowTotal)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmitOrderNow} className="space-y-3.5 pt-2 border-t border-border/50">
-                    <input
-                      type="text"
-                      required
-                      placeholder={t("placeholder_name")}
-                      value={orderNowName}
-                      onChange={(e) => setOrderNowName(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                    />
-                    <input
-                      type="tel"
-                      required
-                      placeholder={t("placeholder_phone")}
-                      value={orderNowPhone}
-                      onChange={(e) => setOrderNowPhone(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                    />
-                    
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          required
-                          value={orderNowProvince}
-                          onChange={(e) => {
-                            setOrderNowProvince(e.target.value);
-                            setOrderNowWard("");
-                          }}
-                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
-                        >
-                          <option value="">{t("cart_province")}</option>
-                          {getProvinces().map((p: any) => (
-                            <option key={p.code} value={p.code}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <select
-                          required
-                          disabled={!orderNowProvince}
-                          value={orderNowWard}
-                          onChange={(e) => setOrderNowWard(e.target.value)}
-                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
-                        >
-                          <option value="">{t("cart_ward")}</option>
-                          {orderNowProvince &&
-                            getDistrictsByProvinceCode(orderNowProvince)
-                              .flatMap((d: any) => getWardsByDistrictCode(d.code).map((w: any) => ({ ...w, district_name: d.name })))
-                              .map((w: any) => (
-                                <option key={w.code} value={w.code}>
-                                  {w.name} ({w.district_name})
-                                </option>
-                              ))}
-                        </select>
-                      </div>
-
-                      <input
-                        type="text"
-                        required
-                        placeholder={t("cart_street")}
-                        value={orderNowStreet}
-                        onChange={(e) => setOrderNowStreet(e.target.value)}
-                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                      />
-                    </div>
-
-                    <textarea
-                      placeholder={t("placeholder_notes")}
-                      value={orderNowNotes}
-                      onChange={(e) => setOrderNowNotes(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
-                      rows={2}
-                    />
-
-                    <div className="space-y-1.5 pt-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                        {t("cart_payment")}
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setOrderNowPaymentMethod("CASH_ON_DELIVERY")}
-                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                            orderNowPaymentMethod === "CASH_ON_DELIVERY"
-                              ? "border-primary bg-primary/5 text-primary"
-                              : "border-border bg-background hover:bg-muted"
-                          }`}
-                        >
-                          <FontAwesomeIcon icon={faCreditCard} className="h-3.5 w-3.5 shrink-0" />
-                          {t("payment_cod")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOrderNowPaymentMethod("BANK_TRANSFER")}
-                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                            orderNowPaymentMethod === "BANK_TRANSFER"
-                              ? "border-primary bg-primary/5 text-primary"
-                              : "border-border bg-background hover:bg-muted"
-                          }`}
-                        >
-                          <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
-                          {t("payment_vietqr")}
-                        </button>
-                      </div>
-                    </div>
-
-                    <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={orderNowAgreeTerms}
-                        onChange={(e) => setOrderNowAgreeTerms(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        {t("cart_agree")}{" "}
-                        <button
-                          type="button"
-                          onClick={() => setShowPrivacyModal(true)}
-                          className="text-primary font-semibold hover:underline"
-                        >
-                          {t("cart_terms")}
-                        </button>
-                      </span>
-                    </label>
-
-                    {orderNowError && <p className="text-[10px] text-red-500">{orderNowError}</p>}
-                    <button
-                      type="submit"
-                      disabled={orderNowCart.length === 0 || isSubmittingOrderNow || !orderNowAgreeTerms}
-                      className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {isSubmittingOrderNow && <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />}
-                      {t("btn_checkout")}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Track my order — self-serve status check by phone. There's
-                no SMS/push notification connected yet, so this is how a
-                customer finds out staff accepted or completed their order. */}
-            <div className="max-w-md mx-auto mt-16 pt-10 border-t border-border">
-              <h3 className="text-center text-sm font-bold font-heading mb-1">
-                {lang === "vi" ? "Theo dõi đơn hàng của bạn" : "Track Your Orders"}
-              </h3>
-              <p className="text-center text-xs text-muted-foreground mb-5">
-                {lang === "vi"
-                  ? "Nhập số điện thoại đã dùng để đặt hàng để xem trạng thái mới nhất."
-                  : "Enter the phone number used during checkout to check the latest status."}
-              </p>
-              <form onSubmit={handleTrackOrders} className="flex gap-2 mb-6">
-                <input
-                  type="tel"
-                  required
-                  placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
-                  value={trackPhone}
-                  onChange={(e) => setTrackPhone(e.target.value)}
-                  className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                />
-                <button
-                  type="submit"
-                  disabled={isTrackingLoading}
-                  className="bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground font-bold px-4 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 text-xs"
-                >
-                  {isTrackingLoading ? <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-3.5 w-3.5" />}
-                  {lang === "vi" ? "Tra cứu" : "Track"}
-                </button>
-              </form>
-
-              {trackingError && <p className="text-center text-xs text-red-500 mb-4">{trackingError}</p>}
-
-              {hasTracked && !isTrackingLoading && !trackingError && trackedOrders.length === 0 && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {lang === "vi" ? "Không tìm thấy đơn hàng nào với số điện thoại này." : "No orders found with this phone number."}
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {trackedOrders.map((o: any) => (
-                  <div key={o.id} className="border border-border bg-card rounded-xl p-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold truncate">
-                        {(o.items || []).map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${
-                        o.deliveryStatus === "PREPPING"
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : o.deliveryStatus === "DELIVERED"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : o.deliveryStatus === "CANCELLED"
-                              ? "bg-red-50 text-red-700 border-red-200"
-                              : o.deliveryStatus === "SKIPPED"
-                                ? "bg-muted text-muted-foreground border-border"
-                                : "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}
-                    >
-                      {ORDER_STATUS_LABELS[lang][o.deliveryStatus] || o.deliveryStatus}
-                    </span>
                   </div>
                 ))}
               </div>
