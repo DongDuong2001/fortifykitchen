@@ -33,7 +33,7 @@ class SubscriptionPortionDto {
 // One protein "pool" being purchased in bulk, made up of one or more
 // portion-size selections, e.g. { protein: CHICKEN, portions: [{sizeGrams:
 // 150, qty: 30}, {sizeGrams: 250, qty: 20}] }. The specific flavor is
-// chosen per delivery later, not here — see DeliveryItem.
+// chosen per order occurrence later, not here — see OrdersService.createFromSubscription.
 class SubscriptionPoolDto {
   @ApiProperty({ enum: Protein, example: "CHICKEN" })
   @IsEnum(Protein)
@@ -97,4 +97,12 @@ export class CreateSubscriptionDto {
   @IsEnum(PaymentState)
   @IsOptional()
   paymentStatus?: PaymentState;
+
+  @ApiProperty({
+    required: false,
+    description: "If this subscription was created to satisfy a customer's custom plan request, link it — marks the request MATCHED.",
+  })
+  @IsUUID()
+  @IsOptional()
+  customPlanRequestId?: string;
 }
