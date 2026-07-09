@@ -3006,11 +3006,9 @@ export default function CustomerPortal() {
                           <div className="flex justify-between items-start">
                             <div>
                               <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                                {sub.frequency}
+                                {lang === "vi" ? `${sub.deliveryIntervalDays} ngày/lần` : `Every ${sub.deliveryIntervalDays}d`}
                               </span>
-                              <h4 className="text-sm font-bold font-heading mt-1.5">
-                                {lang === "vi" ? "Hộp cơm dinh dưỡng" : "Chef Meal Box"}
-                              </h4>
+                              <h4 className="text-sm font-bold font-heading mt-1.5">{sub.packageName}</h4>
                             </div>
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
@@ -3025,15 +3023,29 @@ export default function CustomerPortal() {
 
                           <div className="text-[11px] text-muted-foreground space-y-1">
                             <div>
-                              {lang === "vi" ? "Giá mỗi chu kỳ: " : "Cycle Price: "} <span className="font-semibold text-foreground">{formatVND(sub.pricePerCycle)}</span>
+                              {lang === "vi" ? "Tổng giá trị gói: " : "Package price: "} <span className="font-semibold text-foreground">{formatVND(sub.totalPrice)}</span>
                             </div>
                             <div>
-                              {lang === "vi" ? "Giao hàng tiếp theo: " : "Next Delivery: "}{" "}
+                              {lang === "vi" ? "Bắt đầu: " : "Started: "}{" "}
                               <span className="font-semibold text-foreground">
-                                {new Date(sub.nextDeliveryDate).toLocaleDateString("vi-VN")}
+                                {new Date(sub.startDate).toLocaleDateString("vi-VN")}
                               </span>
                             </div>
                           </div>
+
+                          {(sub.pools || []).length > 0 && (
+                            <div className="space-y-1.5">
+                              {sub.pools.map((pool: any) => (
+                                <div key={pool.id} className="flex items-center justify-between text-[11px]">
+                                  <span className="text-muted-foreground font-medium">{pool.protein}</span>
+                                  <span className="font-semibold text-foreground">
+                                    {(pool.remainingGrams / 1000).toFixed(1)}kg / {(pool.totalGrams / 1000).toFixed(1)}kg{" "}
+                                    {lang === "vi" ? "còn lại" : "left"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           {/* Pay in full from wallet — no split payment, see
                               docs/plan-and-credit-design.md. This view is
