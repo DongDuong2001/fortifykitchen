@@ -235,14 +235,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    // NOTE: discountCode isn't wired up server-side yet — CreateOrderDto has
-    // no such field, and the API rejects unknown properties
-    // (ValidationPipe forbidNonWhitelisted: true). Accepting it here but not
-    // sending it avoids breaking checkout on a feature that doesn't exist
-    // server-side yet; see the UX review notes for the recommended fix
-    // (either wire it up, or remove the "discount code" field from the
-    // checkout form so it stops promising something that can't work).
-    void discountCode;
+    // discountCode is optional and blank-stripped here (not just left as
+    // "") so an empty checkout field doesn't get sent as a literal empty
+    // string discount code lookup — CreateOrderDto validates it as an
+    // optional string, and the API stacks it additively with the automatic
+    // tier discount (see OrdersService.createForCustomer).
+    const trimmedDiscountCode = discountCode?.trim() || undefined;
 
     try {
       // CreateOrderDto requires `qty` (not `quantity`) per line item, and a
@@ -269,6 +267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           deliveryAddress,
           notes,
           paymentMethod,
+          discountCode: trimmedDiscountCode,
         }),
       });
 
