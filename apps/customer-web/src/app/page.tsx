@@ -4,7 +4,7 @@ import * as React from "react";
 import { useApp } from "../providers/app-context";
 import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, Protein } from "@fortifykitchen/types";
-import { getMenuItemLabel, PROTEIN_LABELS } from "@fortifykitchen/shared";
+import { getMenuItemLabel, PROTEIN_LABELS, translateApiError } from "@fortifykitchen/shared";
 // @ts-expect-error - sub-vn lacks typings
 import { getProvinces, getDistrictsByProvinceCode, getWardsByDistrictCode } from "sub-vn";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -761,7 +761,7 @@ export default function CustomerPortal() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(loginEmail, loginPass);
+    const success = await login(loginEmail, loginPass, lang);
     if (success) {
       if (rememberMe) {
         localStorage.setItem("fk_remember_email", loginEmail);
@@ -778,16 +778,19 @@ export default function CustomerPortal() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await signup({
-      email: signupEmail,
-      password: signupPass,
-      firstName: signupFirst,
-      lastName: signupLast,
-      phone: signupPhone,
-      address: signupAddress,
-      city: signupCity,
-      postalCode: "70000",
-    });
+    const success = await signup(
+      {
+        email: signupEmail,
+        password: signupPass,
+        firstName: signupFirst,
+        lastName: signupLast,
+        phone: signupPhone,
+        address: signupAddress,
+        city: signupCity,
+        postalCode: "70000",
+      },
+      lang,
+    );
     if (success) {
       setAuthModal(null);
       setSignupEmail("");
@@ -806,7 +809,7 @@ export default function CustomerPortal() {
       return;
     }
     setIsSubmittingOrder(true);
-    const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode);
+    const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
     if (result) {
       if (paymentMethod === "BANK_TRANSFER") {
@@ -835,12 +838,14 @@ export default function CustomerPortal() {
       if (res.ok) {
         setMyPoolSubscriptions(result?.data || []);
       } else {
-        setLookupError(result?.message || "Không thể tra cứu lúc này");
+        setLookupError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tra cứu lúc này" : "Could not look this up right now"),
+        );
         setMyPoolSubscriptions([]);
       }
     } catch (err) {
       console.error(err);
-      setLookupError("Lỗi kết nối — vui lòng thử lại");
+      setLookupError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsLookupLoading(false);
     }
@@ -859,7 +864,14 @@ export default function CustomerPortal() {
             handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
           } else {
             const result = await res.json().catch(() => null);
-            toast({ title: result?.message || "Không thể hoãn lần giao này", type: "error" });
+            toast({
+              title: translateApiError(
+                result?.message,
+                lang,
+                lang === "vi" ? "Không thể hoãn lần giao này" : "Could not postpone this delivery",
+              ),
+              type: "error",
+            });
           }
         } catch (err) {
           console.error(err);
@@ -868,10 +880,9 @@ export default function CustomerPortal() {
     );
   };
 
-  const handlePauseSubscription = async (id: string, currentStatus: string) => {
+  const doPauseSubscription = async (id: string, nextStatus: "ACTIVE" | "PAUSED") => {
     try {
       const token = localStorage.getItem("fk_token");
-      const nextStatus = currentStatus === "ACTIVE" ? "PAUSED" : "ACTIVE";
       const res = await fetch(`${API_URL}/subscriptions/${id}/status`, {
         method: "PUT",
         headers: {
@@ -880,11 +891,52 @@ export default function CustomerPortal() {
         },
         body: JSON.stringify({ status: nextStatus }),
       });
+      const result = await res.json().catch(() => null);
       if (res.ok) {
+        toast({
+          title:
+            nextStatus === "PAUSED"
+              ? lang === "vi"
+                ? "Đã tạm dừng gói"
+                : "Subscription paused"
+              : lang === "vi"
+                ? "Đã kích hoạt lại gói"
+                : "Subscription resumed",
+          type: "success",
+        });
         loadDashboard();
+      } else {
+        toast({
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể cập nhật trạng thái gói lúc này" : "Could not update the subscription right now",
+          ),
+          type: "error",
+        });
       }
     } catch (e) {
       console.error(e);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    }
+  };
+
+  // Pausing stops upcoming deliveries from being generated — worth a
+  // confirmation, unlike resuming (which is always safe to do immediately).
+  const handlePauseSubscription = (id: string, currentStatus: string) => {
+    if (currentStatus === "ACTIVE") {
+      requestConfirm(
+        lang === "vi"
+          ? "Tạm dừng gói này? Các lần giao sắp tới sẽ không được tạo cho đến khi bạn kích hoạt lại."
+          : "Pause this subscription? Upcoming deliveries won't be generated until you resume it.",
+        () => doPauseSubscription(id, "PAUSED"),
+        { confirmLabel: lang === "vi" ? "Tạm dừng" : "Pause", title: lang === "vi" ? "Tạm dừng gói" : "Pause subscription" },
+      );
+    } else {
+      doPauseSubscription(id, "ACTIVE");
     }
   };
 
@@ -909,9 +961,11 @@ export default function CustomerPortal() {
         setPlanPurchaseResult(result?.data);
       } else {
         toast({
-          title:
-            result?.message ||
-            (lang === "vi" ? "Không thể mua gói này lúc này" : "Could not purchase this plan right now"),
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể mua gói này lúc này" : "Could not purchase this plan right now",
+          ),
           type: "error",
         });
       }
@@ -963,9 +1017,11 @@ export default function CustomerPortal() {
           .catch(() => {});
       } else {
         toast({
-          title:
-            result?.message ||
-            (lang === "vi" ? "Không thể thanh toán bằng Ví lúc này" : "Could not pay from wallet right now"),
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể thanh toán bằng Ví lúc này" : "Could not pay from wallet right now",
+          ),
           type: "error",
         });
       }
@@ -1021,7 +1077,13 @@ export default function CustomerPortal() {
         setCprNotes("");
       } else {
         const result = await res.json().catch(() => null);
-        setCprError(result?.message || (lang === "vi" ? "Không thể gửi yêu cầu lúc này" : "Could not submit your request right now"));
+        setCprError(
+          translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể gửi yêu cầu lúc này" : "Could not submit your request right now",
+          ),
+        );
       }
     } catch (err) {
       console.error(err);
@@ -1089,11 +1151,13 @@ export default function CustomerPortal() {
         setOrderNowResult(result.data);
         setOrderNowCart([]);
       } else {
-        setOrderNowError(result?.message || "Không thể đặt hàng lúc này");
+        setOrderNowError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể đặt hàng lúc này" : "Could not place this order right now"),
+        );
       }
     } catch (err) {
       console.error(err);
-      setOrderNowError("Lỗi kết nối — vui lòng thử lại");
+      setOrderNowError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsSubmittingOrderNow(false);
     }
@@ -1111,12 +1175,14 @@ export default function CustomerPortal() {
       if (res.ok) {
         setTrackedOrders(result?.data || []);
       } else {
-        setTrackingError(result?.message || "Không thể tra cứu lúc này");
+        setTrackingError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tra cứu lúc này" : "Could not look this up right now"),
+        );
         setTrackedOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setTrackingError("Lỗi kết nối — vui lòng thử lại");
+      setTrackingError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsTrackingLoading(false);
     }
@@ -1255,7 +1321,7 @@ export default function CustomerPortal() {
       updatedAt: new Date(),
     };
 
-    addToCart(customBowlItem);
+    addToCart(customBowlItem, 1, undefined, lang);
     toast({
       title: lang === "vi" ? "Đã thêm đĩa ăn tự chọn!" : "Custom bowl added to cart!",
       type: "success"
@@ -1408,7 +1474,7 @@ export default function CustomerPortal() {
                     <span>{user.firstName}</span>
                   </div>
                   <button
-                    onClick={logout}
+                    onClick={() => logout(lang)}
                     className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
                     title={t("btn_logout")}
                   >
@@ -1607,7 +1673,7 @@ export default function CustomerPortal() {
                     </div>
                     <div className="px-6 pb-6 pt-2">
                       <button
-                        onClick={() => addToCart(item)}
+                        onClick={() => addToCart(item, 1, undefined, lang)}
                         className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
@@ -2026,7 +2092,7 @@ export default function CustomerPortal() {
 
                             <div className="px-6 pb-6 pt-3">
                               <button
-                                onClick={() => addToCart(selected)}
+                                onClick={() => addToCart(selected, 1, undefined, lang)}
                                 className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
@@ -3292,7 +3358,7 @@ export default function CustomerPortal() {
                       </div>
 
                       <button
-                        onClick={() => removeFromCart(item.menuItem.id)}
+                        onClick={() => removeFromCart(item.menuItem.id, lang)}
                         className="absolute top-3 right-3 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
                       >
                         <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4" />
