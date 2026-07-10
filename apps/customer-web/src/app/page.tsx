@@ -3388,7 +3388,21 @@ export default function CustomerPortal() {
                 </div>
 
                 {/* Checkout Form */}
-                <form onSubmit={handleCheckout} className="space-y-3.5 pt-2">
+                <form
+                  onSubmit={handleCheckout}
+                  // This form has several plain <input>s (street address,
+                  // notes, discount code) — without this, pressing Enter in
+                  // ANY of them submits the whole form and places the order
+                  // immediately, skipping payment-method confirmation
+                  // entirely. Block Enter-triggered submission from inputs;
+                  // the actual "Thanh toán" button still submits normally.
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="space-y-3.5 pt-2"
+                >
                   {checkoutAddress && !isEditingAddress ? (
                     <div className="space-y-1 bg-muted/40 p-3 rounded-xl border border-border">
                       <div className="flex justify-between items-start gap-1">
