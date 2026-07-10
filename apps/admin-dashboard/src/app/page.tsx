@@ -2680,6 +2680,14 @@ export default function AdminDashboard() {
                             </span>
                             <span className="font-bold text-primary">{formatVND(c.walletBalance || 0)}</span>
                           </div>
+                          {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() && (
+                            <div className="flex items-center justify-between text-[11px] bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                              <span className="font-semibold text-foreground">Ưu đãi gói:</span>
+                              <span className="font-bold text-emerald-700">
+                                {c.planDiscountPercent}% — đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2694,6 +2702,7 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">Zalo</th>
                             <th className="pb-3 font-semibold">Địa chỉ</th>
                             <th className="pb-3 font-semibold text-right">Số dư ví</th>
+                            <th className="pb-3 font-semibold">Ưu đãi gói</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
@@ -2705,6 +2714,15 @@ export default function AdminDashboard() {
                               <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
                               <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
                               <td className="py-3.5 text-right font-bold text-primary">{formatVND(c.walletBalance || 0)}</td>
+                              <td className="py-3.5">
+                                {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() ? (
+                                  <span className="font-bold text-emerald-700">
+                                    {c.planDiscountPercent}% đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
                               <td className="py-3.5">
                                 <div className="flex justify-center gap-2">
                                   <button
