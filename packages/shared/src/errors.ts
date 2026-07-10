@@ -18,6 +18,11 @@ const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
   { match: /no linked customer to charge/i, vi: "Gói này chưa được gắn với khách hàng nào." },
   { match: /stock .* changed before/i, vi: "Một món trong đơn đã hết hàng ngay lúc bạn đặt — vui lòng thử lại." },
   { match: /subscription plan .* not found/i, vi: "Gói trả trước này hiện không khả dụng." },
+  { match: /discount code ".*" not found/i, vi: "Không tìm thấy mã giảm giá này." },
+  { match: /discount code ".*" is no longer active/i, vi: "Mã giảm giá này không còn hiệu lực." },
+  { match: /discount code ".*" is not valid at this time/i, vi: "Mã giảm giá này chưa hoặc đã hết hạn sử dụng." },
+  { match: /discount code ".*" is not valid for your account/i, vi: "Mã giảm giá này không áp dụng cho tài khoản của bạn." },
+  { match: /discount code ".*" has already been used/i, vi: "Bạn đã sử dụng mã giảm giá này rồi." },
 ];
 
 export function translateApiError(rawMessage: string | string[] | undefined, lang: "vi" | "en", fallback: string): string {
