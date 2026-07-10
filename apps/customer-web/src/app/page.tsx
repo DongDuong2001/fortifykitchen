@@ -34,8 +34,11 @@ import {
   faHeart,
   faFlask,
   faQuoteLeft,
-  faShieldHalved
+  faShieldHalved,
+  faPhone,
+  faComment
 } from "@fortawesome/free-solid-svg-icons";
+import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
 // Order status labels for the customer-facing "Track my order" lookup —
@@ -4670,12 +4673,18 @@ export default function CustomerPortal() {
                 ? "Gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu tươi sạch bởi đầu bếp chuyên nghiệp để phục vụ mục tiêu sức khỏe của bạn."
                 : "Premium gourmet protein meal prep subscriptions prepared by professional chefs to help you achieve your fitness goals."}
             </p>
-            <div className="space-y-2">
-              <p>
-                <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+            <div className="space-y-2.5">
+              <p className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faMapMarkerAlt} className="text-primary/80 h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+                </span>
               </p>
-              <p>
-                <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+              <p className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faPhone} className="text-primary/80 h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+                </span>
               </p>
             </div>
           </div>
@@ -4690,24 +4699,27 @@ export default function CustomerPortal() {
                 ? "Các điều khoản sử dụng và chính sách hoạt động của cửa hàng chúng tôi:"
                 : "Our store's usage terms and operational policies:"}
             </p>
-            <div className="flex flex-col gap-2 font-medium">
+            <div className="flex flex-col gap-2.5 font-medium">
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Điều khoản sử dụng dịch vụ" : "➔ Terms of Service"}
+                <FontAwesomeIcon icon={faInfoCircle} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Điều khoản sử dụng dịch vụ" : "Terms of Service"}</span>
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Chính sách bảo mật thông tin" : "➔ Privacy Policy"}
+                <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Chính sách bảo mật thông tin" : "Privacy Policy"}</span>
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Chính sách thanh toán & Hoàn tiền" : "➔ Payment & Refund Policy"}
+                <FontAwesomeIcon icon={faCreditCard} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Chính sách thanh toán & Hoàn tiền" : "Payment & Refund Policy"}</span>
               </button>
             </div>
           </div>
@@ -4715,39 +4727,42 @@ export default function CustomerPortal() {
           {/* Column 3: Secure Payments & Social Channels */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Thanh toán & Liên hệ mạng xã hội" : "Payments & Social Channels"}
+              {lang === "vi" ? "Thanh toán & Liên hệ" : "Payments & Contact"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận nơi (COD) và Chuyển khoản VietQR tiện lợi. Liên hệ ngay để được tư vấn thực đơn phù hợp nhất."
-                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Contact us directly for menu consultations."}
+                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận ước (COD) và Chuyển khoản VietQR tiện lợi. Kết nối ngay để được tư vấn thực đơn phù hợp."
+                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Connect now for menu consultations."}
             </p>
             
-            {/* Social Connect buttons using text-based tags */}
-            <div className="pt-2 flex flex-wrap gap-3">
+            {/* Social Connect circular buttons */}
+            <div className="pt-2 flex items-center gap-3">
               <a
                 href="https://zalo.me/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Zalo Chat"
               >
-                Zalo Chat
+                <FontAwesomeIcon icon={faComment} className="h-4.5 w-4.5" />
               </a>
               <a
                 href="https://facebook.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Facebook"
               >
-                Facebook
+                <FontAwesomeIcon icon={faFacebook} className="h-4.5 w-4.5" />
               </a>
               <a
                 href="https://instagram.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Instagram"
               >
-                Instagram
+                <FontAwesomeIcon icon={faInstagram} className="h-4.5 w-4.5" />
               </a>
             </div>
           </div>
