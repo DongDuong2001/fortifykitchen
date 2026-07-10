@@ -122,6 +122,10 @@ export interface Order {
   deliveryAddress?: string;
   subtotal: number;
   discountAmount: number;
+  // Snapshot of the Discount.code redeemed on this order, if any — stacks
+  // additively with the automatic tier discount (both folded into
+  // discountAmount). See DiscountRedemption in schema.prisma.
+  discountCode?: string;
   total: number;
   notes?: string;
   items: OrderItem[];
