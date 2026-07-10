@@ -464,6 +464,12 @@ export default function CustomerPortal() {
   // now also reads walletBalance). Drives the WALLET checkout option, the
   // "Buy a Plan" balance display, and the low-balance banner.
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
+  // Recurring membership discount from the customer's current
+  // SubscriptionPlan (also populated from /customers/me) - applies
+  // automatically to every order until planDiscountEndsAt, no code to type.
+  // Replaces the earlier single-use plan-purchase voucher entirely.
+  const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
+  const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
 
   // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
   // top-up (see docs/plan-and-credit-design.md). Public to browse, login
@@ -535,11 +541,6 @@ export default function CustomerPortal() {
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
-  // The customer's own personal voucher (issued automatically on a
-  // SubscriptionPlan/wallet top-up purchase) - auto-filled into
-  // discountCode below rather than making them dig up and type a code they
-  // never actually saw anywhere.
-  const [myActiveVoucher, setMyActiveVoucher] = React.useState<{ code: string; type: string; amount: number } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
   // Live preview of whatever's typed in discountCode - lets the customer see
   // the discount actually land (and see a clear "invalid code" state)
@@ -686,11 +687,15 @@ export default function CustomerPortal() {
           if (result.success && result.data) {
             setCheckoutAddress(result.data.address);
             setWalletBalance(result.data.walletBalance ?? 0);
+            setPlanDiscountPercent(result.data.planDiscountPercent ?? 0);
+            setPlanDiscountEndsAt(result.data.planDiscountEndsAt ?? null);
           }
         })
         .catch(console.error);
     } else {
       setWalletBalance(0);
+      setPlanDiscountPercent(0);
+      setPlanDiscountEndsAt(null);
     }
   }, [user, API_URL]);
 
@@ -776,29 +781,6 @@ export default function CustomerPortal() {
     }
   }, [activeTab, user, loadDashboard]);
 
-  // Auto-apply the customer's own active voucher at checkout, if they have
-  // one - fetched fresh whenever the cart opens OR the "Order Now" tab is
-  // visited (both are checkout entry points) so a voucher that just got
-  // issued (e.g. right after buying a plan) shows up without a reload.
-  // Only fills a field when it's still empty, so it never clobbers a public
-  // code the customer typed in themselves.
-  React.useEffect(() => {
-    if (!(isCartOpen || activeTab === "order-now") || !user) return;
-    const token = localStorage.getItem("fk_token");
-    fetch(`${API_URL}/discounts/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((result) => {
-        const voucher = result?.data ?? null;
-        setMyActiveVoucher(voucher);
-        if (voucher) {
-          if (!discountCode) setDiscountCode(voucher.code);
-          if (!orderNowDiscountCode) setOrderNowDiscountCode(voucher.code);
-        }
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCartOpen, activeTab, user, API_URL]);
-
   // Debounced live preview for the main cart's discount code field.
   React.useEffect(() => {
     const code = discountCode.trim();
@@ -847,10 +829,17 @@ export default function CustomerPortal() {
     return () => clearTimeout(timer);
   }, [orderNowDiscountCode, API_URL]);
 
-  const discountCodeAmount = verifiedDiscount
-    ? Math.min(Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0), cartTotal)
+  const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
+  const planDiscountAmountCart = hasActivePlanDiscount ? (cartTotal * planDiscountPercent) / 100 : 0;
+  const discountCodeAmountRaw = verifiedDiscount
+    ? Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0)
     : 0;
-  const checkoutFinalTotal = cartTotal - discountCodeAmount + 30000;
+  // Both the member discount and a manually-typed code stack additively
+  // (matching the server's OrdersService.createForCustomer), clamped
+  // together so the combined discount can never exceed the subtotal.
+  const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartTotal);
+  const discountCodeAmount = Math.min(discountCodeAmountRaw, cartTotal);
+  const checkoutFinalTotal = cartTotal - combinedDiscountAmount + 30000;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1238,6 +1227,10 @@ export default function CustomerPortal() {
         orderNowTotal,
       )
     : 0;
+  // Applies for a logged-in customer using Order Now too, matching the
+  // server's phone-based customer lookup on the public endpoint.
+  const orderNowPlanDiscountAmount = hasActivePlanDiscount ? (orderNowTotal * planDiscountPercent) / 100 : 0;
+  const orderNowCombinedDiscountAmount = Math.min(orderNowDiscountAmount + orderNowPlanDiscountAmount, orderNowTotal);
 
   const handleSubmitOrderNow = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2435,8 +2428,14 @@ export default function CustomerPortal() {
                           <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
                         </div>
                       ))}
-                      {orderNowDiscountAmount > 0 && (
+                      {hasActivePlanDiscount && (
                         <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                          <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
+                          <span>-{formatVND(orderNowPlanDiscountAmount)}</span>
+                        </div>
+                      )}
+                      {orderNowDiscountAmount > 0 && (
+                        <div className={`flex justify-between text-xs font-semibold text-emerald-600 ${hasActivePlanDiscount ? "" : "pt-1 border-t border-border/50"}`}>
                           <span>
                             {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
                           </span>
@@ -2445,7 +2444,7 @@ export default function CustomerPortal() {
                       )}
                       <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
                         <span>{t("txt_total")}</span>
-                        <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
+                        <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount)}</span>
                       </div>
                     </div>
                   )}
@@ -2535,14 +2534,7 @@ export default function CustomerPortal() {
                         onChange={(e) => setOrderNowDiscountCode(e.target.value)}
                         className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
-                      {user && myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code && (
-                        <p className="text-[9px] text-primary font-medium mt-1">
-                          {lang === "vi"
-                            ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
-                            : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
-                        </p>
-                      )}
-                      {orderNowDiscountCodeStatus === "valid" && !(myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code) && (
+                      {orderNowDiscountCodeStatus === "valid" && (
                         <p className="text-[9px] text-emerald-600 font-medium mt-1">
                           {lang === "vi"
                             ? `✓ Đã áp dụng: giảm ${formatVND(orderNowDiscountAmount)}`
@@ -2714,6 +2706,13 @@ export default function CustomerPortal() {
                     {lang === "vi" ? "Số dư Ví hiện tại" : "Current Wallet Balance"}
                   </span>
                   <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                  {hasActivePlanDiscount && (
+                    <p className="text-[10px] text-primary font-semibold mt-2">
+                      {lang === "vi"
+                        ? `🎁 Đang được giảm ${planDiscountPercent}% mọi đơn hàng đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}.`
+                        : `🎁 You're getting ${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}.`}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
@@ -2726,6 +2725,16 @@ export default function CustomerPortal() {
                   >
                     {t("btn_signin")}
                   </button>
+                </div>
+              )}
+
+              {user && hasActivePlanDiscount && (
+                <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
+                  <p className="text-xs text-amber-700">
+                    {lang === "vi"
+                      ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước hạn.`
+                      : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Please contact our team if you'd like to upgrade early.`}
+                  </p>
                 </div>
               )}
 
@@ -2747,7 +2756,7 @@ export default function CustomerPortal() {
                         <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
                         {plan.voucherPercent > 0 && (
                           <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                            +{plan.voucherPercent}% voucher
+                            {lang === "vi" ? `${plan.voucherPercent}% mọi đơn` : `${plan.voucherPercent}% every order`}
                           </span>
                         )}
                       </div>
@@ -2755,7 +2764,7 @@ export default function CustomerPortal() {
                       {plan.description && <p className="text-xs text-muted-foreground flex-1">{plan.description}</p>}
                       <button
                         onClick={() => handleBuyPlan(plan)}
-                        disabled={purchasingPlanId === plan.id}
+                        disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
                         className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {purchasingPlanId === plan.id ? (
@@ -3531,6 +3540,12 @@ export default function CustomerPortal() {
                     <span>{t("cart_subtotal")}</span>
                     <span>{formatVND(cartTotal)}</span>
                   </div>
+                  {hasActivePlanDiscount && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
+                      <span>-{formatVND(planDiscountAmountCart)}</span>
+                    </div>
+                  )}
                   {discountCodeAmount > 0 && (
                     <div className="flex justify-between text-xs font-semibold text-emerald-600">
                       <span>
@@ -3667,14 +3682,7 @@ export default function CustomerPortal() {
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
                     )}
-                    {user && myActiveVoucher && discountCode === myActiveVoucher.code && (
-                      <p className="text-[9px] text-primary font-medium mt-1">
-                        {lang === "vi"
-                          ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
-                          : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
-                      </p>
-                    )}
-                    {discountCodeStatus === "valid" && !(myActiveVoucher && discountCode === myActiveVoucher.code) && (
+                    {discountCodeStatus === "valid" && (
                       <p className="text-[9px] text-emerald-600 font-medium mt-1">
                         {lang === "vi" ? `✓ Đã áp dụng: giảm ${formatVND(discountCodeAmount)}` : `✓ Applied: ${formatVND(discountCodeAmount)} off`}
                       </p>
