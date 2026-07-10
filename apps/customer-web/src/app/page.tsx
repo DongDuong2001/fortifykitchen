@@ -361,6 +361,8 @@ export default function CustomerPortal() {
   const [orderNowAgreeTerms, setOrderNowAgreeTerms] = React.useState(false);
   const [orderNowPaymentMethod, setOrderNowPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [orderNowDiscountCode, setOrderNowDiscountCode] = React.useState("");
+  const [orderNowVerifiedDiscount, setOrderNowVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
+  const [orderNowDiscountCodeStatus, setOrderNowDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
   const [checkoutProvince, setCheckoutProvince] = React.useState("");
   const [checkoutWard, setCheckoutWard] = React.useState("");
@@ -539,6 +541,15 @@ export default function CustomerPortal() {
   // never actually saw anywhere.
   const [myActiveVoucher, setMyActiveVoucher] = React.useState<{ code: string; type: string; amount: number } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
+  // Live preview of whatever's typed in discountCode - lets the customer see
+  // the discount actually land (and see a clear "invalid code" state)
+  // before placing the order, instead of finding out only after submitting.
+  // Uses the existing public GET /discounts/verify (no ownership check, no
+  // auth needed) purely for this preview; the real
+  // active/date-window/ownership/already-used enforcement still happens
+  // server-side at order creation.
+  const [verifiedDiscount, setVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
+  const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
   // Custom Bowl Calculator States
   const [customProtein, setCustomProtein] = React.useState<string>("chicken");
@@ -787,6 +798,59 @@ export default function CustomerPortal() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCartOpen, activeTab, user, API_URL]);
+
+  // Debounced live preview for the main cart's discount code field.
+  React.useEffect(() => {
+    const code = discountCode.trim();
+    if (!code) {
+      setVerifiedDiscount(null);
+      setDiscountCodeStatus("idle");
+      return;
+    }
+    setDiscountCodeStatus("checking");
+    const timer = setTimeout(() => {
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((result) => {
+          setVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
+          setDiscountCodeStatus("valid");
+        })
+        .catch(() => {
+          setVerifiedDiscount(null);
+          setDiscountCodeStatus("invalid");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [discountCode, API_URL]);
+
+  // Same debounced live preview for the Order Now flow's discount code field.
+  React.useEffect(() => {
+    const code = orderNowDiscountCode.trim();
+    if (!code) {
+      setOrderNowVerifiedDiscount(null);
+      setOrderNowDiscountCodeStatus("idle");
+      return;
+    }
+    setOrderNowDiscountCodeStatus("checking");
+    const timer = setTimeout(() => {
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((result) => {
+          setOrderNowVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
+          setOrderNowDiscountCodeStatus("valid");
+        })
+        .catch(() => {
+          setOrderNowVerifiedDiscount(null);
+          setOrderNowDiscountCodeStatus("invalid");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [orderNowDiscountCode, API_URL]);
+
+  const discountCodeAmount = verifiedDiscount
+    ? Math.min(Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0), cartTotal)
+    : 0;
+  const checkoutFinalTotal = cartTotal - discountCodeAmount + 30000;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1164,6 +1228,16 @@ export default function CustomerPortal() {
   };
 
   const orderNowTotal = orderNowCart.reduce((s, l) => s + l.menuItem.price * l.qty, 0);
+
+  const orderNowDiscountAmount = orderNowVerifiedDiscount
+    ? Math.min(
+        Math.max(
+          orderNowVerifiedDiscount.type === "PERCENTAGE" ? (orderNowTotal * orderNowVerifiedDiscount.amount) / 100 : orderNowVerifiedDiscount.amount,
+          0,
+        ),
+        orderNowTotal,
+      )
+    : 0;
 
   const handleSubmitOrderNow = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2361,9 +2435,17 @@ export default function CustomerPortal() {
                           <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
                         </div>
                       ))}
+                      {orderNowDiscountAmount > 0 && (
+                        <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                          <span>
+                            {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
+                          </span>
+                          <span>-{formatVND(orderNowDiscountAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
                         <span>{t("txt_total")}</span>
-                        <span className="text-primary">{formatVND(orderNowTotal)}</span>
+                        <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
                       </div>
                     </div>
                   )}
@@ -2458,6 +2540,18 @@ export default function CustomerPortal() {
                           {lang === "vi"
                             ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
                             : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
+                        </p>
+                      )}
+                      {orderNowDiscountCodeStatus === "valid" && !(myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code) && (
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1">
+                          {lang === "vi"
+                            ? `✓ Đã áp dụng: giảm ${formatVND(orderNowDiscountAmount)}`
+                            : `✓ Applied: ${formatVND(orderNowDiscountAmount)} off`}
+                        </p>
+                      )}
+                      {orderNowDiscountCodeStatus === "invalid" && (
+                        <p className="text-[9px] text-red-500 font-medium mt-1">
+                          {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
                         </p>
                       )}
                     </div>
@@ -3437,13 +3531,21 @@ export default function CustomerPortal() {
                     <span>{t("cart_subtotal")}</span>
                     <span>{formatVND(cartTotal)}</span>
                   </div>
+                  {discountCodeAmount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>
+                        {t("cart_discount")} ({discountCode.trim().toUpperCase()})
+                      </span>
+                      <span>-{formatVND(discountCodeAmount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{t("cart_shipping")}</span>
                     <span>{formatVND(30000)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold border-t border-border/50 pt-2.5">
                     <span>{t("cart_total")}</span>
-                    <span className="text-primary">{formatVND(cartTotal + 30000)}</span>
+                    <span className="text-primary">{formatVND(checkoutFinalTotal)}</span>
                   </div>
                 </div>
 
@@ -3572,6 +3674,16 @@ export default function CustomerPortal() {
                           : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
                       </p>
                     )}
+                    {discountCodeStatus === "valid" && !(myActiveVoucher && discountCode === myActiveVoucher.code) && (
+                      <p className="text-[9px] text-emerald-600 font-medium mt-1">
+                        {lang === "vi" ? `✓ Đã áp dụng: giảm ${formatVND(discountCodeAmount)}` : `✓ Applied: ${formatVND(discountCodeAmount)} off`}
+                      </p>
+                    )}
+                    {discountCodeStatus === "invalid" && (
+                      <p className="text-[9px] text-red-500 font-medium mt-1">
+                        {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -3611,7 +3723,7 @@ export default function CustomerPortal() {
                         <button
                           type="button"
                           onClick={() => setPaymentMethod("WALLET")}
-                          disabled={walletBalance < cartTotal + 30000}
+                          disabled={walletBalance < checkoutFinalTotal}
                           className={`py-2 px-3 border text-xs font-semibold rounded-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                             paymentMethod === "WALLET"
                               ? "border-primary bg-primary/5 text-primary"
@@ -3626,7 +3738,7 @@ export default function CustomerPortal() {
                         </button>
                       )}
                     </div>
-                    {user && walletBalance < cartTotal + 30000 && (
+                    {user && walletBalance < checkoutFinalTotal && (
                       <p className="text-[9px] text-amber-600 font-medium mt-1">
                         {lang === "vi"
                           ? "Số dư Ví không đủ để thanh toán trọn đơn này."
@@ -3661,7 +3773,7 @@ export default function CustomerPortal() {
                       isSubmittingOrder ||
                       !checkoutAgreeTerms ||
                       !checkoutAddress ||
-                      (paymentMethod === "WALLET" && walletBalance < cartTotal + 30000)
+                      (paymentMethod === "WALLET" && walletBalance < checkoutFinalTotal)
                     }
                     className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
                   >
