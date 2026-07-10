@@ -719,9 +719,9 @@ export default function CustomerPortal() {
     async function loadPlans() {
       try {
         setIsLoadingPlans(true);
-        const res = await fetch(`${API_URL}/subscription-plans/public`);
-        const result = await res.json().catch(() => null);
-        if (res.ok) {
+        const res = await fetch(`${API_URL}/subscription-plans/public`).catch(() => null);
+        if (res && res.ok) {
+          const result = await res.json().catch(() => null);
           setSubscriptionPlans(result?.data || []);
         }
       } catch (err) {
@@ -740,9 +740,9 @@ export default function CustomerPortal() {
       const token = localStorage.getItem("fk_token");
       const res = await fetch(`${API_URL}/notifications/me`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json().catch(() => null);
-      if (res.ok) {
+      }).catch(() => null);
+      if (res && res.ok) {
+        const result = await res.json().catch(() => null);
         setNotifications(result?.data || null);
       }
     } catch (err) {
@@ -764,10 +764,10 @@ export default function CustomerPortal() {
       setIsLoadingDashboard(true);
       const token = localStorage.getItem("fk_token");
       const [resOrders, resSubs] = await Promise.all([
-        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
-      if (resOrders.ok && resSubs.ok) {
+      if (resOrders && resSubs && resOrders.ok && resSubs.ok) {
         const orderData = await resOrders.json();
         const subsData = await resSubs.json();
         setMyOrders(orderData.data || []);
@@ -1516,7 +1516,7 @@ export default function CustomerPortal() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
       {/* 1. HEADER */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/10 bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setActiveTab("home")}>
             <span className="text-xl font-normal tracking-tight font-heading text-foreground">
