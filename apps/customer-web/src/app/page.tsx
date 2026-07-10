@@ -360,6 +360,7 @@ export default function CustomerPortal() {
   const [orderNowStreet, setOrderNowStreet] = React.useState("");
   const [orderNowAgreeTerms, setOrderNowAgreeTerms] = React.useState(false);
   const [orderNowPaymentMethod, setOrderNowPaymentMethod] = React.useState("CASH_ON_DELIVERY");
+  const [orderNowDiscountCode, setOrderNowDiscountCode] = React.useState("");
 
   const [checkoutProvince, setCheckoutProvince] = React.useState("");
   const [checkoutWard, setCheckoutWard] = React.useState("");
@@ -765,25 +766,27 @@ export default function CustomerPortal() {
   }, [activeTab, user, loadDashboard]);
 
   // Auto-apply the customer's own active voucher at checkout, if they have
-  // one - fetched fresh every time the cart opens so a voucher that just
-  // got issued (e.g. right after buying a plan) shows up without a reload.
-  // Only fills the field when it's still empty, so it never clobbers a
-  // public code the customer typed in themselves.
+  // one - fetched fresh whenever the cart opens OR the "Order Now" tab is
+  // visited (both are checkout entry points) so a voucher that just got
+  // issued (e.g. right after buying a plan) shows up without a reload.
+  // Only fills a field when it's still empty, so it never clobbers a public
+  // code the customer typed in themselves.
   React.useEffect(() => {
-    if (!isCartOpen || !user) return;
+    if (!(isCartOpen || activeTab === "order-now") || !user) return;
     const token = localStorage.getItem("fk_token");
     fetch(`${API_URL}/discounts/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : null))
       .then((result) => {
         const voucher = result?.data ?? null;
         setMyActiveVoucher(voucher);
-        if (voucher && !discountCode) {
-          setDiscountCode(voucher.code);
+        if (voucher) {
+          if (!discountCode) setDiscountCode(voucher.code);
+          if (!orderNowDiscountCode) setOrderNowDiscountCode(voucher.code);
         }
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCartOpen, user, API_URL]);
+  }, [isCartOpen, activeTab, user, API_URL]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1178,12 +1181,14 @@ export default function CustomerPortal() {
           notes: orderNowNotes.trim() || undefined,
           paymentMethod: orderNowPaymentMethod,
           items: orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty })),
+          discountCode: orderNowDiscountCode.trim() || undefined,
         }),
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
         setOrderNowResult(result.data);
         setOrderNowCart([]);
+        setOrderNowDiscountCode("");
       } else {
         setOrderNowError(
           translateApiError(result?.message, lang, lang === "vi" ? "Không thể đặt hàng lúc này" : "Could not place this order right now"),
@@ -2220,6 +2225,7 @@ export default function CustomerPortal() {
                     setOrderNowProvince("");
                     setOrderNowWard("");
                     setOrderNowStreet("");
+                    setOrderNowDiscountCode("");
                     setOrderNowAgreeTerms(false);
                   }}
                   className="w-full text-xs font-bold py-2.5 rounded-xl border border-border hover:bg-muted cursor-pointer transition-colors"
@@ -2435,6 +2441,26 @@ export default function CustomerPortal() {
                       className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
                       rows={2}
                     />
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        <FontAwesomeIcon icon={faTag} className="h-3 w-3" /> {t("cart_coupon")}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. WELCOME10"
+                        value={orderNowDiscountCode}
+                        onChange={(e) => setOrderNowDiscountCode(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
+                      />
+                      {user && myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code && (
+                        <p className="text-[9px] text-primary font-medium mt-1">
+                          {lang === "vi"
+                            ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
+                            : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="space-y-1.5 pt-1">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
