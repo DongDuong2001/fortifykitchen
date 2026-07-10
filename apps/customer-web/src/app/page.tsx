@@ -4,7 +4,7 @@ import * as React from "react";
 import { useApp } from "../providers/app-context";
 import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, Protein } from "@fortifykitchen/types";
-import { getMenuItemLabel, PROTEIN_LABELS } from "@fortifykitchen/shared";
+import { getMenuItemLabel, PROTEIN_LABELS, translateApiError } from "@fortifykitchen/shared";
 // @ts-expect-error - sub-vn lacks typings
 import { getProvinces, getDistrictsByProvinceCode, getWardsByDistrictCode } from "sub-vn";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -28,14 +28,15 @@ import {
   faCreditCard,
   faCheck,
   faSearch,
-  faCalendarAlt
+  faCalendarAlt,
+  faWallet
 } from "@fortawesome/free-solid-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
 // Order status labels for the customer-facing "Track my order" lookup —
-// same underlying DeliveryStatus enum the admin Orders tab uses
-// (SCHEDULED/PREPPING/DELIVERED/SKIPPED/CANCELLED), just worded for a
-// customer audience in Vietnamese.
+// same unified OrderStatus enum the admin Orders tab uses
+// (PENDING_CONFIRMATION/CONFIRMED/PREPARING/OUT_FOR_DELIVERY/COMPLETED/
+// CANCELLED), just worded for a customer audience.
 const DICTIONARY = {
   vi: {
     // Navigation
@@ -273,19 +274,30 @@ const DICTIONARY = {
 
 const ORDER_STATUS_LABELS: Record<"vi" | "en", Record<string, string>> = {
   vi: {
-    SCHEDULED: "Đã đặt",
-    PREPPING: "Đang chuẩn bị",
-    DELIVERED: "Hoàn thành",
-    SKIPPED: "Đã bỏ qua",
+    PENDING_CONFIRMATION: "Chờ xác nhận",
+    CONFIRMED: "Đã xác nhận",
+    PREPARING: "Đang chuẩn bị",
+    OUT_FOR_DELIVERY: "Đang giao",
+    COMPLETED: "Hoàn thành",
     CANCELLED: "Đã huỷ",
   },
   en: {
-    SCHEDULED: "Scheduled",
-    PREPPING: "Prepping",
-    DELIVERED: "Delivered",
-    SKIPPED: "Skipped",
+    PENDING_CONFIRMATION: "Awaiting confirmation",
+    CONFIRMED: "Confirmed",
+    PREPARING: "Preparing",
+    OUT_FOR_DELIVERY: "Out for delivery",
+    COMPLETED: "Completed",
     CANCELLED: "Cancelled",
   }
+};
+
+const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
+  PENDING_CONFIRMATION: "bg-amber-50 text-amber-700 border-amber-200",
+  CONFIRMED: "bg-blue-50 text-blue-700 border-blue-200",
+  PREPARING: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  OUT_FOR_DELIVERY: "bg-purple-50 text-purple-700 border-purple-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  CANCELLED: "bg-red-50 text-red-700 border-red-200",
 };
 
 export default function CustomerPortal() {
@@ -348,6 +360,9 @@ export default function CustomerPortal() {
   const [orderNowStreet, setOrderNowStreet] = React.useState("");
   const [orderNowAgreeTerms, setOrderNowAgreeTerms] = React.useState(false);
   const [orderNowPaymentMethod, setOrderNowPaymentMethod] = React.useState("CASH_ON_DELIVERY");
+  const [orderNowDiscountCode, setOrderNowDiscountCode] = React.useState("");
+  const [orderNowVerifiedDiscount, setOrderNowVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
+  const [orderNowDiscountCodeStatus, setOrderNowDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
   // Custom ordering states
   const [orderFlowType, setOrderFlowType] = React.useState<"standard" | "custom">("standard");
@@ -455,6 +470,47 @@ export default function CustomerPortal() {
   const [lookupError, setLookupError] = React.useState<string | null>(null);
   const [hasLookedUp, setHasLookedUp] = React.useState(false);
 
+  // Wallet balance for the logged-in customer — populated from /customers/me
+  // (see the "Sync checkout address when user logs in" effect below, which
+  // now also reads walletBalance). Drives the WALLET checkout option, the
+  // "Buy a Plan" balance display, and the low-balance banner.
+  const [walletBalance, setWalletBalance] = React.useState<number>(0);
+
+  // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
+  // top-up (see docs/plan-and-credit-design.md). Public to browse, login
+  // required to buy.
+  const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = React.useState(false);
+  const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
+  const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
+
+  // Pay-from-wallet on an UNPAID/DEPOSIT Subscription — see the phone-lookup
+  // and dashboard subscription views below.
+  const [payingSubscriptionId, setPayingSubscriptionId] = React.useState<string | null>(null);
+
+  // In-app low-balance notifications (wallet + subscription pools) — see
+  // GET /notifications/me. Dismissal is session-only (plain component
+  // state, not persisted) so the banner resurfaces on the next visit if
+  // still true.
+  const [notifications, setNotifications] = React.useState<any | null>(null);
+  const [dismissedBanners, setDismissedBanners] = React.useState<string[]>([]);
+
+  // Custom plan request — the consultation-first flow: a customer with
+  // specific requests/preferences submits this instead of self-checking-out
+  // a subscription (subscriptions are always staff-created, see above).
+  // Staff review it in the admin dashboard's Custom Plan Requests tab and
+  // either build a matching Subscription or decline.
+  const [cprName, setCprName] = React.useState("");
+  const [cprPhone, setCprPhone] = React.useState("");
+  const [cprProteins, setCprProteins] = React.useState<Protein[]>([]);
+  const [cprEstimatedGrams, setCprEstimatedGrams] = React.useState("");
+  const [cprIntervalDays, setCprIntervalDays] = React.useState("");
+  const [cprBudget, setCprBudget] = React.useState("");
+  const [cprNotes, setCprNotes] = React.useState("");
+  const [isCprSubmitting, setIsCprSubmitting] = React.useState(false);
+  const [cprSubmitted, setCprSubmitted] = React.useState(false);
+  const [cprError, setCprError] = React.useState<string | null>(null);
+
   // Auth Modals State
   const [authModal, setAuthModal] = React.useState<"login" | "signup" | null>(null);
   const [loginEmail, setLoginEmail] = React.useState("");
@@ -490,7 +546,21 @@ export default function CustomerPortal() {
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
+  // The customer's own personal voucher (issued automatically on a
+  // SubscriptionPlan/wallet top-up purchase) - auto-filled into
+  // discountCode below rather than making them dig up and type a code they
+  // never actually saw anywhere.
+  const [myActiveVoucher, setMyActiveVoucher] = React.useState<{ code: string; type: string; amount: number } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
+  // Live preview of whatever's typed in discountCode - lets the customer see
+  // the discount actually land (and see a clear "invalid code" state)
+  // before placing the order, instead of finding out only after submitting.
+  // Uses the existing public GET /discounts/verify (no ownership check, no
+  // auth needed) purely for this preview; the real
+  // active/date-window/ownership/already-used enforcement still happens
+  // server-side at order creation.
+  const [verifiedDiscount, setVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
+  const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
   // Custom Bowl Calculator States
   const [customProtein, setCustomProtein] = React.useState<string>("chicken");
@@ -515,6 +585,10 @@ export default function CustomerPortal() {
   const [myOrders, setMyOrders] = React.useState<any[]>([]);
   const [mySubscriptions, setMySubscriptions] = React.useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = React.useState(false);
+  // Sub-navigation within the private dashboard tab — Overview / Orders /
+  // Subscriptions each get their own screen instead of everything stacked
+  // into one long page.
+  const [dashboardSection, setDashboardSection] = React.useState<"overview" | "orders" | "subscriptions">("overview");
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -622,11 +696,68 @@ export default function CustomerPortal() {
         .then((result) => {
           if (result.success && result.data) {
             setCheckoutAddress(result.data.address);
+            setWalletBalance(result.data.walletBalance ?? 0);
           }
         })
         .catch(console.error);
+    } else {
+      setWalletBalance(0);
     }
   }, [user, API_URL]);
+
+  // Wallet is only a valid checkout option while logged in — if the
+  // customer logs out mid-checkout, fall back to COD rather than leaving an
+  // unusable selection active.
+  React.useEffect(() => {
+    if (!user && paymentMethod === "WALLET") {
+      setPaymentMethod("CASH_ON_DELIVERY");
+    }
+  }, [user, paymentMethod]);
+
+  // SubscriptionPlan catalog — public, no login needed to browse.
+  React.useEffect(() => {
+    async function loadPlans() {
+      try {
+        setIsLoadingPlans(true);
+        const res = await fetch(`${API_URL}/subscription-plans/public`);
+        const result = await res.json().catch(() => null);
+        if (res.ok) {
+          setSubscriptionPlans(result?.data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingPlans(false);
+      }
+    }
+    loadPlans();
+  }, [API_URL]);
+
+  // Low-balance notifications — wallet + subscription pools, customer-web
+  // banner. Only meaningful while logged in.
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/notifications/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setNotifications(result?.data || null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [API_URL]);
+
+  React.useEffect(() => {
+    if (user) {
+      loadNotifications();
+    } else {
+      setNotifications(null);
+      setDismissedBanners([]);
+    }
+  }, [user, loadNotifications]);
 
   const loadDashboard = React.useCallback(async () => {
     try {
@@ -656,9 +787,85 @@ export default function CustomerPortal() {
     }
   }, [activeTab, user, loadDashboard]);
 
+  // Auto-apply the customer's own active voucher at checkout, if they have
+  // one - fetched fresh whenever the cart opens OR the "Order Now" tab is
+  // visited (both are checkout entry points) so a voucher that just got
+  // issued (e.g. right after buying a plan) shows up without a reload.
+  // Only fills a field when it's still empty, so it never clobbers a public
+  // code the customer typed in themselves.
+  React.useEffect(() => {
+    if (!(isCartOpen || activeTab === "order-now") || !user) return;
+    const token = localStorage.getItem("fk_token");
+    fetch(`${API_URL}/discounts/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((result) => {
+        const voucher = result?.data ?? null;
+        setMyActiveVoucher(voucher);
+        if (voucher) {
+          if (!discountCode) setDiscountCode(voucher.code);
+          if (!orderNowDiscountCode) setOrderNowDiscountCode(voucher.code);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCartOpen, activeTab, user, API_URL]);
+
+  // Debounced live preview for the main cart's discount code field.
+  React.useEffect(() => {
+    const code = discountCode.trim();
+    if (!code) {
+      setVerifiedDiscount(null);
+      setDiscountCodeStatus("idle");
+      return;
+    }
+    setDiscountCodeStatus("checking");
+    const timer = setTimeout(() => {
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((result) => {
+          setVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
+          setDiscountCodeStatus("valid");
+        })
+        .catch(() => {
+          setVerifiedDiscount(null);
+          setDiscountCodeStatus("invalid");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [discountCode, API_URL]);
+
+  // Same debounced live preview for the Order Now flow's discount code field.
+  React.useEffect(() => {
+    const code = orderNowDiscountCode.trim();
+    if (!code) {
+      setOrderNowVerifiedDiscount(null);
+      setOrderNowDiscountCodeStatus("idle");
+      return;
+    }
+    setOrderNowDiscountCodeStatus("checking");
+    const timer = setTimeout(() => {
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((result) => {
+          setOrderNowVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
+          setOrderNowDiscountCodeStatus("valid");
+        })
+        .catch(() => {
+          setOrderNowVerifiedDiscount(null);
+          setOrderNowDiscountCodeStatus("invalid");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [orderNowDiscountCode, API_URL]);
+
+  const discountCodeAmount = verifiedDiscount
+    ? Math.min(Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0), cartTotal)
+    : 0;
+  const checkoutFinalTotal = cartTotal - discountCodeAmount + 30000;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(loginEmail, loginPass);
+    const success = await login(loginEmail, loginPass, lang);
     if (success) {
       if (rememberMe) {
         localStorage.setItem("fk_remember_email", loginEmail);
@@ -675,16 +882,19 @@ export default function CustomerPortal() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await signup({
-      email: signupEmail,
-      password: signupPass,
-      firstName: signupFirst,
-      lastName: signupLast,
-      phone: signupPhone,
-      address: signupAddress,
-      city: signupCity,
-      postalCode: "70000",
-    });
+    const success = await signup(
+      {
+        email: signupEmail,
+        password: signupPass,
+        firstName: signupFirst,
+        lastName: signupLast,
+        phone: signupPhone,
+        address: signupAddress,
+        city: signupCity,
+        postalCode: "70000",
+      },
+      lang,
+    );
     if (success) {
       setAuthModal(null);
       setSignupEmail("");
@@ -703,9 +913,17 @@ export default function CustomerPortal() {
       return;
     }
     setIsSubmittingOrder(true);
-    const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode);
+    const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
     if (result) {
+      // Explicit refresh rather than relying on the activeTab-change effect
+      // below: the cart can be opened from ANY tab (including while already
+      // sitting on "dashboard"), in which case setActiveTab("dashboard") is
+      // a no-op and the effect never re-fires - leaving the just-placed
+      // order missing from "My Orders" until the customer manually switches
+      // tabs or reloads the page.
+      loadDashboard();
+      setDiscountCode("");
       if (paymentMethod === "BANK_TRANSFER") {
         setCheckoutResult(result);
       } else {
@@ -732,31 +950,40 @@ export default function CustomerPortal() {
       if (res.ok) {
         setMyPoolSubscriptions(result?.data || []);
       } else {
-        setLookupError(result?.message || "Không thể tra cứu lúc này");
+        setLookupError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tra cứu lúc này" : "Could not look this up right now"),
+        );
         setMyPoolSubscriptions([]);
       }
     } catch (err) {
       console.error(err);
-      setLookupError("Lỗi kết nối — vui lòng thử lại");
+      setLookupError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsLookupLoading(false);
     }
   };
 
-  const handlePostponeMyDelivery = (deliveryId: string) => {
+  const handlePostponeMyDelivery = (orderId: string) => {
     requestConfirm(
       "Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.",
       async () => {
         try {
           const res = await fetch(
-            `${API_URL}/subscriptions/public/${deliveryId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
+            `${API_URL}/subscriptions/public/${orderId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
             { method: "POST" },
           );
           if (res.ok) {
             handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
           } else {
             const result = await res.json().catch(() => null);
-            toast({ title: result?.message || "Không thể hoãn lần giao này", type: "error" });
+            toast({
+              title: translateApiError(
+                result?.message,
+                lang,
+                lang === "vi" ? "Không thể hoãn lần giao này" : "Could not postpone this delivery",
+              ),
+              type: "error",
+            });
           }
         } catch (err) {
           console.error(err);
@@ -765,10 +992,9 @@ export default function CustomerPortal() {
     );
   };
 
-  const handlePauseSubscription = async (id: string, currentStatus: string) => {
+  const doPauseSubscription = async (id: string, nextStatus: "ACTIVE" | "PAUSED") => {
     try {
       const token = localStorage.getItem("fk_token");
-      const nextStatus = currentStatus === "ACTIVE" ? "PAUSED" : "ACTIVE";
       const res = await fetch(`${API_URL}/subscriptions/${id}/status`, {
         method: "PUT",
         headers: {
@@ -777,11 +1003,205 @@ export default function CustomerPortal() {
         },
         body: JSON.stringify({ status: nextStatus }),
       });
+      const result = await res.json().catch(() => null);
       if (res.ok) {
+        toast({
+          title:
+            nextStatus === "PAUSED"
+              ? lang === "vi"
+                ? "Đã tạm dừng gói"
+                : "Subscription paused"
+              : lang === "vi"
+                ? "Đã kích hoạt lại gói"
+                : "Subscription resumed",
+          type: "success",
+        });
         loadDashboard();
+      } else {
+        toast({
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể cập nhật trạng thái gói lúc này" : "Could not update the subscription right now",
+          ),
+          type: "error",
+        });
       }
     } catch (e) {
       console.error(e);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    }
+  };
+
+  // Pausing stops upcoming deliveries from being generated — worth a
+  // confirmation, unlike resuming (which is always safe to do immediately).
+  const handlePauseSubscription = (id: string, currentStatus: string) => {
+    if (currentStatus === "ACTIVE") {
+      requestConfirm(
+        lang === "vi"
+          ? "Tạm dừng gói này? Các lần giao sắp tới sẽ không được tạo cho đến khi bạn kích hoạt lại."
+          : "Pause this subscription? Upcoming deliveries won't be generated until you resume it.",
+        () => doPauseSubscription(id, "PAUSED"),
+        { confirmLabel: lang === "vi" ? "Tạm dừng" : "Pause", title: lang === "vi" ? "Tạm dừng gói" : "Pause subscription" },
+      );
+    } else {
+      doPauseSubscription(id, "ACTIVE");
+    }
+  };
+
+  // Buy a SubscriptionPlan tier — opens a PENDING bank-transfer top-up (no
+  // instant credit; staff reconcile the transfer, see
+  // docs/plan-and-credit-design.md). Requires login, same gate the cart
+  // checkout uses.
+  const handleBuyPlan = async (plan: any) => {
+    if (!user) {
+      setAuthModal("login");
+      return;
+    }
+    setPurchasingPlanId(plan.id);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscription-plans/public/${plan.id}/purchase`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setPlanPurchaseResult(result?.data);
+      } else {
+        toast({
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể mua gói này lúc này" : "Could not purchase this plan right now",
+          ),
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    } finally {
+      setPurchasingPlanId(null);
+    }
+  };
+
+  // Pay a UNPAID/DEPOSIT Subscription in full from wallet balance — never
+  // partial (design decision: wallet covers 100% or the customer arranges a
+  // fresh bank transfer instead). 400s with a short-balance message if the
+  // wallet can't fully cover it.
+  const handlePayFromWallet = async (subscriptionId: string) => {
+    setPayingSubscriptionId(subscriptionId);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        toast({
+          title: lang === "vi" ? "Thanh toán thành công" : "Payment successful",
+          description:
+            lang === "vi"
+              ? "Đã thanh toán trọn gói bằng số dư Ví."
+              : "Subscription fully paid from your wallet balance.",
+          type: "success",
+        });
+        loadDashboard();
+        loadNotifications();
+        if (lookupPhone.trim()) {
+          handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+        }
+        fetch(`${API_URL}/customers/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .then((rr) => {
+            if (rr.success && rr.data) setWalletBalance(rr.data.walletBalance ?? 0);
+          })
+          .catch(() => {});
+      } else {
+        toast({
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể thanh toán bằng Ví lúc này" : "Could not pay from wallet right now",
+          ),
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    } finally {
+      setPayingSubscriptionId(null);
+    }
+  };
+
+  const toggleCprProtein = (p: Protein) => {
+    setCprProteins((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  };
+
+  const handleSubmitCustomPlanRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCprError(null);
+    if (!cprName.trim() || !cprPhone.trim()) {
+      setCprError(lang === "vi" ? "Vui lòng nhập tên và số điện thoại" : "Please enter your name and phone number");
+      return;
+    }
+    if (cprProteins.length === 0) {
+      setCprError(lang === "vi" ? "Vui lòng chọn ít nhất 1 loại protein" : "Please select at least one protein");
+      return;
+    }
+    setIsCprSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/custom-plan-requests/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: cprName.trim(),
+          phone: cprPhone.trim(),
+          desiredProteins: cprProteins,
+          estimatedTotalGrams: cprEstimatedGrams ? Number(cprEstimatedGrams) * 1000 : undefined,
+          preferredIntervalDays: cprIntervalDays ? Number(cprIntervalDays) : undefined,
+          budgetHint: cprBudget ? Number(cprBudget) : undefined,
+          notes: cprNotes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setCprSubmitted(true);
+        setCprName("");
+        setCprPhone("");
+        setCprProteins([]);
+        setCprEstimatedGrams("");
+        setCprIntervalDays("");
+        setCprBudget("");
+        setCprNotes("");
+      } else {
+        const result = await res.json().catch(() => null);
+        setCprError(
+          translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể gửi yêu cầu lúc này" : "Could not submit your request right now",
+          ),
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setCprError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+    } finally {
+      setIsCprSubmitting(false);
     }
   };
 
@@ -820,31 +1240,19 @@ export default function CustomerPortal() {
 
   const orderNowTotal = orderNowCart.reduce((s, l) => s + l.menuItem.price * l.qty, 0);
 
-  const calculateCustomOrderPrice = () => {
-    const pOpt = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein) || PROTEIN_OPTIONS[0];
-    const p = pOpt.sizes[customOrderSize as 150 | 250] || pOpt.sizes[150];
-    const c = CARB_OPTIONS.find((x) => x.id === customOrderCarb) || CARB_OPTIONS[0];
-    const s = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce) || SAUCE_OPTIONS[0];
-    
-    let priceVal = 10000 + p.price + c.price + s.price;
+  const orderNowDiscountAmount = orderNowVerifiedDiscount
+    ? Math.min(
+        Math.max(
+          orderNowVerifiedDiscount.type === "PERCENTAGE" ? (orderNowTotal * orderNowVerifiedDiscount.amount) / 100 : orderNowVerifiedDiscount.amount,
+          0,
+        ),
+        orderNowTotal,
+      )
+    : 0;
 
-    for (const t of customOrderToppings) {
-      const topOpt = TOPPING_OPTIONS.find((x) => x.id === t);
-      if (topOpt) {
-        priceVal += topOpt.price;
-      }
-    }
-    return priceVal;
-  };
-
-  const handleSubmitOrderNow = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (orderFlowType === "standard") {
-      if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
-    } else {
-      if (!orderNowName.trim() || !orderNowPhone.trim() || !customOrderDeliveryDate) return;
-    }
-
+  const handleSubmitOrderNow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
     setIsSubmittingOrderNow(true);
     setOrderNowError(null);
     try {
@@ -884,18 +1292,29 @@ export default function CustomerPortal() {
       const res = await fetch(`${API_URL}/orders/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: orderNowName.trim(),
+          phone: orderNowPhone.trim(),
+          address: orderNowAddress.trim() || undefined,
+          notes: orderNowNotes.trim() || undefined,
+          paymentMethod: orderNowPaymentMethod,
+          items: orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty })),
+          discountCode: orderNowDiscountCode.trim() || undefined,
+        }),
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
         setOrderNowResult(result.data);
         setOrderNowCart([]);
-        setShowCheckoutReview(false);
+        setOrderNowDiscountCode("");
       } else {
-        setOrderNowError(result?.message || "Không thể đặt hàng lúc này");
+        setOrderNowError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể đặt hàng lúc này" : "Could not place this order right now"),
+        );
       }
-    } catch {
-      setOrderNowError("Lỗi kết nối — vui lòng thử lại");
+    } catch (err) {
+      console.error(err);
+      setOrderNowError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsSubmittingOrderNow(false);
     }
@@ -913,12 +1332,14 @@ export default function CustomerPortal() {
       if (res.ok) {
         setTrackedOrders(result?.data || []);
       } else {
-        setTrackingError(result?.message || "Không thể tra cứu lúc này");
+        setTrackingError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tra cứu lúc này" : "Could not look this up right now"),
+        );
         setTrackedOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setTrackingError("Lỗi kết nối — vui lòng thử lại");
+      setTrackingError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
     } finally {
       setIsTrackingLoading(false);
     }
@@ -1057,7 +1478,7 @@ export default function CustomerPortal() {
       updatedAt: new Date(),
     };
 
-    addToCart(customBowlItem);
+    addToCart(customBowlItem, 1, undefined, lang);
     toast({
       title: lang === "vi" ? "Đã thêm đĩa ăn tự chọn!" : "Custom bowl added to cart!",
       type: "success"
@@ -1210,7 +1631,7 @@ export default function CustomerPortal() {
                     <span>{user.firstName}</span>
                   </div>
                   <button
-                    onClick={logout}
+                    onClick={() => logout(lang)}
                     className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
                     title={t("btn_logout")}
                   >
@@ -1230,6 +1651,55 @@ export default function CustomerPortal() {
           </div>
         </div>
       </header>
+
+      {/* IN-APP LOW-BALANCE BANNER — wallet balance low and/or a
+          Subscription pool running low, from GET /notifications/me.
+          Dismissal is session-only (not persisted). */}
+      {user &&
+        notifications &&
+        (notifications.walletLow || (notifications.poolsLow && notifications.poolsLow.length > 0)) && (
+          <div className="max-w-7xl mx-auto px-6 pt-4 space-y-2">
+            {notifications.walletLow && !dismissedBanners.includes("wallet") && (
+              <div className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                  {lang === "vi"
+                    ? `Số dư Ví của bạn đang thấp (còn ${formatVND(notifications.walletBalance)}). Nạp thêm gói để tiếp tục thanh toán bằng Ví.`
+                    : `Your wallet balance is running low (${formatVND(notifications.walletBalance)} left). Buy a plan to top up.`}
+                </span>
+                <button
+                  onClick={() => setDismissedBanners((prev) => [...prev, "wallet"])}
+                  className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {(notifications.poolsLow || []).map((p: any) => {
+              const key = `pool:${p.subscriptionId}:${p.protein}`;
+              if (dismissedBanners.includes(key)) return null;
+              return (
+                <div
+                  key={key}
+                  className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3"
+                >
+                  <span className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                    {lang === "vi"
+                      ? `Gói "${p.packageName}" của bạn sắp hết ${PROTEIN_LABELS[p.protein as Protein] || p.protein} (còn ${formatGrams(p.remainingGrams)}).`
+                      : `Your "${p.packageName}" plan is running low on ${PROTEIN_LABELS[p.protein as Protein] || p.protein} (${formatGrams(p.remainingGrams)} left).`}
+                  </span>
+                  <button
+                    onClick={() => setDismissedBanners((prev) => [...prev, key])}
+                    className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       {/* 2. HERO SECTION (Apple, Linear, Aesop inspired) */}
       {activeTab === "home" && (
@@ -1360,7 +1830,7 @@ export default function CustomerPortal() {
                     </div>
                     <div className="px-6 pb-6 pt-2">
                       <button
-                        onClick={() => addToCart(item)}
+                        onClick={() => addToCart(item, 1, undefined, lang)}
                         className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
@@ -1779,7 +2249,7 @@ export default function CustomerPortal() {
 
                             <div className="px-6 pb-6 pt-3">
                               <button
-                                onClick={() => addToCart(selected)}
+                                onClick={() => addToCart(selected, 1, undefined, lang)}
                                 className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
@@ -1934,6 +2404,7 @@ export default function CustomerPortal() {
                     setOrderNowProvince("");
                     setOrderNowWard("");
                     setOrderNowStreet("");
+                    setOrderNowDiscountCode("");
                     setOrderNowAgreeTerms(false);
                   }}
                   className="w-full text-xs font-bold py-2.5 rounded-xl border border-border hover:bg-muted cursor-pointer transition-colors"
@@ -2337,6 +2808,18 @@ export default function CustomerPortal() {
                             {formatVND(calculateCustomOrderPrice() * customOrderQty)}
                           </span>
                         </div>
+                      ))}
+                      {orderNowDiscountAmount > 0 && (
+                        <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                          <span>
+                            {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
+                          </span>
+                          <span>-{formatVND(orderNowDiscountAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
+                        <span>{t("txt_total")}</span>
+                        <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
                       </div>
                     </div>
                   )}
@@ -2412,64 +2895,41 @@ export default function CustomerPortal() {
                         />
                       </div>
 
-                      <textarea
-                        placeholder={t("placeholder_notes")}
-                        value={orderNowNotes}
-                        onChange={(e) => setOrderNowNotes(e.target.value)}
-                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
-                        rows={2}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        <FontAwesomeIcon icon={faTag} className="h-3 w-3" /> {t("cart_coupon")}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. WELCOME10"
+                        value={orderNowDiscountCode}
+                        onChange={(e) => setOrderNowDiscountCode(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
+                      {user && myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code && (
+                        <p className="text-[9px] text-primary font-medium mt-1">
+                          {lang === "vi"
+                            ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
+                            : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
+                        </p>
+                      )}
+                      {orderNowDiscountCodeStatus === "valid" && !(myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code) && (
+                        <p className="text-[9px] text-emerald-600 font-medium mt-1">
+                          {lang === "vi"
+                            ? `✓ Đã áp dụng: giảm ${formatVND(orderNowDiscountAmount)}`
+                            : `✓ Applied: ${formatVND(orderNowDiscountAmount)} off`}
+                        </p>
+                      )}
+                      {orderNowDiscountCodeStatus === "invalid" && (
+                        <p className="text-[9px] text-red-500 font-medium mt-1">
+                          {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                        </p>
+                      )}
+                    </div>
 
-                      <div className="space-y-1.5 pt-1">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                          {t("cart_payment")}
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setOrderNowPaymentMethod("CASH_ON_DELIVERY")}
-                            className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                              orderNowPaymentMethod === "CASH_ON_DELIVERY"
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border bg-background hover:bg-muted"
-                            }`}
-                          >
-                            <FontAwesomeIcon icon={faCreditCard} className="h-3.5 w-3.5 shrink-0" />
-                            {t("payment_cod")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setOrderNowPaymentMethod("BANK_TRANSFER")}
-                            className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                              orderNowPaymentMethod === "BANK_TRANSFER"
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border bg-background hover:bg-muted"
-                            }`}
-                          >
-                            <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
-                            {t("payment_vietqr")}
-                          </button>
-                        </div>
-                      </div>
-
-                      <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
-                        <input
-                          type="checkbox"
-                          required
-                          checked={orderNowAgreeTerms}
-                          onChange={(e) => setOrderNowAgreeTerms(e.target.checked)}
-                          className="mt-0.5"
-                        />
-                        <span>
-                          {t("cart_agree")}{" "}
-                          <button
-                            type="button"
-                            onClick={() => setShowPrivacyModal(true)}
-                            className="text-primary font-semibold hover:underline"
-                          >
-                            {t("cart_terms")}
-                          </button>
-                        </span>
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        {t("cart_payment")}
                       </label>
 
                       {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
@@ -2704,6 +3164,11 @@ export default function CustomerPortal() {
                         )}
                       </div>
                     </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[o.status] || "bg-amber-50 text-amber-700 border-amber-200"}`}
+                    >
+                      {ORDER_STATUS_LABELS[lang][o.status] || o.status}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -2716,6 +3181,90 @@ export default function CustomerPortal() {
             balance per protein and postpone today's delivery themselves) */}
         {activeTab === "subscriptions" && (
           <div>
+            {/* WALLET & PLAN PURCHASE — buying a SubscriptionPlan tier tops
+                up Customer.walletBalance (once staff confirm the bank
+                transfer) and issues a percentage-off voucher. Wallet
+                balance itself never grants autonomous delivery — that's
+                still always the Custom Plan Request flow below. See
+                docs/plan-and-credit-design.md. */}
+            <div className="max-w-3xl mx-auto mb-16 pb-14 border-b border-border/60">
+              <div className="text-center mb-8 space-y-3">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
+                  {lang === "vi" ? "Ví & Gói trả trước" : "Wallet & Prepaid Plans"}
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                  {lang === "vi"
+                    ? "Mua một gói trả trước để nạp vào Ví Fortify Kitchen và nhận voucher giảm giá. Số dư Ví có thể dùng để thanh toán đơn lẻ hoặc thanh toán trọn gói cho một Subscription do đội ngũ chúng tôi thiết lập."
+                    : "Buy a prepaid tier to top up your Fortify Kitchen wallet and get a discount voucher. Wallet balance can pay for one-off orders, or fund a staff-built Subscription in full."}
+                </p>
+              </div>
+
+              {user ? (
+                <div className="max-w-sm mx-auto mb-8 border border-border bg-card rounded-2xl p-5 text-center shadow-sm">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center justify-center gap-1.5">
+                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                    {lang === "vi" ? "Số dư Ví hiện tại" : "Current Wallet Balance"}
+                  </span>
+                  <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                </div>
+              ) : (
+                <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi" ? "Đăng nhập để xem số dư Ví và mua gói." : "Log in to see your wallet balance and buy a plan."}
+                  </p>
+                  <button
+                    onClick={() => setAuthModal("login")}
+                    className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    {t("btn_signin")}
+                  </button>
+                </div>
+              )}
+
+              {isLoadingPlans ? (
+                <div className="flex justify-center py-10">
+                  <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : subscriptionPlans.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi" ? "Hiện chưa có gói trả trước nào." : "No prepaid plans available right now."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {subscriptionPlans.map((plan) => (
+                    <div key={plan.id} className="border border-border bg-card rounded-xl p-5 space-y-3 shadow-sm flex flex-col">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
+                        {plan.voucherPercent > 0 && (
+                          <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                            +{plan.voucherPercent}% voucher
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-lg font-bold text-primary">{formatVND(plan.price)}</p>
+                      {plan.description && <p className="text-xs text-muted-foreground flex-1">{plan.description}</p>}
+                      <button
+                        onClick={() => handleBuyPlan(plan)}
+                        disabled={purchasingPlanId === plan.id}
+                        className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {purchasingPlanId === plan.id ? (
+                          <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                            {lang === "vi" ? "Mua gói" : "Buy plan"}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? "Gói đăng ký của bạn" : "Your Subscriptions"}
@@ -2803,15 +3352,55 @@ export default function CustomerPortal() {
                     })}
                   </div>
 
-                  {sub.upcomingDeliveries?.length > 0 && (
+                  {/* Pay in full from wallet — no split payment (design
+                      decision): either the wallet fully covers totalPrice,
+                      or the customer arranges a fresh bank transfer
+                      instead. Requires login since pay-from-wallet is a JWT
+                      + ownership-checked action. */}
+                  {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
+                    <div className="pt-4 border-t border-border/50 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {lang === "vi" ? "Trạng thái thanh toán: " : "Payment status: "}
+                          <span className="font-bold text-amber-600">{sub.paymentStatus}</span>
+                        </span>
+                        <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                      </div>
+                      {user ? (
+                        <button
+                          onClick={() => handlePayFromWallet(sub.id)}
+                          disabled={payingSubscriptionId === sub.id}
+                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-bold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          {payingSubscriptionId === sub.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                              {lang === "vi" ? "Thanh toán trọn gói bằng Ví" : "Pay in full from wallet"}
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setAuthModal("login")}
+                          className="w-full border border-border text-[11px] font-bold py-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                        >
+                          {lang === "vi" ? "Đăng nhập để thanh toán bằng Ví" : "Log in to pay from wallet"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {sub.upcomingOrders?.length > 0 && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
                       <h4 className="text-xs font-bold flex items-center gap-1.5">
                         <FontAwesomeIcon icon={faCalendarAlt} className="h-3.5 w-3.5 text-primary" /> {lang === "vi" ? "Lịch giao sắp tới" : "Upcoming Deliveries"}
                       </h4>
-                      {sub.upcomingDeliveries.map((d: any) => (
+                      {sub.upcomingOrders.map((d: any) => (
                         <div key={d.id} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
-                            {new Date(d.scheduledDate).toLocaleDateString("vi-VN")} —{" "}
+                            {new Date(d.deliveryDate).toLocaleDateString("vi-VN")} —{" "}
                             {d.items.map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
                           </span>
                           <button
@@ -2827,13 +3416,161 @@ export default function CustomerPortal() {
                 </div>
               ))}
             </div>
+
+            {/* Custom Plan Request — the consultation-first path: since
+                subscriptions are always staff-created (see the header note
+                above), a customer with specific requests/preferences submits
+                this instead. Staff review it in the admin dashboard and
+                either build a matching Subscription or decline. */}
+            <div className="max-w-2xl mx-auto mt-16 pt-12 border-t border-border/60">
+              <div className="text-center mb-8 space-y-3">
+                <h2 className="text-2xl font-extrabold tracking-tight font-heading">
+                  {lang === "vi" ? "Muốn một gói riêng cho bạn?" : "Want a plan tailored to you?"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {lang === "vi"
+                    ? "Cho chúng tôi biết sở thích và nhu cầu của bạn — đội ngũ Fortify Kitchen sẽ tư vấn và thiết kế gói phù hợp trước khi triển khai."
+                    : "Tell us your preferences — the Fortify Kitchen team will consult with you and build a matching plan before it goes live."}
+                </p>
+              </div>
+
+              {cprSubmitted ? (
+                <div className="text-center py-10 border border-dashed border-emerald-200 bg-emerald-50 rounded-xl">
+                  <FontAwesomeIcon icon={faCheckCircle} className="h-8 w-8 mx-auto text-emerald-600 mb-2" />
+                  <p className="text-sm font-bold text-emerald-700">
+                    {lang === "vi" ? "Đã gửi yêu cầu!" : "Request submitted!"}
+                  </p>
+                  <p className="text-xs text-emerald-700/80 mt-1">
+                    {lang === "vi"
+                      ? "Chúng tôi sẽ liên hệ với bạn sớm để tư vấn gói phù hợp."
+                      : "We'll reach out soon to consult on a plan that fits."}
+                  </p>
+                  <button
+                    onClick={() => setCprSubmitted(false)}
+                    className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    {lang === "vi" ? "Gửi yêu cầu khác" : "Submit another request"}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitCustomPlanRequest} className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      required
+                      placeholder={lang === "vi" ? "Họ và tên" : "Full name"}
+                      value={cprName}
+                      onChange={(e) => setCprName(e.target.value)}
+                      className="bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                    />
+                    <input
+                      type="tel"
+                      required
+                      placeholder={lang === "vi" ? "Số điện thoại" : "Phone number"}
+                      value={cprPhone}
+                      onChange={(e) => setCprPhone(e.target.value)}
+                      className="bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      {lang === "vi" ? "Protein mong muốn" : "Desired proteins"}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["CHICKEN", "BEEF", "SHRIMP"] as Protein[]).map((p) => (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() => toggleCprProtein(p)}
+                          className={`text-xs font-bold px-3.5 py-2 rounded-lg border cursor-pointer transition-colors ${
+                            cprProteins.includes(p)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-input border-border text-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          {PROTEIN_LABELS[p] || p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Tổng khối lượng (kg)" : "Total weight (kg)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprEstimatedGrams}
+                        onChange={(e) => setCprEstimatedGrams(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Chu kỳ giao (ngày)" : "Delivery cadence (days)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprIntervalDays}
+                        onChange={(e) => setCprIntervalDays(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        {lang === "vi" ? "Ngân sách (VNĐ)" : "Budget (VND)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder={lang === "vi" ? "Tuỳ chọn" : "Optional"}
+                        value={cprBudget}
+                        onChange={(e) => setCprBudget(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      {lang === "vi" ? "Ghi chú / sở thích riêng" : "Notes / specific preferences"}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder={lang === "vi" ? "Ví dụ: muốn tăng cơ, ít tinh bột, giao 3 lần/tuần buổi sáng..." : "e.g. muscle gain, low carb, deliver 3x/week in the morning..."}
+                      value={cprNotes}
+                      onChange={(e) => setCprNotes(e.target.value)}
+                      className="w-full bg-input border border-border focus:border-primary text-sm py-2.5 px-3.5 rounded-lg outline-none text-foreground resize-none"
+                    />
+                  </div>
+
+                  {cprError && <p className="text-xs text-red-500">{cprError}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={isCprSubmitting}
+                    className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isCprSubmitting && <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />}
+                    {lang === "vi" ? "Gửi yêu cầu tư vấn" : "Submit request"}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         )}
 
         {/* TAB 3: CUSTOMER DASHBOARD */}
         {activeTab === "dashboard" && user && (
           <div>
-            <div className="mb-10">
+            <div className="mb-8">
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? `Chào mừng trở lại, ${user.firstName}` : `Welcome back, ${user.firstName}`}
               </h2>
@@ -2842,193 +3579,348 @@ export default function CustomerPortal() {
               </p>
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-12">
-              {/* Left 2 Cols: Orders list */}
-              <div className="lg:col-span-2 space-y-8">
-                <div>
-                  <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5 text-primary" />
-                    {t("dash_orders_title")}
-                  </h3>
+            {/* Sub-navigation — Overview / Orders / Subscriptions each get
+                their own screen instead of everything stacked into one
+                long, cramped page. */}
+            <div className="flex gap-1 border-b border-border mb-8 overflow-x-auto">
+              {(
+                [
+                  { key: "overview", label: lang === "vi" ? "Tổng quan" : "Overview", icon: faUser },
+                  {
+                    key: "orders",
+                    label: `${t("dash_orders_title")}${myOrders.length ? ` (${myOrders.length})` : ""}`,
+                    icon: faShoppingBag,
+                  },
+                  {
+                    key: "subscriptions",
+                    label: `${t("nav_sub")}${mySubscriptions.length ? ` (${mySubscriptions.length})` : ""}`,
+                    icon: faMagic,
+                  },
+                ] as const
+              ).map((tabItem) => (
+                <button
+                  key={tabItem.key}
+                  onClick={() => setDashboardSection(tabItem.key)}
+                  className={`flex items-center gap-1.5 px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer ${
+                    dashboardSection === tabItem.key
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={tabItem.icon} className="h-3.5 w-3.5" />
+                  {tabItem.label}
+                </button>
+              ))}
+            </div>
 
-                  {isLoadingDashboard ? (
-                    <div className="py-10 text-center">
-                      <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <span className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Đang tải đơn hàng..." : "Retrieving orders..."}
-                      </span>
+            {isLoadingDashboard ? (
+              <div className="py-10 text-center">
+                <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                <span className="text-xs text-muted-foreground">
+                  {lang === "vi" ? "Đang tải..." : "Loading..."}
+                </span>
+              </div>
+            ) : (
+              <>
+                {/* OVERVIEW — quick-glance summary + shortcuts into the
+                    other two sub-tabs, so the customer isn't dropped into a
+                    wall of every order/subscription at once. */}
+                {dashboardSection === "overview" && (
+                  <div className="space-y-8">
+                    <div className="grid sm:grid-cols-3 gap-5">
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                          {lang === "vi" ? "Số dư Ví" : "Wallet Balance"}
+                        </span>
+                        <p className="text-xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                        <button
+                          onClick={() => setActiveTab("subscriptions")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Nạp thêm →" : "Top up →"}
+                        </button>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faShoppingBag} className="h-3 w-3" />
+                          {t("dash_orders_title")}
+                        </span>
+                        <p className="text-xl font-bold mt-1.5">{myOrders.length}</p>
+                        <button
+                          onClick={() => setDashboardSection("orders")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                        </button>
+                      </div>
+
+                      <div className="border border-border bg-card rounded-2xl p-5 shadow-sm">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <FontAwesomeIcon icon={faMagic} className="h-3 w-3" />
+                          {t("nav_sub")}
+                        </span>
+                        <p className="text-xl font-bold mt-1.5">{mySubscriptions.length}</p>
+                        <button
+                          onClick={() => setDashboardSection("subscriptions")}
+                          className="mt-2 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                        </button>
+                      </div>
                     </div>
-                  ) : myOrders.length === 0 ? (
-                    <div className="p-8 text-center border border-dashed border-border rounded-xl">
-                      <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
-                      <button
-                        onClick={() => setActiveTab("menu")}
-                        className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
-                      >
-                        {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {myOrders.map((order) => (
-                        <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
-                            <div>
-                              <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
-                              <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+
+                    {myOrders.length === 0 && mySubscriptions.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                        <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("menu")}
+                          className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
+                        </button>
+                      </div>
+                    ) : (
+                      myOrders.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center justify-between">
+                            {lang === "vi" ? "Đơn hàng gần nhất" : "Most recent order"}
+                            <button
+                              onClick={() => setDashboardSection("orders")}
+                              className="text-[11px] font-bold text-primary hover:underline cursor-pointer normal-case tracking-normal"
+                            >
+                              {lang === "vi" ? "Xem tất cả →" : "View all →"}
+                            </button>
+                          </h3>
+                          <div className="border border-border bg-card rounded-2xl p-5 flex items-center justify-between gap-3 shadow-sm">
+                            <div className="min-w-0">
+                              <div className="text-xs font-mono font-semibold text-foreground/80 truncate">{myOrders[0].id}</div>
+                              <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                                {(myOrders[0].items || []).map((i: any) => i.flavor).join(", ")}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
-                                {formatVND(order.totalAmount)}
+                                {formatVND(myOrders[0].total)}
                               </span>
                               <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
-                                {order.status}
+                                {myOrders[0].status}
                               </span>
                             </div>
                           </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
 
-                          {/* List order items */}
-                          <div className="space-y-3.5">
-                            {order.items.map((i: any) => (
-                              <div key={i.id} className="flex justify-between items-center text-xs">
-                                <span className="font-semibold text-foreground/90">
-                                  {i.menuItem?.name || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.quantity}</span>
-                                </span>
-                                <span className="text-muted-foreground font-medium">{formatVND(i.price * i.quantity)}</span>
+                {/* ORDERS — full order history, full width now that it's
+                    not squeezed into a 2/3 column next to subscriptions. */}
+                {dashboardSection === "orders" && (
+                  <div>
+                    {myOrders.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                        <p className="text-xs text-muted-foreground">{t("dash_orders_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("menu")}
+                          className="mt-4 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Khám phá Thực đơn và đặt món ngay" : "Browse Menu and order now"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="max-w-3xl space-y-6">
+                        {myOrders.map((order) => (
+                          <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
+                              <div>
+                                <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
+                                <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
                               </div>
-                            ))}
-                          </div>
-
-                          {/* Live Step Progress Indicator for COD/Shipment */}
-                          <div>
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                              {t("status_label")}
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
+                                  {formatVND(order.total)}
+                                </span>
+                                <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
+                                  {order.status}
+                                </span>
+                              </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 relative">
-                              {/* Horizontal connecting line */}
-                              <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
 
-                              {[
-                                { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
-                                { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
-                                { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
-                                { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
-                              ].map((step) => {
-                                const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
-                                const currentIdx = statuses.indexOf(order.status);
-                                const targetIdx = statuses.indexOf(step.key === "DELIVERED" ? "DELIVERED" : step.key);
-                                const isPassed = currentIdx >= targetIdx;
+                            {/* List order items */}
+                            <div className="space-y-3.5">
+                              {(order.items || []).map((i: any) => (
+                                <div key={i.id} className="flex justify-between items-center text-xs">
+                                  <span className="font-semibold text-foreground/90">
+                                    {i.flavor || "Gourmet Dish"} <span className="text-muted-foreground font-normal">x {i.qty}</span>
+                                  </span>
+                                  <span className="text-muted-foreground font-medium">{formatVND(i.unitPrice * i.qty)}</span>
+                                </div>
+                              ))}
+                            </div>
 
-                                return (
-                                  <div key={step.key} className="flex flex-col items-center text-center">
-                                    <div
-                                      className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
-                                        isPassed
-                                          ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
-                                          : "bg-muted border-border text-muted-foreground"
-                                      }`}
-                                    >
-                                      <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
+                            {/* Live Step Progress Indicator for COD/Shipment */}
+                            <div>
+                              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
+                                {t("status_label")}
+                              </div>
+                              <div className="grid grid-cols-4 gap-2 relative">
+                                {/* Horizontal connecting line */}
+                                <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
+
+                                {[
+                                  { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
+                                  { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
+                                  { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
+                                  { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
+                                ].map((step) => {
+                                  const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+                                  const currentIdx = statuses.indexOf(order.status);
+                                  const targetIdx = statuses.indexOf(step.key === "DELIVERED" ? "DELIVERED" : step.key);
+                                  const isPassed = currentIdx >= targetIdx;
+
+                                  return (
+                                    <div key={step.key} className="flex flex-col items-center text-center">
+                                      <div
+                                        className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
+                                          isPassed
+                                            ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
+                                            : "bg-muted border-border text-muted-foreground"
+                                        }`}
+                                      >
+                                        <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
+                                      </div>
+                                      <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
                                     </div>
-                                    <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Shipment details */}
+                            <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
+                              <span className="flex items-center gap-1">
+                                <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
+                                {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
+                              </span>
+                              <span className="font-semibold text-foreground/80">
+                                {lang === "vi"
+                                  ? `Thanh toán: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Đã trả" : "Chưa trả"})`
+                                  : `Payment: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Paid" : "Unpaid"})`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SUBSCRIPTIONS — full width now too. */}
+                {dashboardSection === "subscriptions" && (
+                  <div>
+                    {mySubscriptions.length === 0 ? (
+                      <div className="p-6 text-center border border-dashed border-border rounded-xl bg-muted/10">
+                        <p className="text-xs text-muted-foreground">{t("dash_subs_empty")}</p>
+                        <button
+                          onClick={() => setActiveTab("subscriptions")}
+                          className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
+                        >
+                          {lang === "vi" ? "Đăng ký các gói hàng ngày/tuần" : "Subscribe to daily/weekly plans"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="max-w-2xl space-y-4">
+                        {mySubscriptions.map((sub) => (
+                          <div key={sub.id} className="border border-border bg-card rounded-2xl p-5 space-y-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                  {lang === "vi" ? `${sub.deliveryIntervalDays} ngày/lần` : `Every ${sub.deliveryIntervalDays}d`}
+                                </span>
+                                <h4 className="text-sm font-bold font-heading mt-1.5">{sub.packageName}</h4>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                  sub.status === "ACTIVE"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-amber-50 border-amber-200 text-amber-700"
+                                }`}
+                              >
+                                {sub.status}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-muted-foreground space-y-1">
+                              <div>
+                                {lang === "vi" ? "Tổng giá trị gói: " : "Package price: "} <span className="font-semibold text-foreground">{formatVND(sub.totalPrice)}</span>
+                              </div>
+                              <div>
+                                {lang === "vi" ? "Bắt đầu: " : "Started: "}{" "}
+                                <span className="font-semibold text-foreground">
+                                  {new Date(sub.startDate).toLocaleDateString("vi-VN")}
+                                </span>
+                              </div>
+                            </div>
+
+                            {(sub.pools || []).length > 0 && (
+                              <div className="space-y-1.5">
+                                {sub.pools.map((pool: any) => (
+                                  <div key={pool.id} className="flex items-center justify-between text-[11px]">
+                                    <span className="text-muted-foreground font-medium">{pool.protein}</span>
+                                    <span className="font-semibold text-foreground">
+                                      {(pool.remainingGrams / 1000).toFixed(1)}kg / {(pool.totalGrams / 1000).toFixed(1)}kg{" "}
+                                      {lang === "vi" ? "còn lại" : "left"}
+                                    </span>
                                   </div>
-                                );
-                              })}
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Pay in full from wallet — no split payment, see
+                                docs/plan-and-credit-design.md. This view is
+                                already logged-in (/subscriptions/me), so no
+                                extra auth gate is needed here. */}
+                            {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
+                              <div className="pt-3 border-t border-border/50 space-y-2">
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                  <span>{lang === "vi" ? "Cần thanh toán:" : "Payment due:"}</span>
+                                  <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
+                                </div>
+                                <button
+                                  onClick={() => handlePayFromWallet(sub.id)}
+                                  disabled={payingSubscriptionId === sub.id}
+                                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-[10px] font-extrabold py-2 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                >
+                                  {payingSubscriptionId === sub.id ? (
+                                    <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                                      {lang === "vi" ? "Thanh toán bằng Ví" : "Pay from Wallet"}
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="pt-3 border-t border-border/50 flex gap-2">
+                              <button
+                                onClick={() => handlePauseSubscription(sub.id, sub.status)}
+                                className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-[10px] font-extrabold py-2 px-3 rounded-lg border border-border transition-colors cursor-pointer"
+                              >
+                                {sub.status === "ACTIVE" ? (lang === "vi" ? "Tạm dừng" : "Pause") : (lang === "vi" ? "Kích hoạt lại" : "Resume")}
+                              </button>
                             </div>
                           </div>
-
-                          {/* Shipment details */}
-                          <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
-                            <span className="flex items-center gap-1">
-                              <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3.5 w-3.5 text-primary shrink-0" />
-                              {lang === "vi" ? `Giao tới: ${order.deliveryAddress}` : `Shipped to: ${order.deliveryAddress}`}
-                            </span>
-                            <span className="font-semibold text-foreground/80">
-                              {lang === "vi"
-                                ? `Thanh toán: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Đã trả" : "Chưa trả"})`
-                                : `Payment: ${order.payment?.method === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"} (${order.payment?.status === "PAID" ? "Paid" : "Unpaid"})`}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Col: Active subscriptions */}
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-bold font-heading mb-4 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faMagic} className="h-5 w-5 text-primary" />
-                    {t("nav_sub")}
-                  </h3>
-
-                  {isLoadingDashboard ? (
-                    <div className="py-6 text-center">
-                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
-                    </div>
-                  ) : mySubscriptions.length === 0 ? (
-                    <div className="p-6 text-center border border-dashed border-border rounded-xl bg-muted/10">
-                      <p className="text-xs text-muted-foreground">{t("dash_subs_empty")}</p>
-                      <button
-                        onClick={() => setActiveTab("subscriptions")}
-                        className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
-                      >
-                        {lang === "vi" ? "Đăng ký các gói hàng ngày/tuần" : "Subscribe to daily/weekly plans"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {mySubscriptions.map((sub) => (
-                        <div key={sub.id} className="border border-border bg-card rounded-2xl p-5 space-y-4 shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                                {sub.frequency}
-                              </span>
-                              <h4 className="text-sm font-bold font-heading mt-1.5">
-                                {lang === "vi" ? "Hộp cơm dinh dưỡng" : "Chef Meal Box"}
-                              </h4>
-                            </div>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                sub.status === "ACTIVE"
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                  : "bg-amber-50 border-amber-200 text-amber-700"
-                              }`}
-                            >
-                              {sub.status}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-muted-foreground space-y-1">
-                            <div>
-                              {lang === "vi" ? "Giá mỗi chu kỳ: " : "Cycle Price: "} <span className="font-semibold text-foreground">{formatVND(sub.pricePerCycle)}</span>
-                            </div>
-                            <div>
-                              {lang === "vi" ? "Giao hàng tiếp theo: " : "Next Delivery: "}{" "}
-                              <span className="font-semibold text-foreground">
-                                {new Date(sub.nextDeliveryDate).toLocaleDateString("vi-VN")}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="pt-3 border-t border-border/50 flex gap-2">
-                            <button
-                              onClick={() => handlePauseSubscription(sub.id, sub.status)}
-                              className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-[10px] font-extrabold py-2 px-3 rounded-lg border border-border transition-colors cursor-pointer"
-                            >
-                              {sub.status === "ACTIVE" ? (lang === "vi" ? "Tạm dừng" : "Pause") : (lang === "vi" ? "Kích hoạt lại" : "Resume")}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </main>
@@ -3112,7 +4004,7 @@ export default function CustomerPortal() {
                       </div>
 
                       <button
-                        onClick={() => removeFromCart(item.menuItem.id)}
+                        onClick={() => removeFromCart(item.menuItem.id, lang)}
                         className="absolute top-3 right-3 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
                       >
                         <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4" />
@@ -3131,18 +4023,40 @@ export default function CustomerPortal() {
                     <span>{t("cart_subtotal")}</span>
                     <span>{formatVND(cartTotal)}</span>
                   </div>
+                  {discountCodeAmount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>
+                        {t("cart_discount")} ({discountCode.trim().toUpperCase()})
+                      </span>
+                      <span>-{formatVND(discountCodeAmount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{t("cart_shipping")}</span>
                     <span>{formatVND(30000)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold border-t border-border/50 pt-2.5">
                     <span>{t("cart_total")}</span>
-                    <span className="text-primary">{formatVND(cartTotal + 30000)}</span>
+                    <span className="text-primary">{formatVND(checkoutFinalTotal)}</span>
                   </div>
                 </div>
 
                 {/* Checkout Form */}
-                <form onSubmit={handleCheckout} className="space-y-3.5 pt-2">
+                <form
+                  onSubmit={handleCheckout}
+                  // This form has several plain <input>s (street address,
+                  // notes, discount code) — without this, pressing Enter in
+                  // ANY of them submits the whole form and places the order
+                  // immediately, skipping payment-method confirmation
+                  // entirely. Block Enter-triggered submission from inputs;
+                  // the actual "Thanh toán" button still submits normally.
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="space-y-3.5 pt-2"
+                >
                   {checkoutAddress && !isEditingAddress ? (
                     <div className="space-y-1 bg-muted/40 p-3 rounded-xl border border-border">
                       <div className="flex justify-between items-start gap-1">
@@ -3245,13 +4159,30 @@ export default function CustomerPortal() {
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
                     )}
+                    {user && myActiveVoucher && discountCode === myActiveVoucher.code && (
+                      <p className="text-[9px] text-primary font-medium mt-1">
+                        {lang === "vi"
+                          ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
+                          : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
+                      </p>
+                    )}
+                    {discountCodeStatus === "valid" && !(myActiveVoucher && discountCode === myActiveVoucher.code) && (
+                      <p className="text-[9px] text-emerald-600 font-medium mt-1">
+                        {lang === "vi" ? `✓ Đã áp dụng: giảm ${formatVND(discountCodeAmount)}` : `✓ Applied: ${formatVND(discountCodeAmount)} off`}
+                      </p>
+                    )}
+                    {discountCodeStatus === "invalid" && (
+                      <p className="text-[9px] text-red-500 font-medium mt-1">
+                        {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                       {t("cart_payment")}
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid ${user ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
@@ -3276,7 +4207,36 @@ export default function CustomerPortal() {
                         <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
                         {t("payment_vietqr")}
                       </button>
+                      {/* WALLET — an account-only option (Customer.walletBalance),
+                          only shown once logged in. Greyed out/warns if the
+                          balance can't fully cover the cart total, since the
+                          API rejects a WALLET order outright when short. */}
+                      {user && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("WALLET")}
+                          disabled={walletBalance < checkoutFinalTotal}
+                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                            paymentMethod === "WALLET"
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-background hover:bg-muted"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1">
+                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 shrink-0" />
+                            {lang === "vi" ? "Ví" : "Wallet"}
+                          </span>
+                          <span className="text-[9px] font-normal text-muted-foreground">{formatVND(walletBalance)}</span>
+                        </button>
+                      )}
                     </div>
+                    {user && walletBalance < checkoutFinalTotal && (
+                      <p className="text-[9px] text-amber-600 font-medium mt-1">
+                        {lang === "vi"
+                          ? "Số dư Ví không đủ để thanh toán trọn đơn này."
+                          : "Wallet balance isn't enough to cover this order in full."}
+                      </p>
+                    )}
                   </div>
 
                   <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
@@ -3301,7 +4261,12 @@ export default function CustomerPortal() {
 
                   <button
                     type="submit"
-                    disabled={isSubmittingOrder || !checkoutAgreeTerms || !checkoutAddress}
+                    disabled={
+                      isSubmittingOrder ||
+                      !checkoutAgreeTerms ||
+                      !checkoutAddress ||
+                      (paymentMethod === "WALLET" && walletBalance < checkoutFinalTotal)
+                    }
                     className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
                   >
                     {isSubmittingOrder ? (
@@ -3309,7 +4274,11 @@ export default function CustomerPortal() {
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faCheck} className="h-4 w-4" />
-                        {paymentMethod === "CASH_ON_DELIVERY" ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)") : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
+                        {paymentMethod === "CASH_ON_DELIVERY"
+                          ? (lang === "vi" ? "Đặt hàng (COD)" : "Order Now (COD)")
+                          : paymentMethod === "WALLET"
+                          ? (lang === "vi" ? "Thanh toán bằng Ví" : "Pay with Wallet")
+                          : (lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Payment")}
                       </>
                     )}
                   </button>
@@ -3732,6 +4701,75 @@ export default function CustomerPortal() {
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
             >
               {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PLAN PURCHASE PENDING — bank-transfer instructions for a
+          SubscriptionPlan top-up. No instant credit: the wallet is only
+          credited once staff confirm the transfer arrived (status stays
+          PENDING until then). Reuses the same bank account shown at
+          checkout. */}
+      {planPurchaseResult && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setPlanPurchaseResult(null)} />
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
+            <FontAwesomeIcon icon={faClock} className="h-10 w-10 mx-auto text-amber-500" />
+            <h3 className="text-base font-bold font-heading">
+              {lang === "vi" ? "Đang chờ chuyển khoản" : "Awaiting Bank Transfer"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {lang === "vi"
+                ? `Bạn đã đăng ký mua gói "${planPurchaseResult.planName}". Vui lòng chuyển khoản theo thông tin bên dưới — số dư Ví sẽ được cộng ngay khi đội ngũ Fortify Kitchen xác nhận đã nhận được tiền.`
+                : `You've requested the "${planPurchaseResult.planName}" plan. Please transfer the amount below — your wallet will be credited once our team confirms the transfer arrived.`}
+            </p>
+
+            <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
+              <p className="text-xs font-bold text-foreground text-center">
+                {lang === "vi" ? "Quét mã VietQR để chuyển khoản" : "Scan VietQR to Transfer"}
+              </p>
+              <div className="bg-white p-2 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
+                <img
+                  src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${planPurchaseResult.amount}&addInfo=FK${planPurchaseResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
+                  alt="VietQR Payment Code"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="text-[11px] space-y-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Ngân hàng:" : "Bank:"}</span>
+                  <span className="font-bold text-foreground">MB Bank</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Số tài khoản:" : "Account Number:"}</span>
+                  <span className="font-bold text-foreground font-mono">19035678901234</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Chủ tài khoản:" : "Account Holder:"}</span>
+                  <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Số tiền:" : "Amount:"}</span>
+                  <span className="font-bold text-primary font-mono">{formatVND(planPurchaseResult.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{lang === "vi" ? "Nội dung chuyển khoản:" : "Transfer Reference:"}</span>
+                  <span className="font-bold text-primary font-mono">FK{planPurchaseResult.id.slice(0, 8).toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 text-center leading-normal">
+                {lang === "vi"
+                  ? "Trạng thái: Đang chờ xác nhận (PENDING). Ví sẽ được cộng tiền sau khi đội ngũ xác nhận đã nhận được chuyển khoản."
+                  : "Status: PENDING confirmation. Your wallet will be credited once our team confirms the transfer arrived."}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setPlanPurchaseResult(null)}
+              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+            >
+              {lang === "vi" ? "Đã hiểu / Đóng" : "Got it / Close"}
             </button>
           </div>
         </div>

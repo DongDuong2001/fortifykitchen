@@ -96,4 +96,9 @@ export class CreatePublicOrderDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiProperty({ example: "WELCOME10", required: false, description: "Stacks additively with the automatic tier discount" })
+  @IsString()
+  @IsOptional()
+  discountCode?: string;
 }

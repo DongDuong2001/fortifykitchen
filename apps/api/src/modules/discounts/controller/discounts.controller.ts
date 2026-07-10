@@ -5,6 +5,7 @@ import { CreateDiscountDto } from "../dto/create-discount.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 
 @ApiTags("discounts")
 @Controller("discounts")
@@ -18,6 +19,16 @@ export class DiscountsController {
   @ApiResponse({ status: 404, description: "Discount code not found" })
   async verify(@Query("code") code: string) {
     return this.discountsService.verify(code);
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("CUSTOMER")
+  @ApiBearerAuth("JWT-auth")
+  @ApiOperation({ summary: "Get the current customer's own active personal voucher, if any" })
+  @ApiResponse({ status: 200, description: "Returns the active voucher, or null if none." })
+  async findMine(@CurrentUser() user: any) {
+    return this.discountsService.findMyActive(user.id);
   }
 
   @Get()

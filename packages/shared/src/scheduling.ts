@@ -1,4 +1,4 @@
-import type { DeliveryStatus, OrderFulfillmentType, PaymentState, Protein } from "@fortifykitchen/types";
+import type { OrderStatus, OrderFulfillmentType, PaymentState, Protein } from "@fortifykitchen/types";
 
 /**
  * Protein display names (Vietnamese) — ported from the original app's
@@ -36,24 +36,36 @@ export const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
 export const PAYMENT_STATES: PaymentState[] = ["UNPAID", "DEPOSIT", "PAID"];
 
 /**
- * Delivery status labels. The original app displayed the raw English enum
- * values as-is (e.g. "Scheduled", "Prepping") — kept the same convention
- * here for continuity, just title-cased from the Prisma enum keys.
+ * Unified order status labels (Vietnamese) — shared by one-off orders and
+ * subscription-generated orders alike, modeled on a Shopee-style flow. See
+ * OrderStatus in @fortifykitchen/types.
  */
-export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
-  SCHEDULED: "Scheduled",
-  PREPPING: "Prepping",
-  DELIVERED: "Delivered",
-  SKIPPED: "Skipped",
-  CANCELLED: "Cancelled",
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING_CONFIRMATION: "Chờ xác nhận",
+  CONFIRMED: "Đã xác nhận",
+  PREPARING: "Đang chuẩn bị",
+  OUT_FOR_DELIVERY: "Đang giao",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
 };
 
-export const DELIVERY_STATUSES: DeliveryStatus[] = [
-  "SCHEDULED",
-  "PREPPING",
-  "DELIVERED",
-  "SKIPPED",
+export const ORDER_STATUSES: OrderStatus[] = [
+  "PENDING_CONFIRMATION",
+  "CONFIRMED",
+  "PREPARING",
+  "OUT_FOR_DELIVERY",
+  "COMPLETED",
   "CANCELLED",
+];
+
+// Statuses that still count as "in flight" — not yet finished and not
+// cancelled. Used to scope the admin "current" view and the customer-web
+// "upcoming" list.
+export const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  "PENDING_CONFIRMATION",
+  "CONFIRMED",
+  "PREPARING",
+  "OUT_FOR_DELIVERY",
 ];
 
 /**
@@ -136,7 +148,7 @@ export function computeDeliveryCount(
  * Given a start date, delivery interval, and number of deliveries, compute
  * the ISO scheduled dates for the whole run — the same generation logic the
  * original app used inline in SubscriptionsPage's handleCreate. Centralized
- * here so the API (which actually creates the Delivery rows) and any
+ * here so the API (which actually creates the Order rows) and any
  * frontend preview use identical math.
  */
 export function generateDeliveryDates(
@@ -198,8 +210,8 @@ export interface VolumeScheduleEntry {
  * Theoretical full schedule for a volume subscription — every occurrence
  * from startDate until the total weight is exhausted, one entry per
  * deliveryIntervalDays. Purely a projection/preview: the API only ever
- * materializes real Delivery rows for occurrences landing within the next
- * 7 days (see SubscriptionsService.syncUpcomingDeliveries), and after a
+ * materializes real Order rows for occurrences landing within the next
+ * 7 days (see SubscriptionsService.syncUpcomingOrders), and after a
  * postpone the *actual* on-disk dates diverge from this projection (which
  * assumes no postpones) — this is for up-front previewing at creation time
  * and for display estimates only.
