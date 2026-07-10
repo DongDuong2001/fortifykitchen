@@ -128,6 +128,46 @@ export class OrdersService {
     return map;
   }
 
+  // Looks up + validates a discount code for a given customer, WITHOUT
+  // claiming it — the actual one-redemption-per-customer claim happens
+  // atomically inside the order-creation transaction (see
+  // createForCustomer), since a plain check here would leave a race window
+  // between two concurrent orders both reading "not yet redeemed."
+  // Mirrors DiscountsService.verify's active/date-window rules, plus an
+  // ownership check for personal (customerId-scoped) vouchers — decided:
+  // codes stack additively with the automatic tier discount rather than
+  // replacing it (see createForCustomer).
+  private async resolveDiscount(
+    code: string,
+    customerId: string,
+  ): Promise<{ id: string; code: string; type: string; amount: Decimal; customerId: string | null }> {
+    const normalized = code.trim().toUpperCase();
+    const discount = await this.db.client.discount.findUnique({ where: { code: normalized } });
+    if (!discount) {
+      throw new NotFoundException(`Discount code "${code}" not found`);
+    }
+    const now = new Date();
+    if (!discount.isActive) {
+      throw new BadRequestException(`Discount code "${code}" is no longer active`);
+    }
+    if (now < discount.startsAt || now > discount.endsAt) {
+      throw new BadRequestException(`Discount code "${code}" is not valid at this time`);
+    }
+    if (discount.customerId && discount.customerId !== customerId) {
+      throw new BadRequestException(`Discount code "${code}" is not valid for your account`);
+    }
+    return discount;
+  }
+
+  // Amount this discount knocks off `lineSubtotal`, clamped so it can never
+  // exceed the subtotal it's applied against (a FIXED discount larger than
+  // the order shouldn't produce a negative total).
+  private computeDiscountAmount(discount: { type: string; amount: Decimal }, lineSubtotal: number): number {
+    const amount = Number(discount.amount);
+    const raw = discount.type === "PERCENTAGE" ? (lineSubtotal * amount) / 100 : amount;
+    return Math.min(Math.max(raw, 0), lineSubtotal);
+  }
+
   async create(dto: CreateOrderDto, userId?: string, userRole?: string): Promise<Order> {
     let customerId = dto.customerId;
 
@@ -168,6 +208,7 @@ export class OrdersService {
       dto.notes,
       dto.paymentMethod,
       dto.deliveryAddress ?? customer.address ?? undefined,
+      dto.discountCode,
     );
   }
 
@@ -193,7 +234,16 @@ export class OrdersService {
 
     const fallbackDeliveryDate = dto.deliveryDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    return this.createForCustomer(customer, dto.items, fallbackDeliveryDate, undefined, dto.notes, dto.paymentMethod, dto.address);
+    return this.createForCustomer(
+      customer,
+      dto.items,
+      fallbackDeliveryDate,
+      undefined,
+      dto.notes,
+      dto.paymentMethod,
+      dto.address,
+      dto.discountCode,
+    );
   }
 
   // Order history for the customer-web "My Orders" view — same phone-based
@@ -217,13 +267,29 @@ export class OrdersService {
     notes: string | undefined,
     paymentMethod?: PaymentMethod,
     deliveryAddress?: string,
+    discountCodeInput?: string,
   ): Promise<Order> {
     const lineItems = await this.buildLineItems(items);
     const pricing = calculateOrderTotal(lineItems);
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
     const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
-    const total = Math.round(pricing.finalTotal);
+
+    // Resolved here (read-only) so validation errors surface before we open
+    // a transaction; the actual one-redemption-per-customer CLAIM still
+    // happens inside the transaction below via a unique-constraint insert,
+    // since that's the only way to close the race between two concurrent
+    // orders both redeeming the same single-use code.
+    const discount = discountCodeInput ? await this.resolveDiscount(discountCodeInput, customer.id) : null;
+
+    // Stacking, per business decision: a discount code ADDS to the
+    // automatic tier discount rather than replacing it (max/best-of-both
+    // was the original proposal — overridden). Both amounts are computed
+    // off the same post-meat-discount lineSubtotal and combined, clamped so
+    // the total discount can never exceed the subtotal itself.
+    const codeDiscountAmount = discount ? this.computeDiscountAmount(discount, pricing.lineSubtotal) : 0;
+    const combinedDiscountAmount = Math.min(pricing.orderDiscountAmount + codeDiscountAmount, pricing.lineSubtotal);
+    const total = Math.round(pricing.lineSubtotal - combinedDiscountAmount);
 
     const order = await this.db.client.$transaction(async (tx) => {
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
@@ -258,7 +324,8 @@ export class OrdersService {
           paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
           deliveryAddress,
           subtotal: Math.round(pricing.lineSubtotal),
-          discountAmount: Math.round(pricing.orderDiscountAmount),
+          discountAmount: Math.round(combinedDiscountAmount),
+          discountCode: discount?.code,
           total,
           notes,
           source: OrderSource.ONE_OFF,
@@ -288,6 +355,31 @@ export class OrdersService {
             status: PaymentStatus.COMPLETED,
           },
         });
+      }
+
+      // Atomically claim the redemption — relies on the
+      // @@unique([discountId, customerId]) constraint to throw (rather than
+      // a racy check-then-write) if a concurrent order already redeemed
+      // this code for this customer, rolling back everything above
+      // (stock, wallet, order) along with it.
+      if (discount) {
+        try {
+          await tx.discountRedemption.create({
+            data: { discountId: discount.id, customerId: customer.id, orderId: created.id },
+          });
+        } catch (err) {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+            throw new BadRequestException(`Discount code "${discount.code}" has already been used on your account.`);
+          }
+          throw err;
+        }
+
+        // Personal plan-purchase vouchers only ever had one eligible
+        // customer — hard-deactivate on use rather than relying solely on
+        // the redemption row.
+        if (discount.customerId) {
+          await tx.discount.update({ where: { id: discount.id }, data: { isActive: false } });
+        }
       }
 
       return created;
@@ -732,6 +824,7 @@ export class OrdersService {
       deliveryAddress: order.deliveryAddress ?? undefined,
       subtotal: order.subtotal,
       discountAmount: order.discountAmount,
+      discountCode: order.discountCode ?? undefined,
       total: order.total,
       notes: order.notes ?? undefined,
       items: order.items.map((i) => ({
