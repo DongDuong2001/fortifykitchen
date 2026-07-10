@@ -303,6 +303,7 @@ const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
 export default function CustomerPortal() {
   const {
     user,
+    token,
     cart,
     cartCount,
     cartTotal,
@@ -363,6 +364,7 @@ export default function CustomerPortal() {
   const [orderNowDiscountCode, setOrderNowDiscountCode] = React.useState("");
   const [orderNowVerifiedDiscount, setOrderNowVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
   const [orderNowDiscountCodeStatus, setOrderNowDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [orderNowDiscountCodeError, setOrderNowDiscountCodeError] = React.useState<string | null>(null);
 
   // Custom ordering states
   const [orderFlowType, setOrderFlowType] = React.useState<"standard" | "custom">("standard");
@@ -553,15 +555,23 @@ export default function CustomerPortal() {
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
+  // Checkout failures (e.g. "this discount code has already been used") were
+  // previously only surfaced via a global toast, which sits at the same
+  // z-index as this cart drawer's own backdrop and could be easy to miss
+  // while the drawer is open - this inline banner guarantees the customer
+  // sees why "Đặt hàng" didn't go through.
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   // Live preview of whatever's typed in discountCode - lets the customer see
   // the discount actually land (and see a clear "invalid code" state)
   // before placing the order, instead of finding out only after submitting.
-  // Uses the existing public GET /discounts/verify (no ownership check, no
-  // auth needed) purely for this preview; the real
-  // active/date-window/ownership/already-used enforcement still happens
-  // server-side at order creation.
+  // GET /discounts/verify stays public (usable before login), but when a
+  // token is present the API also checks per-customer redemption history,
+  // so "already used" shows up here too - not just after a failed checkout.
+  // Full active/date-window enforcement is still re-checked server-side at
+  // order creation regardless (this preview is not the source of truth).
   const [verifiedDiscount, setVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
   const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [discountCodeError, setDiscountCodeError] = React.useState<string | null>(null);
 
   // Custom Bowl Calculator States
   const [customProtein, setCustomProtein] = React.useState<string>("chicken");
@@ -802,19 +812,30 @@ export default function CustomerPortal() {
     }
     setDiscountCodeStatus("checking");
     const timer = setTimeout(() => {
-      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
+      // Passing the token (when logged in) lets the API also catch "you've
+      // already used this code" right here in the preview, instead of only
+      // surfacing it after a full checkout attempt is rejected.
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(body?.message);
+          return body;
+        })
         .then((result) => {
           setVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
           setDiscountCodeStatus("valid");
+          setDiscountCodeError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           setVerifiedDiscount(null);
           setDiscountCodeStatus("invalid");
+          setDiscountCodeError(translateApiError(err?.message, lang, ""));
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [discountCode, API_URL]);
+  }, [discountCode, API_URL, token, lang]);
 
   // Same debounced live preview for the Order Now flow's discount code field.
   React.useEffect(() => {
@@ -826,19 +847,27 @@ export default function CustomerPortal() {
     }
     setOrderNowDiscountCodeStatus("checking");
     const timer = setTimeout(() => {
-      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(body?.message);
+          return body;
+        })
         .then((result) => {
           setOrderNowVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
           setOrderNowDiscountCodeStatus("valid");
+          setOrderNowDiscountCodeError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           setOrderNowVerifiedDiscount(null);
           setOrderNowDiscountCodeStatus("invalid");
+          setOrderNowDiscountCodeError(translateApiError(err?.message, lang, ""));
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [orderNowDiscountCode, API_URL]);
+  }, [orderNowDiscountCode, API_URL, token, lang]);
 
   const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
   const planDiscountAmountCart = hasActivePlanDiscount ? (cartTotal * planDiscountPercent) / 100 : 0;
@@ -901,9 +930,18 @@ export default function CustomerPortal() {
       setAuthModal("login");
       return;
     }
+    setCheckoutError(null);
     setIsSubmittingOrder(true);
     const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
+    if (result && result.success === false) {
+      // placeOrder already fires a toast, but that sits at the same
+      // z-index as this drawer's own backdrop and can be easy to miss
+      // while the drawer is open - show it inline too so a rejected
+      // discount code (or any other failure) is impossible to miss.
+      setCheckoutError(result.message || (lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order"));
+      return;
+    }
     if (result) {
       // Explicit refresh rather than relying on the activeTab-change effect
       // below: the cart can be opened from ANY tab (including while already
@@ -2928,7 +2966,7 @@ export default function CustomerPortal() {
                       )}
                       {orderNowDiscountCodeStatus === "invalid" && (
                         <p className="text-[9px] text-red-500 font-medium mt-1">
-                          {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                          {orderNowDiscountCodeError || (lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired")}
                         </p>
                       )}
                     </div>
@@ -4222,7 +4260,7 @@ export default function CustomerPortal() {
                     )}
                     {discountCodeStatus === "invalid" && (
                       <p className="text-[9px] text-red-500 font-medium mt-1">
-                        {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                        {discountCodeError || (lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired")}
                       </p>
                     )}
                   </div>
@@ -4307,6 +4345,8 @@ export default function CustomerPortal() {
                       </button>
                     </span>
                   </label>
+
+                  {checkoutError && <p className="text-[10px] text-red-500 leading-normal font-medium">{checkoutError}</p>}
 
                   <button
                     type="submit"
