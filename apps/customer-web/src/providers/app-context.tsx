@@ -83,7 +83,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        throw new Error("Connection failed");
+      }
 
       const result = await res.json();
       if (!res.ok) {
@@ -128,7 +131,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      });
+      }).catch(() => null);
+      if (!res) {
+        throw new Error("Connection failed");
+      }
 
       const result = await res.json();
       if (!res.ok) {
@@ -269,7 +275,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           paymentMethod,
           discountCode: trimmedDiscountCode,
         }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        throw new Error("Connection failed");
+      }
 
       const result = await res.json();
       if (!res.ok) {
