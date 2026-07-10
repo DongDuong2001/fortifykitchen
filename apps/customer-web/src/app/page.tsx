@@ -364,6 +364,17 @@ export default function CustomerPortal() {
   const [orderNowVerifiedDiscount, setOrderNowVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
   const [orderNowDiscountCodeStatus, setOrderNowDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
+  // Custom ordering states
+  const [orderFlowType, setOrderFlowType] = React.useState<"standard" | "custom">("standard");
+  const [customOrderProtein, setCustomOrderProtein] = React.useState("chicken");
+  const [customOrderSize, setCustomOrderSize] = React.useState<number>(150);
+  const [customOrderCarb, setCustomOrderCarb] = React.useState("rice");
+  const [customOrderToppings, setCustomOrderToppings] = React.useState<string[]>([]);
+  const [customOrderSauce, setCustomOrderSauce] = React.useState("sesame");
+  const [customOrderDeliveryDate, setCustomOrderDeliveryDate] = React.useState("");
+  const [customOrderQty, setCustomOrderQty] = React.useState<number>(1);
+  const [showCheckoutReview, setShowCheckoutReview] = React.useState(false);
+
   const [checkoutProvince, setCheckoutProvince] = React.useState("");
   const [checkoutWard, setCheckoutWard] = React.useState("");
   const [checkoutStreet, setCheckoutStreet] = React.useState("");
@@ -1232,12 +1243,45 @@ export default function CustomerPortal() {
   const orderNowPlanDiscountAmount = hasActivePlanDiscount ? (orderNowTotal * planDiscountPercent) / 100 : 0;
   const orderNowCombinedDiscountAmount = Math.min(orderNowDiscountAmount + orderNowPlanDiscountAmount, orderNowTotal);
 
-  const handleSubmitOrderNow = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
+  const handleSubmitOrderNow = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if ((orderFlowType === "standard" && orderNowCart.length === 0) || !orderNowName.trim() || !orderNowPhone.trim()) return;
     setIsSubmittingOrderNow(true);
     setOrderNowError(null);
     try {
+      const payload: any = {
+        name: orderNowName.trim(),
+        phone: orderNowPhone.trim(),
+        address: orderNowAddress.trim() || undefined,
+        notes: orderNowNotes.trim() || undefined,
+        paymentMethod: orderNowPaymentMethod,
+      };
+
+      if (orderFlowType === "standard") {
+        payload.items = orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty }));
+      } else {
+        const customPrice = calculateCustomOrderPrice();
+        const pLabel = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.label.split(" (")[0] || "";
+        const cLabel = CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.label.split(" (")[0] || "";
+        const sLabel = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce)?.label.split(" (")[0] || "";
+        const tLabels = customOrderToppings.map(t => TOPPING_OPTIONS.find(x => x.id === t)?.label.split(" (")[0]).join(", ");
+        
+        const flavorName = lang === "vi"
+          ? `Tự chọn: ${pLabel} ${customOrderSize}g`
+          : `Custom: ${customOrderProtein} ${customOrderSize}g`;
+          
+        payload.items = [
+          {
+            qty: customOrderQty,
+            protein: customOrderProtein.toUpperCase(),
+            flavor: `${flavorName} + ${cLabel} + Toppings: ${tLabels || "None"} + ${sLabel}`,
+            sizeGrams: customOrderSize,
+            unitPrice: customPrice,
+          }
+        ];
+        payload.deliveryDate = customOrderDeliveryDate;
+      }
+
       const res = await fetch(`${API_URL}/orders/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1404,6 +1448,24 @@ export default function CustomerPortal() {
       kcal: Math.round(kcalVal),
       price: priceVal,
     };
+  };
+
+  // Mirrors calculateCustomMacros' price formula (10k base prep cost +
+  // protein/carb/sauce/toppings), but reads the Order Now flow's own
+  // customOrder* selection state rather than the "build a bowl" section's.
+  const calculateCustomOrderPrice = () => {
+    const pOpt = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein) || PROTEIN_OPTIONS[0];
+    const p = pOpt.sizes[customOrderSize as 150 | 250] || pOpt.sizes[150];
+    const c = CARB_OPTIONS.find((x) => x.id === customOrderCarb) || CARB_OPTIONS[0];
+    const s = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce) || SAUCE_OPTIONS[0];
+    let priceVal = 10000 + p.price + c.price + s.price;
+
+    for (const t of customOrderToppings) {
+      const topOpt = TOPPING_OPTIONS.find((x) => x.id === t);
+      if (topOpt) priceVal += topOpt.price;
+    }
+
+    return priceVal;
   };
 
   const handleAddCustomBowl = () => {
@@ -2216,27 +2278,114 @@ export default function CustomerPortal() {
           </div>
         )}
 
-        {/* TAB 1.5: ORDER NOW — in-stock items only, ready today, no account
-            needed. Separate from the cart/checkout flow above on purpose:
-            this should be the fastest possible path to a hot meal. */}
+        {/* TAB 1.5: ORDER NOW — supports Standard flow (today's menu) and Custom flow (outside menu, 24h advance) */}
         {activeTab === "order-now" && (
           <div>
-            <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
+            <div className="text-center max-w-2xl mx-auto mb-6 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">{t("order_title")}</h2>
               <p className="text-sm text-muted-foreground">
                 {t("order_subtitle")}
               </p>
             </div>
 
+            {/* Segmented Flow Toggle */}
+            <div className="flex justify-center mb-8">
+              <div className="inline-flex p-1 bg-muted/40 border border-border/40 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => readyNowItems.length > 0 && setOrderFlowType("standard")}
+                  disabled={readyNowItems.length === 0}
+                  className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    orderFlowType === "standard"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faClock} className="h-3.5 w-3.5" />
+                  {lang === "vi" ? "Giao Ngay (Hôm nay)" : "Order Today's Menu"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderFlowType("custom")}
+                  className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    orderFlowType === "custom"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-secondary hover:text-foreground"
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faMagic} className="h-3.5 w-3.5" />
+                  {lang === "vi" ? "Đặt Theo Yêu Cầu (Custom)" : "Custom Order Request"}
+                </button>
+              </div>
+            </div>
+
             {orderNowResult ? (
-              <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-4 shadow-sm">
+              <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-5 shadow-sm">
                 <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
                 <h3 className="text-sm font-bold font-heading">{t("success_title")}</h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   {orderNowResult.fulfillmentType === "IMMEDIATE"
-                    ? t("txt_order_ready")
-                    : t("txt_order_scheduled")}
+                    ? (lang === "vi" ? "Đơn hàng của bạn đang được chuẩn bị để giao ngay lập tức." : "Your order is prepping for immediate delivery.")
+                    : (lang === "vi" 
+                        ? `Yêu cầu đặt trước đã được gửi. Đơn hàng dự kiến giao vào ngày ${new Date(orderNowResult.deliveryDate).toLocaleDateString("vi-VN")}.`
+                        : `Pre-order request submitted. Delivery scheduled for ${new Date(orderNowResult.deliveryDate).toLocaleDateString("en-US")}.`
+                      )}
                 </p>
+
+                {/* Shared Order Lifecycle Progress Log */}
+                <div className="border border-border/60 bg-muted/15 rounded-xl p-4 text-left space-y-3">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/40 pb-1">
+                    {lang === "vi" ? "Tiến trình đơn hàng (SMS & Zalo Log)" : "Order Progress & Notifications"}
+                  </span>
+                  
+                  <div className="space-y-4 pt-1">
+                    <div className="flex gap-3 relative">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">✓</span>
+                        <div className="w-[1.5px] h-6 bg-border/80" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">{lang === "vi" ? "Đã gửi đơn hàng" : "Submitted"}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {lang === "vi" ? "Hệ thống đã nhận đơn. SMS/Zalo đã gửi báo đơn thành công." : "Order received. Sent notification to customer."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 relative">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="h-5 w-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">●</span>
+                        <div className="w-[1.5px] h-6 bg-border/40" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">{lang === "vi" ? "Đang chờ duyệt" : "Pending Confirmation"}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {lang === "vi" ? "Quản lý đang kiểm tra nguyên liệu & nhân viên bếp xác nhận." : "Waiting for kitchen manager approval."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 relative">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="h-5 w-5 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center text-[10px]">3</span>
+                        <div className="w-[1.5px] h-6 bg-border/40" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground">{lang === "vi" ? "Đã xác nhận & Chế biến" : "Confirmed & Prepping"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="h-5 w-5 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center text-[10px]">4</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground">{lang === "vi" ? "Đã giao hàng" : "Delivered"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t("txt_total")}</span>
                   <p className="text-lg font-bold text-primary">{formatVND(orderNowResult.total)}</p>
@@ -2252,37 +2401,11 @@ export default function CustomerPortal() {
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <div className="text-[11px] space-y-1 text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>{t("bank_name")}:</span>
-                        <span className="font-bold text-foreground">MB Bank</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_acc")}:</span>
-                        <span className="font-bold text-foreground font-mono">19035678901234</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_holder")}:</span>
-                        <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_amount")}:</span>
-                        <span className="font-bold text-primary font-mono">{formatVND(orderNowResult.total)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("bank_memo")}:</span>
-                        <span className="font-bold text-primary font-mono">FK{orderNowResult.id.slice(0, 8).toUpperCase()}</span>
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 text-center leading-normal">
-                      {lang === "vi"
-                        ? "Vui lòng chuyển khoản đúng số tiền và nội dung chuyển khoản để đơn hàng được xác nhận tự động."
-                        : "Please transfer the exact amount and note to auto-confirm your order."}
-                    </div>
                   </div>
                 )}
 
                 <button
+                  type="button"
                   onClick={() => {
                     setOrderNowResult(null);
                     setOrderNowName("");
@@ -2302,226 +2425,488 @@ export default function CustomerPortal() {
               </div>
             ) : (
               <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                  {/* Protein Filter for Order Now */}
-                  <div className="flex flex-wrap gap-2 mb-4 bg-muted/20 p-2 rounded-xl border border-border/40">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProteinOrderNow("")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        selectedProteinOrderNow === ""
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-transparent text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {t("filter_all")}
-                    </button>
-                    {["BEEF", "CHICKEN", "SHRIMP", "PORK", "FISH", "VEGAN"].map((protein) => {
-                      // Only show categories that have items in stock
-                      const hasItems = readyNowItems.some((m) => m.protein === protein);
-                      if (!hasItems) return null;
-                      return (
+                {/* Left Columns (Order items standard or form picker custom) */}
+                <div className="lg:col-span-2 space-y-6 text-left">
+                  {orderFlowType === "standard" ? (
+                    <>
+                      {/* Standard flow content */}
+                      <div className="flex flex-wrap gap-2 mb-4 bg-muted/20 p-2 rounded-xl border border-border/40">
                         <button
-                          key={protein}
                           type="button"
-                          onClick={() => setSelectedProteinOrderNow(protein as any)}
+                          onClick={() => setSelectedProteinOrderNow("")}
                           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            selectedProteinOrderNow === protein
+                            selectedProteinOrderNow === ""
                               ? "bg-primary text-primary-foreground shadow-sm"
                               : "bg-transparent text-muted-foreground hover:bg-muted"
                           }`}
                         >
-                          {t(`filter_${protein}` as any)}
+                          {t("filter_all")}
                         </button>
-                      );
-                    })}
-                  </div>
+                        {["BEEF", "CHICKEN", "SHRIMP"].map((protein) => {
+                          const hasItems = readyNowItems.some((m) => m.protein === protein);
+                          if (!hasItems) return null;
+                          return (
+                            <button
+                              key={protein}
+                              type="button"
+                              onClick={() => setSelectedProteinOrderNow(protein as any)}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                selectedProteinOrderNow === protein
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "bg-transparent text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {t(`filter_${protein}` as any)}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                  {isLoadingMenu ? (
-                    <div className="flex justify-center py-16">
-                      <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : filteredReadyNowItems.length === 0 ? (
-                    <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                      <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-xs text-muted-foreground">
-                        {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay trong danh mục này." : "No ready dishes currently available in this category."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      {groupByFlavor(filteredReadyNowItems).map((dish) => {
-                        const dishKey = `${dish.protein}::${dish.flavor}`;
-                        const selected = getSelectedSize(dish);
-                        const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
-                        return (
-                          <div key={dishKey} className="border border-border bg-card rounded-xl p-4 space-y-3">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="min-w-0">
-                                <h4 className="text-sm font-bold font-heading truncate">{dish.flavor}</h4>
-                              </div>
-                              <span className="text-xs font-bold text-primary shrink-0">{formatVND(selected.price)}</span>
-                            </div>
-                            {dish.sizes.length > 1 && (
-                              <div className="flex gap-1.5">
-                                {dish.sizes.map((size) => (
-                                  <button
-                                    key={size.id}
-                                    onClick={() => setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))}
-                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
-                                      selected.id === size.id
-                                        ? "bg-primary border-primary text-primary-foreground"
-                                        : "bg-muted/40 border-border hover:bg-muted"
-                                    }`}
-                                  >
-                                    {size.sizeGrams}g
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {selected.stockQuantity} {t("unit_stock")}
-                              </span>
-                              {inCart ? (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
-                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
-                                  >
-                                    <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
-                                  </button>
-                                  <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
-                                  <button
-                                    onClick={() => updateOrderNowQty(selected.id, inCart.qty + 1)}
-                                    disabled={inCart.qty >= selected.stockQuantity}
-                                    className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
-                                  >
-                                    <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
-                                  </button>
+                      {isLoadingMenu ? (
+                        <div className="flex justify-center py-16">
+                          <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : filteredReadyNowItems.length === 0 ? (
+                        <div className="text-center py-16 border border-dashed border-border rounded-xl">
+                          <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-xs text-muted-foreground font-semibold">
+                            {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay." : "No dishes available right now."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          {groupByFlavor(filteredReadyNowItems).map((dish) => {
+                            const dishKey = `${dish.protein}::${dish.flavor}`;
+                            const selected = getSelectedSize(dish);
+                            const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
+                            return (
+                              <div key={dishKey} className="border border-border bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <h4 className="text-sm font-bold font-heading truncate">{dish.flavor}</h4>
+                                    <span className="text-xs font-bold text-primary shrink-0">{formatVND(selected.price)}</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{selected.description}</p>
                                 </div>
-                              ) : (
+                                
+                                <div className="space-y-3 pt-2">
+                                  {dish.sizes.length > 1 && (
+                                    <div className="flex gap-1.5">
+                                      {dish.sizes.map((size) => (
+                                        <button
+                                          key={size.id}
+                                          type="button"
+                                          onClick={() => setSelectedSizeByDish((prev) => ({ ...prev, [dishKey]: size.id }))}
+                                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                                            selected.id === size.id
+                                              ? "bg-primary border-primary text-primary-foreground"
+                                              : "bg-muted/40 border-border hover:bg-muted"
+                                          }`}
+                                        >
+                                          {size.sizeGrams}g
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center justify-between gap-2 pt-1">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      {selected.stockQuantity} {t("unit_stock")}
+                                    </span>
+                                    {inCart ? (
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
+                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
+                                        >
+                                          <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
+                                        </button>
+                                        <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => updateOrderNowQty(selected.id, inCart.qty + 1)}
+                                          disabled={inCart.qty >= selected.stockQuantity}
+                                          className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
+                                        >
+                                          <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => addToOrderNowCart(selected)}
+                                        className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
+                                      >
+                                        {lang === "vi" ? "Thêm" : "Add"}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Custom order flow picker */}
+                      <div className="flex gap-3 bg-amber-50/50 border border-amber-200/50 p-4 rounded-xl text-amber-800 text-xs mb-6 text-left">
+                        <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">{lang === "vi" ? "Lưu ý Đặt Món Theo Yêu Cầu (24h trước)" : "Custom Order Requirement (24h in advance)"}</p>
+                          <p className="mt-0.5 opacity-90 leading-relaxed text-[11px]">
+                            {lang === "vi"
+                              ? "Món ăn đặt ngoài thực đơn có sẵn cần tối thiểu 24 giờ chuẩn bị để đảm bảo nguyên liệu tươi sống được tuyển chọn và tẩm ướp chuẩn kỹ nghệ sous-vide."
+                              : "Custom orders outside our standard list require at least 24 hours of preparation to guarantee the finest fresh ingredients and perfect sous-vide marination."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* 1. Custom Protein */}
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                            {lang === "vi" ? "1. Chọn Nguồn Đạm (Protein)" : "1. Select Protein"}
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {PROTEIN_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setCustomOrderProtein(opt.id)}
+                                className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                  customOrderProtein === opt.id
+                                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                    : "border-border bg-card hover:bg-muted"
+                                }`}
+                              >
+                                <span className="text-xs font-bold font-heading">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 1.5. Custom Portion Size */}
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                            {lang === "vi" ? "1.5 Chọn Định Lượng (Portion)" : "1.5 Select Portion"}
+                          </label>
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setCustomOrderSize(150)}
+                              className={`px-6 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                customOrderSize === 150
+                                  ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                  : "border-border bg-card hover:bg-muted"
+                              }`}
+                            >
+                              150g
+                            </button>
+                            <button
+                              type="button"
+                              disabled={customOrderProtein !== "chicken"}
+                              onClick={() => setCustomOrderSize(250)}
+                              className={`px-6 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                                customOrderSize === 250
+                                  ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                  : "border-border bg-card hover:bg-muted"
+                              }`}
+                            >
+                              250g {customOrderProtein !== "chicken" && (lang === "vi" ? "(Chỉ có cho Gà)" : "(Chicken only)")}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 2. Custom Carbs */}
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                            {lang === "vi" ? "2. Chọn Tinh Bột (Carbohydrates)" : "2. Select Carbohydrates"}
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {CARB_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setCustomOrderCarb(opt.id)}
+                                className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                  customOrderCarb === opt.id
+                                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                    : "border-border bg-card hover:bg-muted"
+                                }`}
+                              >
+                                <span className="text-xs font-bold font-heading">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 3. Custom Toppings */}
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                            {lang === "vi" ? "3. Chọn Rau Củ & Toppings" : "3. Select Sides & Toppings"}
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {TOPPING_OPTIONS.map((opt) => {
+                              const isSelected = customOrderToppings.includes(opt.id);
+                              return (
                                 <button
-                                  onClick={() => addToOrderNowCart(selected)}
-                                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomOrderToppings((prev) =>
+                                      isSelected ? prev.filter((t) => t !== opt.id) : [...prev, opt.id]
+                                    );
+                                  }}
+                                  className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                    isSelected
+                                      ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                      : "border-border bg-card hover:bg-muted"
+                                  }`}
                                 >
-                                  {lang === "vi" ? "Thêm" : "Add"}
+                                  <span className="text-xs font-bold font-heading">{opt.label}</span>
                                 </button>
-                              )}
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 4. Custom Sauce */}
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                            {lang === "vi" ? "4. Chọn Xốt" : "4. Select Sauce"}
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {SAUCE_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setCustomOrderSauce(opt.id)}
+                                className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                  customOrderSauce === opt.id
+                                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                                    : "border-border bg-card hover:bg-muted"
+                                }`}
+                              >
+                                <span className="text-xs font-bold font-heading">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 5. Custom Order Delivery Date Picker (24h in advance enforced) */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                              {lang === "vi" ? "Thời gian giao hàng (Dự kiến)" : "Delivery Date (Scheduled)"}
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                              value={customOrderDeliveryDate}
+                              onChange={(e) => setCustomOrderDeliveryDate(e.target.value)}
+                              className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground cursor-pointer font-bold font-mono"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                              {lang === "vi" ? "Số lượng phần ăn" : "Quantity"}
+                            </label>
+                            <div className="flex items-center gap-3 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setCustomOrderQty(prev => Math.max(1, prev - 1))}
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer"
+                              >
+                                <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
+                              </button>
+                              <span className="text-sm font-extrabold w-8 text-center font-mono">{customOrderQty}</span>
+                              <button
+                                type="button"
+                                onClick={() => setCustomOrderQty(prev => prev + 1)}
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer"
+                              >
+                                <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+                              </button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
 
-                <div className="border border-border bg-card rounded-2xl p-6 space-y-4 h-fit shadow-sm">
-                  <h3 className="text-sm font-bold font-heading">{t("txt_your_order")}</h3>
-                  {orderNowCart.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{t("txt_empty_cart")}</p>
+                {/* Right Column (Cart review standard or live macro custom + checkout details form) */}
+                <div className="space-y-4">
+                  {orderFlowType === "standard" ? (
+                    <div className="border border-border bg-card rounded-2xl p-6 space-y-4 shadow-sm text-left">
+                      <h3 className="text-sm font-bold font-heading">{t("txt_your_order")}</h3>
+                      {orderNowCart.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">{t("txt_empty_cart")}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {orderNowCart.map((l) => (
+                            <div key={l.menuItem.id} className="flex justify-between text-xs">
+                              <span className="truncate pr-2">{l.menuItem.flavor} ×{l.qty}</span>
+                              <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
+                            </div>
+                          ))}
+                          {hasActivePlanDiscount && (
+                            <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                              <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
+                              <span>-{formatVND(orderNowPlanDiscountAmount)}</span>
+                            </div>
+                          )}
+                          {orderNowDiscountAmount > 0 && (
+                            <div className={`flex justify-between text-xs font-semibold text-emerald-600 ${hasActivePlanDiscount ? "" : "pt-1 border-t border-border/50"}`}>
+                              <span>
+                                {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
+                              </span>
+                              <span>-{formatVND(orderNowDiscountAmount)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
+                            <span>{t("txt_total")}</span>
+                            <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <div className="space-y-2">
-                      {orderNowCart.map((l) => (
-                        <div key={l.menuItem.id} className="flex justify-between text-xs">
-                          <span className="truncate pr-2">{l.menuItem.flavor} ×{l.qty}</span>
-                          <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
-                        </div>
-                      ))}
-                      {hasActivePlanDiscount && (
-                        <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
-                          <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
-                          <span>-{formatVND(orderNowPlanDiscountAmount)}</span>
-                        </div>
-                      )}
-                      {orderNowDiscountAmount > 0 && (
-                        <div className={`flex justify-between text-xs font-semibold text-emerald-600 ${hasActivePlanDiscount ? "" : "pt-1 border-t border-border/50"}`}>
-                          <span>
-                            {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
+                    /* Live custom macros panel */
+                    <div className="border border-border bg-card rounded-2xl p-6 space-y-4 shadow-sm text-left">
+                      <h3 className="text-sm font-bold font-heading">
+                        {lang === "vi" ? "Chỉ số Dinh dưỡng Ước tính" : "Estimated Meal Nutrition"}
+                      </h3>
+
+                      <div className="flex flex-col gap-3 font-mono text-xs text-secondary">
+                        <div className="flex justify-between items-center">
+                          <span className="tracking-wider">PROTEIN</span>
+                          <span className="font-bold text-foreground">
+                            {((
+                              ((PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.sizes[customOrderSize as 150 | 250]?.pro || 37) +
+                              (CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.pro || 0) +
+                              (SAUCE_OPTIONS.find((x) => x.id === customOrderSauce)?.pro || 0) +
+                              customOrderToppings.reduce((acc, t) => acc + (TOPPING_OPTIONS.find(x => x.id === t)?.pro || 0), 0)) * customOrderQty
+                            ).toFixed(0))}g
                           </span>
-                          <span>-{formatVND(orderNowDiscountAmount)}</span>
                         </div>
-                      )}
-                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
-                        <span>{t("txt_total")}</span>
-                        <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount)}</span>
+                        <div className="flex justify-between items-center">
+                          <span className="tracking-wider">CARBS</span>
+                          <span className="font-bold text-foreground">
+                            {((
+                              ((PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.sizes[customOrderSize as 150 | 250]?.carb || 0) +
+                              (CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.carb || 0) +
+                              (SAUCE_OPTIONS.find((x) => x.id === customOrderSauce)?.carb || 0) +
+                              customOrderToppings.reduce((acc, t) => acc + (TOPPING_OPTIONS.find(x => x.id === t)?.carb || 0), 0)) * customOrderQty
+                            ).toFixed(0))}g
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="tracking-wider">FAT</span>
+                          <span className="font-bold text-foreground">
+                            {((
+                              ((PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.sizes[customOrderSize as 150 | 250]?.fat || 0) +
+                              (CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.fat || 0) +
+                              (SAUCE_OPTIONS.find((x) => x.id === customOrderSauce)?.fat || 0) +
+                              customOrderToppings.reduce((acc, t) => acc + (TOPPING_OPTIONS.find(x => x.id === t)?.fat || 0), 0)) * customOrderQty
+                            ).toFixed(0))}g
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
+                          <span className="tracking-wider font-bold">CALORIES</span>
+                          <span className="font-bold text-primary text-base">
+                            {Math.round(
+                              ((PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.sizes[customOrderSize as 150 | 250]?.kcal || 175) +
+                              (CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.kcal || 0) +
+                              (SAUCE_OPTIONS.find((x) => x.id === customOrderSauce)?.kcal || 0) +
+                              customOrderToppings.reduce((acc, t) => acc + (TOPPING_OPTIONS.find(x => x.id === t)?.kcal || 0), 0)) * customOrderQty
+                            )} kcal
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-border/20 pt-3 mt-2">
+                          <span className="tracking-wider font-bold">{lang === "vi" ? "ĐƠN GIÁ ƯỚC TÍNH" : "ESTIMATED TOTAL"}</span>
+                          <span className="font-bold text-foreground text-sm">
+                            {formatVND(calculateCustomOrderPrice() * customOrderQty)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  <form onSubmit={handleSubmitOrderNow} className="space-y-3.5 pt-2 border-t border-border/50">
-                    <input
-                      type="text"
-                      required
-                      placeholder={t("placeholder_name")}
-                      value={orderNowName}
-                      onChange={(e) => setOrderNowName(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                    />
-                    <input
-                      type="tel"
-                      required
-                      placeholder={t("placeholder_phone")}
-                      value={orderNowPhone}
-                      onChange={(e) => setOrderNowPhone(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
-                    />
-                    
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          required
-                          value={orderNowProvince}
-                          onChange={(e) => {
-                            setOrderNowProvince(e.target.value);
-                            setOrderNowWard("");
-                          }}
-                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
-                        >
-                          <option value="">{t("cart_province")}</option>
-                          {getProvinces().map((p: any) => (
-                            <option key={p.code} value={p.code}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <select
-                          required
-                          disabled={!orderNowProvince}
-                          value={orderNowWard}
-                          onChange={(e) => setOrderNowWard(e.target.value)}
-                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
-                        >
-                          <option value="">{t("cart_ward")}</option>
-                          {orderNowProvince &&
-                            getDistrictsByProvinceCode(orderNowProvince)
-                              .flatMap((d: any) => getWardsByDistrictCode(d.code).map((w: any) => ({ ...w, district_name: d.name })))
-                              .map((w: any) => (
-                                <option key={w.code} value={w.code}>
-                                  {w.name} ({w.district_name})
-                                </option>
-                              ))}
-                        </select>
-                      </div>
-
+                  {/* Customer checkout details form */}
+                  <div className="border border-border bg-card rounded-2xl p-6 space-y-4 shadow-sm text-left">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                      {lang === "vi" ? "Thông tin nhận hàng" : "Delivery Details"}
+                    </span>
+                    <form onSubmit={(e) => { e.preventDefault(); setShowCheckoutReview(true); }} className="space-y-3.5">
                       <input
                         type="text"
                         required
-                        placeholder={t("cart_street")}
-                        value={orderNowStreet}
-                        onChange={(e) => setOrderNowStreet(e.target.value)}
+                        placeholder={t("placeholder_name")}
+                        value={orderNowName}
+                        onChange={(e) => setOrderNowName(e.target.value)}
                         className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
-                    </div>
+                      <input
+                        type="tel"
+                        required
+                        placeholder={t("placeholder_phone")}
+                        value={orderNowPhone}
+                        onChange={(e) => setOrderNowPhone(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
+                      />
+                      
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            required
+                            value={orderNowProvince}
+                            onChange={(e) => {
+                              setOrderNowProvince(e.target.value);
+                              setOrderNowWard("");
+                            }}
+                            className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
+                          >
+                            <option value="">{t("cart_province")}</option>
+                            {getProvinces().map((p: any) => (
+                              <option key={p.code} value={p.code}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
 
-                    <textarea
-                      placeholder={t("placeholder_notes")}
-                      value={orderNowNotes}
-                      onChange={(e) => setOrderNowNotes(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground resize-none"
-                      rows={2}
-                    />
+                          <select
+                            required
+                            disabled={!orderNowProvince}
+                            value={orderNowWard}
+                            onChange={(e) => setOrderNowWard(e.target.value)}
+                            className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground disabled:opacity-50"
+                          >
+                            <option value="">{t("cart_ward")}</option>
+                            {orderNowProvince &&
+                              getDistrictsByProvinceCode(orderNowProvince)
+                                .flatMap((d: any) => getWardsByDistrictCode(d.code).map((w: any) => ({ ...w, district_name: d.name })))
+                                .map((w: any) => (
+                                  <option key={w.code} value={w.code}>
+                                    {w.name} ({w.district_name})
+                                  </option>
+                                ))}
+                          </select>
+                        </div>
+
+                        <input
+                          type="text"
+                          required
+                          placeholder={t("cart_street")}
+                          value={orderNowStreet}
+                          onChange={(e) => setOrderNowStreet(e.target.value)}
+                          className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
+                        />
+                      </div>
 
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
@@ -2578,53 +2963,127 @@ export default function CustomerPortal() {
                           {t("payment_vietqr")}
                         </button>
                       </div>
+
+                      {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
+                      <button
+                        type="submit"
+                        disabled={
+                          (orderFlowType === "standard" && orderNowCart.length === 0) ||
+                          !orderNowAgreeTerms
+                        }
+                        className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {t("btn_checkout")}
+                      </button>
                     </div>
-
-                    <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={orderNowAgreeTerms}
-                        onChange={(e) => setOrderNowAgreeTerms(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        {t("cart_agree")}{" "}
-                        <button
-                          type="button"
-                          onClick={() => setShowPrivacyModal(true)}
-                          className="text-primary font-semibold hover:underline"
-                        >
-                          {t("cart_terms")}
-                        </button>
-                      </span>
-                    </label>
-
-                    {orderNowError && <p className="text-[10px] text-red-500">{orderNowError}</p>}
-                    <button
-                      type="submit"
-                      disabled={orderNowCart.length === 0 || isSubmittingOrderNow || !orderNowAgreeTerms}
-                      className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {isSubmittingOrderNow && <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />}
-                      {t("btn_checkout")}
-                    </button>
-                  </form>
+                    </form>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Track my order — self-serve status check by phone. There's
-                no SMS/push notification connected yet, so this is how a
-                customer finds out staff accepted or completed their order. */}
+            {/* ORDER CHECKOUT SUMMARY REVIEW DIALOG MODAL */}
+            {showCheckoutReview && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="absolute inset-0 cursor-pointer" onClick={() => setShowCheckoutReview(false)} />
+                <div className="relative w-full max-w-md bg-card border border-border/60 rounded-2xl shadow-2xl p-6 z-10 space-y-5 text-left">
+                  <div className="text-center pb-2 border-b border-border/40">
+                    <h3 className="text-sm font-extrabold font-heading text-foreground uppercase tracking-wider">
+                      {lang === "vi" ? "XÁC NHẬN THÔNG TIN ĐƠN HÀNG" : "REVIEW YOUR ORDER"}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Người nhận" : "Receiver"}</span>
+                      <p className="font-bold text-foreground">{orderNowName} ({orderNowPhone})</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Địa chỉ giao hàng" : "Delivery Address"}</span>
+                      <p className="text-foreground leading-relaxed">
+                        {orderNowStreet ? `${orderNowStreet}, ` : ""}
+                        {orderNowWard && orderNowProvince
+                          ? getWardsByDistrictCode(orderNowWard.slice(0, 5))?.find((w: any) => w.code === orderNowWard)?.name || orderNowWard
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Hình thức giao" : "Fulfillment Window"}</span>
+                      <p className="font-bold text-primary flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faClock} className="h-3.5 w-3.5 shrink-0" />
+                        {orderFlowType === "standard"
+                          ? (lang === "vi" ? "Giao hàng ngay hôm nay" : "Immediate delivery today")
+                          : (lang === "vi" ? `Giao sau 24h vào ngày ${new Date(customOrderDeliveryDate).toLocaleDateString("vi-VN")}` : `Scheduled after 24h on ${new Date(customOrderDeliveryDate).toLocaleDateString("en-US")}`)}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 border-t border-border/30 pt-3">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Chi tiết phần ăn" : "Meal Details"}</span>
+                      <div className="space-y-1 bg-muted/20 p-2.5 rounded-lg border border-border/30">
+                        {orderFlowType === "standard" ? (
+                          orderNowCart.map((l) => (
+                            <div key={l.menuItem.id} className="flex justify-between font-mono text-[11px]">
+                              <span>{l.menuItem.flavor} ×{l.qty}</span>
+                              <span>{formatVND(l.menuItem.price * l.qty)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between font-mono text-[11px]">
+                            <span className="leading-relaxed">
+                              {lang === "vi" ? `Đĩa Custom: ${PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein)?.label.split(" (")[0]} ${customOrderSize}g` : `Custom ${customOrderProtein} ${customOrderSize}g`}<br />
+                              <span className="text-[10px] text-muted-foreground">
+                                + {CARB_OPTIONS.find((x) => x.id === customOrderCarb)?.label.split(" (")[0]} <br />
+                                + Sides: {customOrderToppings.map(t => TOPPING_OPTIONS.find(x => x.id === t)?.label.split(" (")[0]).join(", ") || "None"} <br />
+                                + Xốt: {SAUCE_OPTIONS.find(x => x.id === customOrderSauce)?.label.split(" (")[0]}
+                              </span>
+                            </span>
+                            <span className="font-bold whitespace-nowrap pt-0.5">×{customOrderQty}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-border/40">
+                      <span>{lang === "vi" ? "TỔNG THANH TOÁN" : "GRAND TOTAL"}</span>
+                      <span className="text-primary text-base">
+                        {formatVND(orderFlowType === "standard" ? orderNowTotal : calculateCustomOrderPrice() * customOrderQty)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-3 border-t border-border/30">
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckoutReview(false)}
+                      className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border transition-colors font-heading"
+                    >
+                      {lang === "vi" ? "Chỉnh sửa" : "Edit"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmitOrderNow()}
+                      disabled={isSubmittingOrderNow}
+                      className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isSubmittingOrderNow && <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />}
+                      {lang === "vi" ? "Xác nhận & Đặt" : "Place Order"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Track my order — self-serve status check by phone. */}
             <div className="max-w-md mx-auto mt-16 pt-10 border-t border-border">
               <h3 className="text-center text-sm font-bold font-heading mb-1">
-                {lang === "vi" ? "Theo dõi đơn hàng của bạn" : "Track Your Orders"}
+                {lang === "vi" ? "Theo dõi trạng thái đơn hàng" : "Track Your Orders"}
               </h3>
               <p className="text-center text-xs text-muted-foreground mb-5">
                 {lang === "vi"
-                  ? "Nhập số điện thoại đã dùng để đặt hàng để xem trạng thái mới nhất."
-                  : "Enter the phone number used during checkout to check the latest status."}
+                  ? "Nhập số điện thoại của bạn để xem tiến độ giao hàng & nhật ký thông báo Zalo/SMS."
+                  : "Enter the phone number used during checkout to check the latest delivery status."}
               </p>
               <form onSubmit={handleTrackOrders} className="flex gap-2 mb-6">
                 <input
@@ -2653,16 +3112,90 @@ export default function CustomerPortal() {
                 </p>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-4 text-left">
                 {trackedOrders.map((o: any) => (
-                  <div key={o.id} className="border border-border bg-card rounded-xl p-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold truncate">
-                        {(o.items || []).map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
-                      </p>
+                  <div key={o.id} className="border border-border bg-card rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between items-start gap-3 border-b border-border/40 pb-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate">
+                          {(o.items || []).map((i: any) => `${i.flavor} ×${i.qty}`).join(", ")}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-[9px] font-extrabold px-2 py-0.5 rounded border shrink-0 whitespace-nowrap uppercase tracking-wider ${
+                          o.deliveryStatus === "PREPPING"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : o.deliveryStatus === "DELIVERED"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : o.deliveryStatus === "CANCELLED"
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : o.deliveryStatus === "SKIPPED"
+                                  ? "bg-muted text-muted-foreground border-border"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        {ORDER_STATUS_LABELS[lang][o.deliveryStatus] || o.deliveryStatus}
+                      </span>
+                    </div>
+
+                    {/* Step-by-step progress tracker for active orders */}
+                    <div className="space-y-3 pt-1">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase block">{lang === "vi" ? "Nhật ký Zalo/SMS đã gửi:" : "Zalo/SMS Notifications Log:"}</span>
+                      
+                      <div className="space-y-2 border-l border-border/60 pl-3.5 ml-1">
+                        {/* Submitted notification (sent at creation time) */}
+                        <div className="relative">
+                          <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+                          <p className="text-[11px] font-semibold text-foreground">{lang === "vi" ? "Đã gửi đơn hàng" : "Order Submitted"}</p>
+                          <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
+                            {lang === "vi" 
+                              ? `Báo nhận đơn gửi tới Zalo số ${o.phone}. Đơn hàng có mã FK${o.id.slice(0,8).toUpperCase()}.` 
+                              : `Order received SMS dispatched to ${o.phone}. Ref: FK${o.id.slice(0,8).toUpperCase()}.`}
+                          </p>
+                        </div>
+
+                        {/* Confirmed notification (sent when status is PREPPING, SHIPPED, or DELIVERED) */}
+                        {(o.deliveryStatus === "PREPPING" || o.deliveryStatus === "SHIPPED" || o.deliveryStatus === "DELIVERED") && (
+                          <div className="relative pt-1.5">
+                            <span className="absolute -left-[19px] top-3 h-2 w-2 rounded-full bg-emerald-500" />
+                            <p className="text-[11px] font-semibold text-foreground">{lang === "vi" ? "Đã xác nhận & Chế biến" : "Confirmed & Prepping"}</p>
+                            <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
+                              {lang === "vi" 
+                                ? "Báo duyệt & chuẩn bị nguyên liệu đã gửi tới Zalo." 
+                                : "Order confirmed and kitchen preparation notification sent."}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Out for delivery notification (sent when status is SHIPPED or DELIVERED) */}
+                        {(o.deliveryStatus === "SHIPPED" || o.deliveryStatus === "DELIVERED") && (
+                          <div className="relative pt-1.5">
+                            <span className="absolute -left-[19px] top-3 h-2 w-2 rounded-full bg-emerald-500" />
+                            <p className="text-[11px] font-semibold text-foreground">{lang === "vi" ? "Đang giao hàng" : "Out for Delivery"}</p>
+                            <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
+                              {lang === "vi" 
+                                ? "Tài xế nhận đơn thành công, tin nhắn kèm link bản đồ theo dõi hành trình gửi tới số điện thoại." 
+                                : "Delivery dispatch notification containing live tracking link sent."}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Delivered notification (sent when status is DELIVERED) */}
+                        {o.deliveryStatus === "DELIVERED" && (
+                          <div className="relative pt-1.5">
+                            <span className="absolute -left-[19px] top-3 h-2 w-2 rounded-full bg-emerald-500" />
+                            <p className="text-[11px] font-semibold text-foreground">{lang === "vi" ? "Đã giao hàng thành công" : "Delivered"}</p>
+                            <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
+                              {lang === "vi" 
+                                ? "Đơn hàng đã được tài xế bàn giao thành công. SMS cám ơn đã gửi." 
+                                : "Handover successful. Thank you notification dispatched."}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-1 rounded border shrink-0 whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[o.status] || "bg-amber-50 text-amber-700 border-amber-200"}`}
