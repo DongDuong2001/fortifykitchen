@@ -1518,8 +1518,13 @@ export default function CustomerPortal() {
       {/* 1. HEADER */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setActiveTab("home")}>
-            <span className="text-xl font-normal tracking-tight font-heading text-foreground">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
+            <img 
+              src="/logo.png" 
+              alt="Fortify Kitchen Logo" 
+              className="h-10 w-10 object-contain rounded-full transition-transform group-hover:scale-105"
+            />
+            <span className="text-xl font-normal tracking-tight font-heading text-foreground select-none">
               Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
             </span>
           </div>
@@ -4547,8 +4552,13 @@ export default function CustomerPortal() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs text-muted-foreground">
           {/* Column 1: Brand & Contact Info */}
           <div className="space-y-4">
-            <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}
+            <div className="flex items-center gap-2 text-sm font-bold text-foreground font-heading">
+              <img 
+                src="/logo.png" 
+                alt="Fortify Kitchen Logo" 
+                className="h-7 w-7 object-contain rounded-full"
+              />
+              <span>{lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}</span>
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
