@@ -311,6 +311,7 @@ const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
 export default function CustomerPortal() {
   const {
     user,
+    token,
     cart,
     cartCount,
     cartTotal,
@@ -371,6 +372,7 @@ export default function CustomerPortal() {
   const [orderNowDiscountCode, setOrderNowDiscountCode] = React.useState("");
   const [orderNowVerifiedDiscount, setOrderNowVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
   const [orderNowDiscountCodeStatus, setOrderNowDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [orderNowDiscountCodeError, setOrderNowDiscountCodeError] = React.useState<string | null>(null);
 
   // Custom ordering states
   const [orderFlowType, setOrderFlowType] = React.useState<"standard" | "custom">("standard");
@@ -483,6 +485,12 @@ export default function CustomerPortal() {
   // now also reads walletBalance). Drives the WALLET checkout option, the
   // "Buy a Plan" balance display, and the low-balance banner.
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
+  // Recurring membership discount from the customer's current
+  // SubscriptionPlan (also populated from /customers/me) - applies
+  // automatically to every order until planDiscountEndsAt, no code to type.
+  // Replaces the earlier single-use plan-purchase voucher entirely.
+  const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
+  const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
 
   // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
   // top-up (see docs/plan-and-credit-design.md). Public to browse, login
@@ -554,21 +562,24 @@ export default function CustomerPortal() {
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
-  // The customer's own personal voucher (issued automatically on a
-  // SubscriptionPlan/wallet top-up purchase) - auto-filled into
-  // discountCode below rather than making them dig up and type a code they
-  // never actually saw anywhere.
-  const [myActiveVoucher, setMyActiveVoucher] = React.useState<{ code: string; type: string; amount: number } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
+  // Checkout failures (e.g. "this discount code has already been used") were
+  // previously only surfaced via a global toast, which sits at the same
+  // z-index as this cart drawer's own backdrop and could be easy to miss
+  // while the drawer is open - this inline banner guarantees the customer
+  // sees why "Đặt hàng" didn't go through.
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   // Live preview of whatever's typed in discountCode - lets the customer see
   // the discount actually land (and see a clear "invalid code" state)
   // before placing the order, instead of finding out only after submitting.
-  // Uses the existing public GET /discounts/verify (no ownership check, no
-  // auth needed) purely for this preview; the real
-  // active/date-window/ownership/already-used enforcement still happens
-  // server-side at order creation.
+  // GET /discounts/verify stays public (usable before login), but when a
+  // token is present the API also checks per-customer redemption history,
+  // so "already used" shows up here too - not just after a failed checkout.
+  // Full active/date-window enforcement is still re-checked server-side at
+  // order creation regardless (this preview is not the source of truth).
   const [verifiedDiscount, setVerifiedDiscount] = React.useState<{ type: string; amount: number } | null>(null);
   const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [discountCodeError, setDiscountCodeError] = React.useState<string | null>(null);
 
   // Custom Bowl Calculator States
   const [customProtein, setCustomProtein] = React.useState<string>("chicken");
@@ -705,11 +716,15 @@ export default function CustomerPortal() {
           if (result.success && result.data) {
             setCheckoutAddress(result.data.address);
             setWalletBalance(result.data.walletBalance ?? 0);
+            setPlanDiscountPercent(result.data.planDiscountPercent ?? 0);
+            setPlanDiscountEndsAt(result.data.planDiscountEndsAt ?? null);
           }
         })
         .catch(console.error);
     } else {
       setWalletBalance(0);
+      setPlanDiscountPercent(0);
+      setPlanDiscountEndsAt(null);
     }
   }, [user, API_URL]);
 
@@ -795,29 +810,6 @@ export default function CustomerPortal() {
     }
   }, [activeTab, user, loadDashboard]);
 
-  // Auto-apply the customer's own active voucher at checkout, if they have
-  // one - fetched fresh whenever the cart opens OR the "Order Now" tab is
-  // visited (both are checkout entry points) so a voucher that just got
-  // issued (e.g. right after buying a plan) shows up without a reload.
-  // Only fills a field when it's still empty, so it never clobbers a public
-  // code the customer typed in themselves.
-  React.useEffect(() => {
-    if (!(isCartOpen || activeTab === "order-now") || !user) return;
-    const token = localStorage.getItem("fk_token");
-    fetch(`${API_URL}/discounts/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((result) => {
-        const voucher = result?.data ?? null;
-        setMyActiveVoucher(voucher);
-        if (voucher) {
-          if (!discountCode) setDiscountCode(voucher.code);
-          if (!orderNowDiscountCode) setOrderNowDiscountCode(voucher.code);
-        }
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCartOpen, activeTab, user, API_URL]);
-
   // Debounced live preview for the main cart's discount code field.
   React.useEffect(() => {
     const code = discountCode.trim();
@@ -828,19 +820,30 @@ export default function CustomerPortal() {
     }
     setDiscountCodeStatus("checking");
     const timer = setTimeout(() => {
-      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
+      // Passing the token (when logged in) lets the API also catch "you've
+      // already used this code" right here in the preview, instead of only
+      // surfacing it after a full checkout attempt is rejected.
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(body?.message);
+          return body;
+        })
         .then((result) => {
           setVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
           setDiscountCodeStatus("valid");
+          setDiscountCodeError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           setVerifiedDiscount(null);
           setDiscountCodeStatus("invalid");
+          setDiscountCodeError(translateApiError(err?.message, lang, ""));
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [discountCode, API_URL]);
+  }, [discountCode, API_URL, token, lang]);
 
   // Same debounced live preview for the Order Now flow's discount code field.
   React.useEffect(() => {
@@ -852,24 +855,39 @@ export default function CustomerPortal() {
     }
     setOrderNowDiscountCodeStatus("checking");
     const timer = setTimeout(() => {
-      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`)
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
+      fetch(`${API_URL}/discounts/verify?code=${encodeURIComponent(code)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(body?.message);
+          return body;
+        })
         .then((result) => {
           setOrderNowVerifiedDiscount({ type: result.data.type, amount: Number(result.data.amount) });
           setOrderNowDiscountCodeStatus("valid");
+          setOrderNowDiscountCodeError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           setOrderNowVerifiedDiscount(null);
           setOrderNowDiscountCodeStatus("invalid");
+          setOrderNowDiscountCodeError(translateApiError(err?.message, lang, ""));
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [orderNowDiscountCode, API_URL]);
+  }, [orderNowDiscountCode, API_URL, token, lang]);
 
-  const discountCodeAmount = verifiedDiscount
-    ? Math.min(Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0), cartTotal)
+  const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
+  const planDiscountAmountCart = hasActivePlanDiscount ? (cartTotal * planDiscountPercent) / 100 : 0;
+  const discountCodeAmountRaw = verifiedDiscount
+    ? Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0)
     : 0;
-  const checkoutFinalTotal = cartTotal - discountCodeAmount + 30000;
+  // Both the member discount and a manually-typed code stack additively
+  // (matching the server's OrdersService.createForCustomer), clamped
+  // together so the combined discount can never exceed the subtotal.
+  const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartTotal);
+  const discountCodeAmount = Math.min(discountCodeAmountRaw, cartTotal);
+  const checkoutFinalTotal = cartTotal - combinedDiscountAmount + 30000;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -920,9 +938,18 @@ export default function CustomerPortal() {
       setAuthModal("login");
       return;
     }
+    setCheckoutError(null);
     setIsSubmittingOrder(true);
     const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
+    if (result && result.success === false) {
+      // placeOrder already fires a toast, but that sits at the same
+      // z-index as this drawer's own backdrop and can be easy to miss
+      // while the drawer is open - show it inline too so a rejected
+      // discount code (or any other failure) is impossible to miss.
+      setCheckoutError(result.message || (lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order"));
+      return;
+    }
     if (result) {
       // Explicit refresh rather than relying on the activeTab-change effect
       // below: the cart can be opened from ANY tab (including while already
@@ -1257,31 +1284,14 @@ export default function CustomerPortal() {
         orderNowTotal,
       )
     : 0;
-
-  const calculateCustomOrderPrice = () => {
-    const pOpt = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein) || PROTEIN_OPTIONS[0];
-    const p = pOpt.sizes[customOrderSize as 150 | 250] || pOpt.sizes[150];
-    const c = CARB_OPTIONS.find((x) => x.id === customOrderCarb) || CARB_OPTIONS[0];
-    const s = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce) || SAUCE_OPTIONS[0];
-    
-    let priceVal = 10000 + p.price + c.price + s.price;
-
-    for (const t of customOrderToppings) {
-      const topOpt = TOPPING_OPTIONS.find((x) => x.id === t);
-      if (topOpt) {
-        priceVal += topOpt.price;
-      }
-    }
-    return priceVal;
-  };
+  // Applies for a logged-in customer using Order Now too, matching the
+  // server's phone-based customer lookup on the public endpoint.
+  const orderNowPlanDiscountAmount = hasActivePlanDiscount ? (orderNowTotal * planDiscountPercent) / 100 : 0;
+  const orderNowCombinedDiscountAmount = Math.min(orderNowDiscountAmount + orderNowPlanDiscountAmount, orderNowTotal);
 
   const handleSubmitOrderNow = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (orderFlowType === "standard") {
-      if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
-    } else {
-      if (!orderNowName.trim() || !orderNowPhone.trim() || !customOrderDeliveryDate) return;
-    }
+    e?.preventDefault();
+    if ((orderFlowType === "standard" && orderNowCart.length === 0) || !orderNowName.trim() || !orderNowPhone.trim()) return;
     setIsSubmittingOrderNow(true);
     setOrderNowError(null);
     try {
@@ -1484,6 +1494,24 @@ export default function CustomerPortal() {
       kcal: Math.round(kcalVal),
       price: priceVal,
     };
+  };
+
+  // Mirrors calculateCustomMacros' price formula (10k base prep cost +
+  // protein/carb/sauce/toppings), but reads the Order Now flow's own
+  // customOrder* selection state rather than the "build a bowl" section's.
+  const calculateCustomOrderPrice = () => {
+    const pOpt = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein) || PROTEIN_OPTIONS[0];
+    const p = pOpt.sizes[customOrderSize as 150 | 250] || pOpt.sizes[150];
+    const c = CARB_OPTIONS.find((x) => x.id === customOrderCarb) || CARB_OPTIONS[0];
+    const s = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce) || SAUCE_OPTIONS[0];
+    let priceVal = 10000 + p.price + c.price + s.price;
+
+    for (const t of customOrderToppings) {
+      const topOpt = TOPPING_OPTIONS.find((x) => x.id === t);
+      if (topOpt) priceVal += topOpt.price;
+    }
+
+    return priceVal;
   };
 
   const handleAddCustomBowl = () => {
@@ -2877,8 +2905,14 @@ export default function CustomerPortal() {
                               <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
                             </div>
                           ))}
-                          {orderNowDiscountAmount > 0 && (
+                          {hasActivePlanDiscount && (
                             <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                              <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
+                              <span>-{formatVND(orderNowPlanDiscountAmount)}</span>
+                            </div>
+                          )}
+                          {orderNowDiscountAmount > 0 && (
+                            <div className={`flex justify-between text-xs font-semibold text-emerald-600 ${hasActivePlanDiscount ? "" : "pt-1 border-t border-border/50"}`}>
                               <span>
                                 {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
                               </span>
@@ -2887,7 +2921,7 @@ export default function CustomerPortal() {
                           )}
                           <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
                             <span>{t("txt_total")}</span>
-                            <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
+                            <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount)}</span>
                           </div>
                         </div>
                       )}
@@ -2898,7 +2932,7 @@ export default function CustomerPortal() {
                       <h3 className="text-sm font-bold font-heading">
                         {lang === "vi" ? "Chỉ số Dinh dưỡng Ước tính" : "Estimated Meal Nutrition"}
                       </h3>
-                      
+
                       <div className="flex flex-col gap-3 font-mono text-xs text-secondary">
                         <div className="flex justify-between items-center">
                           <span className="tracking-wider">PROTEIN</span>
@@ -3036,14 +3070,7 @@ export default function CustomerPortal() {
                         onChange={(e) => setOrderNowDiscountCode(e.target.value)}
                         className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground"
                       />
-                      {user && myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code && (
-                        <p className="text-[9px] text-primary font-medium mt-1">
-                          {lang === "vi"
-                            ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
-                            : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
-                        </p>
-                      )}
-                      {orderNowDiscountCodeStatus === "valid" && !(myActiveVoucher && orderNowDiscountCode === myActiveVoucher.code) && (
+                      {orderNowDiscountCodeStatus === "valid" && (
                         <p className="text-[9px] text-emerald-600 font-medium mt-1">
                           {lang === "vi"
                             ? `✓ Đã áp dụng: giảm ${formatVND(orderNowDiscountAmount)}`
@@ -3052,7 +3079,7 @@ export default function CustomerPortal() {
                       )}
                       {orderNowDiscountCodeStatus === "invalid" && (
                         <p className="text-[9px] text-red-500 font-medium mt-1">
-                          {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                          {orderNowDiscountCodeError || (lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired")}
                         </p>
                       )}
                     </div>
@@ -3087,40 +3114,20 @@ export default function CustomerPortal() {
                           {t("payment_vietqr")}
                         </button>
                       </div>
+
+                      {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
+                      <button
+                        type="submit"
+                        disabled={
+                          (orderFlowType === "standard" && orderNowCart.length === 0) ||
+                          !orderNowAgreeTerms
+                        }
+                        className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {t("btn_checkout")}
+                      </button>
                     </div>
-
-                    <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={orderNowAgreeTerms}
-                        onChange={(e) => setOrderNowAgreeTerms(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        {t("cart_agree")}{" "}
-                        <button
-                          type="button"
-                          onClick={() => setShowPrivacyModal(true)}
-                          className="text-primary font-semibold hover:underline"
-                        >
-                          {t("cart_terms")}
-                        </button>
-                      </span>
-                    </label>
-
-                    {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
-                    <button
-                      type="submit"
-                      disabled={
-                        (orderFlowType === "standard" && orderNowCart.length === 0) ||
-                        !orderNowAgreeTerms
-                      }
-                      className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {t("btn_checkout")}
-                    </button>
-                  </form>
+                    </form>
                   </div>
                 </div>
               </div>
@@ -3383,6 +3390,13 @@ export default function CustomerPortal() {
                     {lang === "vi" ? "Số dư Ví hiện tại" : "Current Wallet Balance"}
                   </span>
                   <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                  {hasActivePlanDiscount && (
+                    <p className="text-[10px] text-primary font-semibold mt-2">
+                      {lang === "vi"
+                        ? `🎁 Đang được giảm ${planDiscountPercent}% mọi đơn hàng đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}.`
+                        : `🎁 You're getting ${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}.`}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
@@ -3395,6 +3409,16 @@ export default function CustomerPortal() {
                   >
                     {t("btn_signin")}
                   </button>
+                </div>
+              )}
+
+              {user && hasActivePlanDiscount && (
+                <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
+                  <p className="text-xs text-amber-700">
+                    {lang === "vi"
+                      ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước hạn.`
+                      : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Please contact our team if you'd like to upgrade early.`}
+                  </p>
                 </div>
               )}
 
@@ -3416,7 +3440,7 @@ export default function CustomerPortal() {
                         <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
                         {plan.voucherPercent > 0 && (
                           <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                            +{plan.voucherPercent}% voucher
+                            {lang === "vi" ? `${plan.voucherPercent}% mọi đơn` : `${plan.voucherPercent}% every order`}
                           </span>
                         )}
                       </div>
@@ -3424,7 +3448,7 @@ export default function CustomerPortal() {
                       {plan.description && <p className="text-xs text-muted-foreground flex-1">{plan.description}</p>}
                       <button
                         onClick={() => handleBuyPlan(plan)}
-                        disabled={purchasingPlanId === plan.id}
+                        disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
                         className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {purchasingPlanId === plan.id ? (
@@ -4200,6 +4224,12 @@ export default function CustomerPortal() {
                     <span>{t("cart_subtotal")}</span>
                     <span>{formatVND(cartTotal)}</span>
                   </div>
+                  {hasActivePlanDiscount && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
+                      <span>-{formatVND(planDiscountAmountCart)}</span>
+                    </div>
+                  )}
                   {discountCodeAmount > 0 && (
                     <div className="flex justify-between text-xs font-semibold text-emerald-600">
                       <span>
@@ -4336,21 +4366,14 @@ export default function CustomerPortal() {
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
                     )}
-                    {user && myActiveVoucher && discountCode === myActiveVoucher.code && (
-                      <p className="text-[9px] text-primary font-medium mt-1">
-                        {lang === "vi"
-                          ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
-                          : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
-                      </p>
-                    )}
-                    {discountCodeStatus === "valid" && !(myActiveVoucher && discountCode === myActiveVoucher.code) && (
+                    {discountCodeStatus === "valid" && (
                       <p className="text-[9px] text-emerald-600 font-medium mt-1">
                         {lang === "vi" ? `✓ Đã áp dụng: giảm ${formatVND(discountCodeAmount)}` : `✓ Applied: ${formatVND(discountCodeAmount)} off`}
                       </p>
                     )}
                     {discountCodeStatus === "invalid" && (
                       <p className="text-[9px] text-red-500 font-medium mt-1">
-                        {lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired"}
+                        {discountCodeError || (lang === "vi" ? "Mã giảm giá không hợp lệ hoặc đã hết hạn" : "This code is invalid or has expired")}
                       </p>
                     )}
                   </div>
@@ -4435,6 +4458,8 @@ export default function CustomerPortal() {
                       </button>
                     </span>
                   </label>
+
+                  {checkoutError && <p className="text-[10px] text-red-500 leading-normal font-medium">{checkoutError}</p>}
 
                   <button
                     type="submit"

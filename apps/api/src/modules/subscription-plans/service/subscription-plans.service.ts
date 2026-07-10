@@ -1,15 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
-import { randomUUID } from "crypto";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateSubscriptionPlanDto } from "../dto/create-subscription-plan.dto";
 import { UpdateSubscriptionPlanDto } from "../dto/update-subscription-plan.dto";
 import { Decimal, PaymentMethod, PaymentStatus } from "@fortifykitchen/database";
 import { SubscriptionPlan } from "@fortifykitchen/types";
 
-// How long a plan-purchase voucher stays valid for, from the moment staff
-// confirm the transfer. Not yet admin-configurable per purchase — see
-// docs/plan-and-credit-design.md's "Vouchers" decision (tiered %, via the
-// existing Discount model). Revisit if a real expiry requirement shows up.
+// How long a plan's recurring discount stays active for, from the moment
+// staff confirm the transfer. Not yet admin-configurable per purchase — see
+// docs/plan-and-credit-design.md's "Vouchers" decision (tiered %). Revisit
+// if a real expiry requirement shows up.
 const VOUCHER_VALIDITY_DAYS = 60;
 
 type RawPlan = {
@@ -98,6 +97,15 @@ export class SubscriptionPlansService {
       throw new BadRequestException("No customer profile found for this account");
     }
 
+    // Decided: a customer can only hold one plan's recurring discount at a
+    // time — self-serve buying a new plan while the current one is still
+    // active is blocked; upgrading is a staff-assisted action instead.
+    if (customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date()) {
+      throw new BadRequestException(
+        `You already have an active plan discount until ${customer.planDiscountEndsAt.toISOString().split("T")[0]}. Please contact our team to upgrade.`,
+      );
+    }
+
     const payment = await this.db.client.payment.create({
       data: {
         customerId: customer.id,
@@ -163,27 +171,26 @@ export class SubscriptionPlansService {
         data: { status: PaymentStatus.COMPLETED },
       });
 
-      await tx.customer.update({
-        where: { id: payment.customerId! },
-        data: { walletBalance: { increment: amount } },
-      });
+      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number; planDiscountEndsAt?: Date } = {
+        walletBalance: { increment: amount },
+      };
 
+      // Sets (not stacks/accumulates) the recurring discount — a fresh
+      // purchase is only reachable once the previous one has lapsed (see
+      // the purchase() guard above), so there's never an existing discount
+      // to preserve or compare against here.
       if (plan.voucherPercent > 0) {
         const now = new Date();
         const endsAt = new Date(now);
         endsAt.setDate(endsAt.getDate() + VOUCHER_VALIDITY_DAYS);
-        await tx.discount.create({
-          data: {
-            code: `PLAN-${randomUUID().slice(0, 8).toUpperCase()}`,
-            type: "PERCENTAGE",
-            amount: new Decimal(plan.voucherPercent),
-            isActive: true,
-            startsAt: now,
-            endsAt,
-            customerId: payment.customerId!,
-          },
-        });
+        customerUpdate.planDiscountPercent = plan.voucherPercent;
+        customerUpdate.planDiscountEndsAt = endsAt;
       }
+
+      await tx.customer.update({
+        where: { id: payment.customerId! },
+        data: customerUpdate,
+      });
 
       return confirmed;
     });

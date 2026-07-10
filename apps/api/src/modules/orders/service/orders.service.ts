@@ -281,7 +281,7 @@ export class OrdersService {
   }
 
   private async createForCustomer(
-    customer: { id: string; name: string },
+    customer: { id: string; name: string; planDiscountPercent?: number; planDiscountEndsAt?: Date | null },
     items: any[],
     deliveryDateInput: string,
     paymentStatus: PaymentState | undefined,
@@ -303,13 +303,20 @@ export class OrdersService {
     // orders both redeeming the same single-use code.
     const discount = discountCodeInput ? await this.resolveDiscount(discountCodeInput, customer.id) : null;
 
-    // Stacking, per business decision: a discount code ADDS to the
-    // automatic tier discount rather than replacing it (max/best-of-both
-    // was the original proposal — overridden). Both amounts are computed
-    // off the same post-meat-discount lineSubtotal and combined, clamped so
-    // the total discount can never exceed the subtotal itself.
+    // A customer's recurring plan discount (set directly on Customer by
+    // SubscriptionPlansService.confirmPurchase, replacing the earlier
+    // single-use voucher) applies automatically here too — no code needed.
+    const hasActivePlanDiscount = !!(customer.planDiscountPercent && customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date());
+    const planDiscountAmount = hasActivePlanDiscount ? (pricing.lineSubtotal * customer.planDiscountPercent!) / 100 : 0;
+
+    // Stacking, per business decision: a discount code and the recurring
+    // plan discount both ADD to the automatic tier discount rather than
+    // replacing it (max/best-of-both was the original proposal —
+    // overridden). All three are computed off the same post-meat-discount
+    // lineSubtotal and combined, clamped so the total discount can never
+    // exceed the subtotal itself.
     const codeDiscountAmount = discount ? this.computeDiscountAmount(discount, pricing.lineSubtotal) : 0;
-    const combinedDiscountAmount = Math.min(pricing.orderDiscountAmount + codeDiscountAmount, pricing.lineSubtotal);
+    const combinedDiscountAmount = Math.min(pricing.orderDiscountAmount + codeDiscountAmount + planDiscountAmount, pricing.lineSubtotal);
     const total = Math.round(pricing.lineSubtotal - combinedDiscountAmount);
 
     const order = await this.db.client.$transaction(async (tx) => {

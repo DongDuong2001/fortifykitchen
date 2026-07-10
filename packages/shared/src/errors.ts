@@ -23,6 +23,10 @@ const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
   { match: /discount code ".*" is not valid at this time/i, vi: "Mã giảm giá này chưa hoặc đã hết hạn sử dụng." },
   { match: /discount code ".*" is not valid for your account/i, vi: "Mã giảm giá này không áp dụng cho tài khoản của bạn." },
   { match: /discount code ".*" has already been used/i, vi: "Bạn đã sử dụng mã giảm giá này rồi." },
+  {
+    match: /you already have an active plan discount/i,
+    vi: "Bạn đang có ưu đãi từ gói hiện tại. Vui lòng liên hệ đội ngũ Fortify Kitchen để nâng cấp gói.",
+  },
 ];
 
 export function translateApiError(rawMessage: string | string[] | undefined, lang: "vi" | "en", fallback: string): string {

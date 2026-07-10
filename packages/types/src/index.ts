@@ -26,6 +26,13 @@ export interface Customer {
   // and spent on wallet-paid orders or in full toward a staff-built
   // Subscription. Never negative. See docs/plan-and-credit-design.md.
   walletBalance: number;
+  // Recurring membership discount from the customer's current
+  // SubscriptionPlan, applied automatically to every order until
+  // planDiscountEndsAt — replaces the earlier single-use plan-purchase
+  // voucher design. A customer can only hold one plan's discount at a
+  // time (see SubscriptionPlansService.purchase's guard).
+  planDiscountPercent: number;
+  planDiscountEndsAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

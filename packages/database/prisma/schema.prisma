@@ -163,6 +163,18 @@ model Customer {
   // docs/plan-and-credit-design.md.
   walletBalance Int @default(0)
 
+  // Recurring membership discount, granted directly on Customer rather than
+  // as a redeemable Discount code — buying a SubscriptionPlan with
+  // voucherPercent > 0 sets this (see SubscriptionPlansService.confirmPurchase)
+  // and it applies silently to every order until planDiscountEndsAt, no code
+  // to type, nothing to "redeem." Decided: this REPLACES the earlier
+  // single-use plan-purchase voucher design entirely — a customer can only
+  // ever hold one plan's discount at a time (see the purchase() guard, which
+  // blocks buying a new plan while planDiscountEndsAt is still in the
+  // future; upgrading mid-term is a staff-assisted action, not self-serve).
+  planDiscountPercent Int       @default(0)
+  planDiscountEndsAt  DateTime?
+
   orders             Order[]
   subscriptions      Subscription[]
   customPlanRequests CustomPlanRequest[]

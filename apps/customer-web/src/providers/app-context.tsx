@@ -282,16 +282,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const result = await res.json();
       if (!res.ok) {
+        const message = translateApiError(
+          result.message,
+          lang,
+          lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order",
+        );
         toast({
           title: lang === "vi" ? "Đặt hàng thất bại" : "Order Failed",
-          description: translateApiError(
-            result.message,
-            lang,
-            lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order",
-          ),
+          description: message,
           type: "error",
         });
-        return null;
+        // Returning the message (not just null) lets the caller show an
+        // inline error too - the toast alone can be easy to miss behind a
+        // modal that shares its z-index (see the cart drawer in page.tsx).
+        return { success: false, message };
       }
 
       toast({
@@ -311,12 +315,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return result.data;
     } catch (error) {
       console.error(error);
+      const message = lang === "vi" ? "Đã có lỗi xảy ra khi đặt hàng. Vui lòng thử lại." : "An error occurred while placing order";
       toast({
         title: lang === "vi" ? "Lỗi thanh toán" : "Checkout Error",
-        description: lang === "vi" ? "Đã có lỗi xảy ra khi đặt hàng. Vui lòng thử lại." : "An error occurred while placing order",
+        description: message,
         type: "error",
       });
-      return null;
+      return { success: false, message };
     }
   };
 

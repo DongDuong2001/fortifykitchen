@@ -43,7 +43,14 @@ export class DiscountsService {
     };
   }
 
-  async verify(code: string) {
+  // userId is optional — this endpoint is intentionally public (usable
+  // before login, e.g. a guest previewing a code) — but when the caller IS
+  // logged in, the customer-web live-preview widget calls this with their
+  // token so it can catch "you've already used this code" up front instead
+  // of only discovering it after a full checkout attempt fails at order
+  // creation (which was confusing: the preview showed the discount as
+  // applied right up until the "Đặt hàng" click did nothing obvious).
+  async verify(code: string, userId?: string) {
     const discount = await this.db.client.discount.findUnique({
       where: { code: code.toUpperCase() },
     });
@@ -65,39 +72,25 @@ export class DiscountsService {
       throw new BadRequestException("Discount code has expired");
     }
 
+    if (userId) {
+      const customer = await this.db.client.customer.findFirst({ where: { userId } });
+      if (customer) {
+        if (discount.customerId && discount.customerId !== customer.id) {
+          throw new BadRequestException(`Discount code "${code}" is not valid for your account`);
+        }
+        const alreadyUsed = await this.db.client.discountRedemption.findFirst({
+          where: { discountId: discount.id, customerId: customer.id },
+        });
+        if (alreadyUsed) {
+          throw new BadRequestException(`Discount code "${code}" has already been used on your account.`);
+        }
+      }
+    }
+
     return {
       ...discount,
       amount: Number(discount.amount),
     };
-  }
-
-  // A customer's own personal voucher (Discount.customerId set, issued
-  // automatically on a SubscriptionPlan purchase — see
-  // SubscriptionPlansService.confirmPurchase) was previously invisible on
-  // customer-web: nothing surfaced the code, so it could never actually be
-  // applied without staff reading it out of the admin dashboard. This
-  // powers auto-filling the checkout discount code field with the
-  // customer's own still-valid voucher, if they have one - never a public
-  // code, which stays opt-in/manually typed.
-  async findMyActive(userId: string) {
-    const customer = await this.db.client.customer.findFirst({ where: { userId } });
-    if (!customer) return null;
-
-    const now = new Date();
-    const discount = await this.db.client.discount.findFirst({
-      where: {
-        customerId: customer.id,
-        isActive: true,
-        startsAt: { lte: now },
-        endsAt: { gte: now },
-      },
-      // Soonest-expiring first, in the unlikely case more than one is
-      // active at once (e.g. two plan purchases before either was used).
-      orderBy: { endsAt: "asc" },
-    });
-    if (!discount) return null;
-
-    return { ...discount, amount: Number(discount.amount) };
   }
 
   async remove(id: string) {
