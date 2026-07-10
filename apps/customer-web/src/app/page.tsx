@@ -532,6 +532,11 @@ export default function CustomerPortal() {
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
+  // The customer's own personal voucher (issued automatically on a
+  // SubscriptionPlan/wallet top-up purchase) - auto-filled into
+  // discountCode below rather than making them dig up and type a code they
+  // never actually saw anywhere.
+  const [myActiveVoucher, setMyActiveVoucher] = React.useState<{ code: string; type: string; amount: number } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
 
   // Custom Bowl Calculator States
@@ -759,6 +764,27 @@ export default function CustomerPortal() {
     }
   }, [activeTab, user, loadDashboard]);
 
+  // Auto-apply the customer's own active voucher at checkout, if they have
+  // one - fetched fresh every time the cart opens so a voucher that just
+  // got issued (e.g. right after buying a plan) shows up without a reload.
+  // Only fills the field when it's still empty, so it never clobbers a
+  // public code the customer typed in themselves.
+  React.useEffect(() => {
+    if (!isCartOpen || !user) return;
+    const token = localStorage.getItem("fk_token");
+    fetch(`${API_URL}/discounts/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((result) => {
+        const voucher = result?.data ?? null;
+        setMyActiveVoucher(voucher);
+        if (voucher && !discountCode) {
+          setDiscountCode(voucher.code);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCartOpen, user, API_URL]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const success = await login(loginEmail, loginPass, lang);
@@ -812,6 +838,14 @@ export default function CustomerPortal() {
     const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
     if (result) {
+      // Explicit refresh rather than relying on the activeTab-change effect
+      // below: the cart can be opened from ANY tab (including while already
+      // sitting on "dashboard"), in which case setActiveTab("dashboard") is
+      // a no-op and the effect never re-fires - leaving the just-placed
+      // order missing from "My Orders" until the customer manually switches
+      // tabs or reloads the page.
+      loadDashboard();
+      setDiscountCode("");
       if (paymentMethod === "BANK_TRANSFER") {
         setCheckoutResult(result);
       } else {
@@ -3504,6 +3538,13 @@ export default function CustomerPortal() {
                     />
                     {!user && (
                       <p className="text-[9px] text-primary font-medium mt-1">{t("auth_coupon_hint")}</p>
+                    )}
+                    {user && myActiveVoucher && discountCode === myActiveVoucher.code && (
+                      <p className="text-[9px] text-primary font-medium mt-1">
+                        {lang === "vi"
+                          ? `🎁 Voucher ${myActiveVoucher.code} (${myActiveVoucher.type === "PERCENTAGE" ? `giảm ${myActiveVoucher.amount}%` : formatVND(myActiveVoucher.amount)}) từ gói bạn đã mua đã được tự động áp dụng.`
+                          : `🎁 Your ${myActiveVoucher.code} voucher (${myActiveVoucher.type === "PERCENTAGE" ? `${myActiveVoucher.amount}% off` : formatVND(myActiveVoucher.amount)}) from your plan purchase was applied automatically.`}
+                      </p>
                     )}
                   </div>
 
