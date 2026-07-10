@@ -1315,19 +1315,19 @@ export default function CustomerPortal() {
         payload.deliveryDate = customOrderDeliveryDate;
       }
 
+      if (orderNowDiscountCode.trim()) {
+        payload.discountCode = orderNowDiscountCode.trim();
+      }
+
       const res = await fetch(`${API_URL}/orders/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: orderNowName.trim(),
-          phone: orderNowPhone.trim(),
-          address: orderNowAddress.trim() || undefined,
-          notes: orderNowNotes.trim() || undefined,
-          paymentMethod: orderNowPaymentMethod,
-          items: orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty })),
-          discountCode: orderNowDiscountCode.trim() || undefined,
-        }),
-      });
+        body: JSON.stringify(payload),
+      }).catch(() => null);
+      if (!res) {
+        setOrderNowError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+        return;
+      }
       const result = await res.json().catch(() => null);
       if (res.ok) {
         setOrderNowResult(result.data);

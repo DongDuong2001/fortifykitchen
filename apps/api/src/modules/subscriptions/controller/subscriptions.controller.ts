@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagg
 import { SubscriptionsService } from "../service/subscriptions.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
+import { UpdateSubscriptionStatusDto } from "../dto/update-subscription-status.dto";
 import { TopUpPoolDto } from "../dto/top-up-pool.dto";
 import { Subscription } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -74,6 +75,19 @@ export class SubscriptionsController {
     @Body() dto: UpdateSubscriptionDto,
   ): Promise<Subscription> {
     return this.subscriptionsService.update(id, dto);
+  }
+
+  @Put(":id/status")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({ summary: "Pause or resume a subscription" })
+  @ApiResponse({ status: 200, description: "Subscription status updated." })
+  @ApiResponse({ status: 404, description: "Subscription not found" })
+  async updateStatus(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSubscriptionStatusDto,
+    @CurrentUser() user: any,
+  ): Promise<Subscription> {
+    return this.subscriptionsService.updateStatus(id, dto.status, user);
   }
 
   @Post(":id/top-up")
