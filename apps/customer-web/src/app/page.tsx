@@ -1250,9 +1250,30 @@ export default function CustomerPortal() {
       )
     : 0;
 
-  const handleSubmitOrderNow = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
+  const calculateCustomOrderPrice = () => {
+    const pOpt = PROTEIN_OPTIONS.find((x) => x.id === customOrderProtein) || PROTEIN_OPTIONS[0];
+    const p = pOpt.sizes[customOrderSize as 150 | 250] || pOpt.sizes[150];
+    const c = CARB_OPTIONS.find((x) => x.id === customOrderCarb) || CARB_OPTIONS[0];
+    const s = SAUCE_OPTIONS.find((x) => x.id === customOrderSauce) || SAUCE_OPTIONS[0];
+    
+    let priceVal = 10000 + p.price + c.price + s.price;
+
+    for (const t of customOrderToppings) {
+      const topOpt = TOPPING_OPTIONS.find((x) => x.id === t);
+      if (topOpt) {
+        priceVal += topOpt.price;
+      }
+    }
+    return priceVal;
+  };
+
+  const handleSubmitOrderNow = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (orderFlowType === "standard") {
+      if (orderNowCart.length === 0 || !orderNowName.trim() || !orderNowPhone.trim()) return;
+    } else {
+      if (!orderNowName.trim() || !orderNowPhone.trim() || !customOrderDeliveryDate) return;
+    }
     setIsSubmittingOrderNow(true);
     setOrderNowError(null);
     try {
@@ -2743,9 +2764,17 @@ export default function CustomerPortal() {
                               <span className="font-semibold shrink-0">{formatVND(l.menuItem.price * l.qty)}</span>
                             </div>
                           ))}
+                          {orderNowDiscountAmount > 0 && (
+                            <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
+                              <span>
+                                {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
+                              </span>
+                              <span>-{formatVND(orderNowDiscountAmount)}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
                             <span>{t("txt_total")}</span>
-                            <span className="text-primary">{formatVND(orderNowTotal)}</span>
+                            <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
                           </div>
                         </div>
                       )}
@@ -2808,18 +2837,6 @@ export default function CustomerPortal() {
                             {formatVND(calculateCustomOrderPrice() * customOrderQty)}
                           </span>
                         </div>
-                      ))}
-                      {orderNowDiscountAmount > 0 && (
-                        <div className="flex justify-between text-xs font-semibold text-emerald-600 pt-1 border-t border-border/50">
-                          <span>
-                            {t("cart_discount")} ({orderNowDiscountCode.trim().toUpperCase()})
-                          </span>
-                          <span>-{formatVND(orderNowDiscountAmount)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-sm font-bold pt-2 border-t border-border/50">
-                        <span>{t("txt_total")}</span>
-                        <span className="text-primary">{formatVND(orderNowTotal - orderNowDiscountAmount)}</span>
                       </div>
                     </div>
                   )}
@@ -2928,22 +2945,69 @@ export default function CustomerPortal() {
                     </div>
 
                     <div className="space-y-1.5 pt-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                         {t("cart_payment")}
                       </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOrderNowPaymentMethod("CASH_ON_DELIVERY")}
+                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                            orderNowPaymentMethod === "CASH_ON_DELIVERY"
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-background hover:bg-muted"
+                          }`}
+                        >
+                          <FontAwesomeIcon icon={faCreditCard} className="h-3.5 w-3.5 shrink-0" />
+                          {t("payment_cod")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderNowPaymentMethod("BANK_TRANSFER")}
+                          className={`py-2 px-3 border text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                            orderNowPaymentMethod === "BANK_TRANSFER"
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-background hover:bg-muted"
+                          }`}
+                        >
+                          <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5 shrink-0" />
+                          {t("payment_vietqr")}
+                        </button>
+                      </div>
+                    </div>
 
-                      {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
-                      <button
-                        type="submit"
-                        disabled={
-                          (orderFlowType === "standard" && orderNowCart.length === 0) ||
-                          !orderNowAgreeTerms
-                        }
-                        className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                      >
-                        {t("btn_checkout")}
-                      </button>
-                    </form>
+                    <label className="flex items-start gap-2 text-[10px] text-muted-foreground select-none cursor-pointer py-1 leading-normal">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={orderNowAgreeTerms}
+                        onChange={(e) => setOrderNowAgreeTerms(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        {t("cart_agree")}{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowPrivacyModal(true)}
+                          className="text-primary font-semibold hover:underline"
+                        >
+                          {t("cart_terms")}
+                        </button>
+                      </span>
+                    </label>
+
+                    {orderNowError && <p className="text-[10px] text-red-500 leading-normal">{orderNowError}</p>}
+                    <button
+                      type="submit"
+                      disabled={
+                        (orderFlowType === "standard" && orderNowCart.length === 0) ||
+                        !orderNowAgreeTerms
+                      }
+                      className="w-full bg-primary text-primary-foreground text-xs font-bold py-3 rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {t("btn_checkout")}
+                    </button>
+                  </form>
                   </div>
                 </div>
               </div>
@@ -4051,7 +4115,7 @@ export default function CustomerPortal() {
                   // entirely. Block Enter-triggered submission from inputs;
                   // the actual "Thanh toán" button still submits normally.
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+                    if (e.key === "Enter" && (e.target as any).tagName === "INPUT") {
                       e.preventDefault();
                     }
                   }}
