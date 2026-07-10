@@ -7,7 +7,7 @@ import { normalizePhone } from "../../../common/utils/phone.util";
 import { OrdersService } from "../../orders/service/orders.service";
 import { calculatePoolPricing, addDays } from "@fortifykitchen/shared";
 import { Subscription, SubscriptionPool } from "@fortifykitchen/types";
-import { PaymentState, Protein, CustomPlanRequestStatus, PaymentMethod, PaymentStatus, Decimal } from "@fortifykitchen/database";
+import { PaymentState, Protein, CustomPlanRequestStatus, PaymentMethod, PaymentStatus, Decimal, SubscriptionStatus } from "@fortifykitchen/database";
 
 // How far ahead of "today" a subscription's Order occurrences get
 // materialized. See syncUpcomingOrders — this is what makes requirement
@@ -185,6 +185,35 @@ export class SubscriptionsService {
     });
 
     return this.mapSubscription(sub);
+  }
+
+  async updateStatus(
+    id: string,
+    status: SubscriptionStatus,
+    requestingUser?: { id: string; role: string },
+  ): Promise<Subscription> {
+    const sub = await this.db.client.subscription.findUnique({ where: { id } });
+    if (!sub) {
+      throw new NotFoundException(`Subscription with ID ${id} not found`);
+    }
+
+    if (requestingUser?.role === "CUSTOMER") {
+      const customer = await this.db.client.customer.findFirst({ where: { userId: requestingUser.id } });
+      if (!customer || customer.id !== sub.customerId) {
+        throw new ForbiddenException("You can only update the status of your own subscription.");
+      }
+      if (status !== "ACTIVE" && status !== "PAUSED") {
+        throw new BadRequestException("Customers can only set status to ACTIVE or PAUSED.");
+      }
+    }
+
+    const updated = await this.db.client.subscription.update({
+      where: { id },
+      data: { status },
+      include: { pools: true },
+    });
+
+    return this.mapSubscription(updated);
   }
 
   // Adds more purchased weight to an existing pool, or creates a new one if

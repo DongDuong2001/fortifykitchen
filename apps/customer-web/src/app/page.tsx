@@ -29,8 +29,16 @@ import {
   faCheck,
   faSearch,
   faCalendarAlt,
-  faWallet
+  faWallet,
+  faLeaf,
+  faHeart,
+  faFlask,
+  faQuoteLeft,
+  faShieldHalved,
+  faPhone,
+  faComment
 } from "@fortawesome/free-solid-svg-icons";
+import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
 
 // Order status labels for the customer-facing "Track my order" lookup —
@@ -734,9 +742,9 @@ export default function CustomerPortal() {
     async function loadPlans() {
       try {
         setIsLoadingPlans(true);
-        const res = await fetch(`${API_URL}/subscription-plans/public`);
-        const result = await res.json().catch(() => null);
-        if (res.ok) {
+        const res = await fetch(`${API_URL}/subscription-plans/public`).catch(() => null);
+        if (res && res.ok) {
+          const result = await res.json().catch(() => null);
           setSubscriptionPlans(result?.data || []);
         }
       } catch (err) {
@@ -755,9 +763,9 @@ export default function CustomerPortal() {
       const token = localStorage.getItem("fk_token");
       const res = await fetch(`${API_URL}/notifications/me`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json().catch(() => null);
-      if (res.ok) {
+      }).catch(() => null);
+      if (res && res.ok) {
+        const result = await res.json().catch(() => null);
         setNotifications(result?.data || null);
       }
     } catch (err) {
@@ -779,10 +787,10 @@ export default function CustomerPortal() {
       setIsLoadingDashboard(true);
       const token = localStorage.getItem("fk_token");
       const [resOrders, resSubs] = await Promise.all([
-        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
-      if (resOrders.ok && resSubs.ok) {
+      if (resOrders && resSubs && resOrders.ok && resSubs.ok) {
         const orderData = await resOrders.json();
         const subsData = await resSubs.json();
         setMyOrders(orderData.data || []);
@@ -1320,19 +1328,19 @@ export default function CustomerPortal() {
         payload.deliveryDate = customOrderDeliveryDate;
       }
 
+      if (orderNowDiscountCode.trim()) {
+        payload.discountCode = orderNowDiscountCode.trim();
+      }
+
       const res = await fetch(`${API_URL}/orders/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: orderNowName.trim(),
-          phone: orderNowPhone.trim(),
-          address: orderNowAddress.trim() || undefined,
-          notes: orderNowNotes.trim() || undefined,
-          paymentMethod: orderNowPaymentMethod,
-          items: orderNowCart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.qty })),
-          discountCode: orderNowDiscountCode.trim() || undefined,
-        }),
-      });
+        body: JSON.stringify(payload),
+      }).catch(() => null);
+      if (!res) {
+        setOrderNowError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+        return;
+      }
       const result = await res.json().catch(() => null);
       if (res.ok) {
         setOrderNowResult(result.data);
@@ -1544,10 +1552,15 @@ export default function CustomerPortal() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
       {/* 1. HEADER */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/10 bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setActiveTab("home")}>
-            <span className="text-xl font-normal tracking-tight font-heading text-foreground">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
+            <img 
+              src="/logo.png" 
+              alt="Fortify Kitchen Logo" 
+              className="h-10 w-10 object-contain rounded-full transition-transform group-hover:scale-105"
+            />
+            <span className="text-xl font-normal tracking-tight font-heading text-foreground select-none">
               Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
             </span>
           </div>
@@ -2129,45 +2142,145 @@ export default function CustomerPortal() {
 
         {/* TAB 0.7: ABOUT US */}
         {activeTab === "about" && (
-          <div className="max-w-3xl mx-auto space-y-12 text-left">
-            <div className="space-y-4 text-center">
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Wellness begins with compassion." : "Wellness begins with compassion."}
+          <div className="max-w-4xl mx-auto space-y-16 text-left">
+            {/* Header section with refined editorial spacing */}
+            <div className="space-y-5 text-center py-6">
+              <span className="text-[10px] font-bold text-primary uppercase tracking-[0.25em] block">
+                {lang === "vi" ? "Sứ Mệnh Của Chúng Tôi" : "Our Ultimate Mission"}
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight font-heading text-foreground leading-tight max-w-2xl mx-auto">
+                {lang === "vi" 
+                  ? "Sự khỏe mạnh đích thực bắt đầu từ tình yêu và sự tử tế."
+                  : "True wellness begins with culinary compassion."}
               </h2>
-              <div className="h-[1px] w-24 bg-primary/40 mx-auto" />
+              <div className="h-[1px] w-20 bg-primary/45 mx-auto mt-4" />
             </div>
 
-            <p className="text-base text-secondary/90 leading-relaxed font-sans font-light">
-              {lang === "vi" 
-                ? "Fortify Kitchen ra đời với sứ mệnh tái định nghĩa cách tiếp cận dinh dưỡng lành mạnh của người Việt. Không chạy theo các trào lưu ăn kiêng cực đoan, chúng tôi tin tưởng vào sức mạnh của một chế độ ăn uống cân bằng, minh bạch và chân thật."
-                : "Fortify Kitchen was born with a mission to redefine healthy dining. Far from following extreme diet fads, we believe in a balanced, transparent, and authentic relationship with food."}
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Kỹ nghệ Sous-vide" : "Sous-vide Craftsmanship"}</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+            {/* Inspirational Quote Callout */}
+            <div className="border border-border/70 bg-card rounded-3xl p-8 sm:p-10 shadow-warm relative overflow-hidden flex gap-5 sm:gap-6 items-start">
+              <FontAwesomeIcon icon={faQuoteLeft} className="h-8 w-8 text-primary/20 shrink-0 mt-1" />
+              <div className="space-y-4">
+                <p className="text-base sm:text-lg text-foreground font-heading italic leading-relaxed">
                   {lang === "vi"
-                    ? "Chúng tôi áp dụng phương pháp nấu chậm chân không ở nhiệt độ chuẩn xác để bảo vệ toàn vẹn liên kết cơ và dinh dưỡng tự nhiên, giúp các loại thịt luôn mềm mọng nước mà không cần lạm dụng chất tạo ngọt nhân tạo."
-                    : "We use precise vacuum slow-cooking to preserve protein structures and natural juices, keeping our meats tender and succulent without the need for artificial flavorings."}
+                    ? "Chúng tôi không tin vào những chế độ ăn kiêng khắc nghiệt hay những thực đơn khô khan vô vị. Ăn uống lành mạnh trước hết phải là một trải nghiệm ẩm thực đầy cảm hứng, mang lại niềm vui cho cả cơ thể lẫn tâm hồn."
+                    : "We do not believe in punishing diets or tasteless restrictions. Healthy eating should be an inspiring culinary experience that brings joy to both the body and the soul."}
                 </p>
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold font-heading text-primary">{lang === "vi" ? "Nông sản VietGAP" : "VietGAP Organic Farm"}</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {lang === "vi"
-                    ? "Toàn bộ rau xanh và củ quả được liên kết nhập trực tiếp từ các hợp tác xã nông sản sạch Đà Lạt mỗi sáng, đảm bảo tiêu chuẩn an toàn sinh học cao nhất."
-                    : "All vegetables and greens are sourced directly from biological certified Dalat cooperatives every morning, ensuring the highest standards of safety and freshness."}
-                </p>
+                <div className="flex items-center gap-3">
+                  <div className="h-[1px] w-8 bg-secondary/40" />
+                  <span className="text-[10px] font-bold text-secondary uppercase tracking-widest font-sans">
+                    {lang === "vi" ? "Đội ngũ Sáng lập Fortify Kitchen" : "Fortify Kitchen Founders"}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-muted/20 border border-border/40">
-              <img 
-                src="https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=1200" 
-                alt="Nutritious kitchen workflow" 
-                className="w-full h-full object-cover"
-              />
+            {/* Core Pillars Section with Circular Icons */}
+            <div className="space-y-8">
+              <div className="text-center md:text-left">
+                <h3 className="text-lg font-bold uppercase tracking-wider text-foreground font-heading">
+                  {lang === "vi" ? "Giá Trị Cốt Lõi" : "Our Core Values"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {lang === "vi" ? "Những tiêu chuẩn tạo nên sự khác biệt trong từng phần ăn" : "The standards that define every gourmet prep we serve"}
+                </p>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Pillar 1: Sous-vide */}
+                <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <FontAwesomeIcon icon={faFlask} className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
+                      {lang === "vi" ? "Kỹ nghệ Sous-vide" : "Sous-vide Craft"}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {lang === "vi"
+                        ? "Nấu chậm chân không giúp giữ trọn vẹn thớ thịt mềm ẩm, ngọt nước tự nhiên và bảo vệ tối đa hàm lượng dinh dưỡng."
+                        : "Precise vacuum slow-cooking preserves absolute tenderness, natural juices, and vital nutritional values."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Pillar 2: Organic */}
+                <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/5 flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                    <FontAwesomeIcon icon={faLeaf} className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
+                      {lang === "vi" ? "Nông Sản Sạch" : "Clean Crops"}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {lang === "vi"
+                        ? "Toàn bộ rau quả Đà Lạt VietGAP được chọn lọc trực tiếp mỗi sáng sớm để đảm bảo độ tươi giòn, an toàn tuyệt đối."
+                        : "Dalat organic crops are selected fresh every morning to guarantee crispness and biological safety."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Pillar 3: Heart */}
+                <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
+                  <div className="h-10 w-10 rounded-xl bg-rose-500/5 flex items-center justify-center text-rose-500 transition-colors group-hover:bg-rose-500 group-hover:text-white">
+                    <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
+                      {lang === "vi" ? "Đo Ni Dinh Dưỡng" : "Custom Macros"}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {lang === "vi"
+                        ? "Thực đơn dinh dưỡng chuẩn chỉnh được tối ưu hóa theo chỉ số protein, carb và calo của riêng mục tiêu thể hình."
+                        : "Dietary macros customized to target your specific protein, carb, and fitness goals."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Pillar 4: Guarantee */}
+                <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
+                  <div className="h-10 w-10 rounded-xl bg-amber-500/5 flex items-center justify-center text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                    <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
+                      {lang === "vi" ? "Minh Bạch Tuyệt Đối" : "100% Transparency"}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {lang === "vi"
+                        ? "Chúng tôi cam kết không dùng phụ gia, không chất bảo quản, chỉ có hương vị tự nhiên và thông tin minh bạch."
+                        : "We guarantee no additives, no preservatives, and complete structural breakdown of calories."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Split Story Section */}
+            <div className="grid md:grid-cols-2 gap-10 items-center pt-4">
+              <div className="space-y-5">
+                <span className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] block">
+                  {lang === "vi" ? "Câu Chuyện Của Chúng Tôi" : "The Kitchen Philosophy"}
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold font-heading text-foreground">
+                  {lang === "vi"
+                    ? "Tại sao lại là nấu chậm chân không?"
+                    : "The science behind gourmet sous-vide."}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {lang === "vi"
+                    ? "Ở nhiệt độ cao thông thường, thớ cơ của thịt gà hay thịt bò sẽ co rút đột ngột, đẩy nước ngọt ra ngoài khiến thịt bị khô xơ và phá hủy các vitamin nhạy cảm với nhiệt độ. Phương pháp Sous-vide giữ thực phẩm trong túi chân không và làm chín chậm trong bể nước ổn định ở nhiệt độ thấp chuẩn xác. Kết quả là thớ thịt chín đều hoàn hảo từ trong ra ngoài, giữ nguyên độ ẩm ngọt tự nhiên và 100% giá trị dinh dưỡng thiết yếu."
+                    : "Conventional cooking at high temperatures causes protein fibers to shrink rapidly, squeezing out natural juices and destroying heat-sensitive vitamins. By vacuum-sealing ingredients and slowly cooking them in a water bath at a precise low temperature, sous-vide ensures perfect edge-to-edge cooking, lock-in hydration, and preserves 100% of essential nutrients."}
+                </p>
+              </div>
+
+              <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-muted/20 border border-border/40 shadow-md">
+                <img 
+                  src="https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=800" 
+                  alt="Nutritious gourmet kitchen workflow" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -2972,7 +3085,7 @@ export default function CustomerPortal() {
                     </div>
 
                     <div className="space-y-1.5 pt-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                         {t("cart_payment")}
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -4145,7 +4258,7 @@ export default function CustomerPortal() {
                   // entirely. Block Enter-triggered submission from inputs;
                   // the actual "Thanh toán" button still submits normally.
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+                    if (e.key === "Enter" && (e.target as any).tagName === "INPUT") {
                       e.preventDefault();
                     }
                   }}
@@ -4572,20 +4685,31 @@ export default function CustomerPortal() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs text-muted-foreground">
           {/* Column 1: Brand & Contact Info */}
           <div className="space-y-4">
-            <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}
+            <div className="flex items-center gap-2 text-sm font-bold text-foreground font-heading">
+              <img 
+                src="/logo.png" 
+                alt="Fortify Kitchen Logo" 
+                className="h-7 w-7 object-contain rounded-full"
+              />
+              <span>{lang === "vi" ? "FortifyKitchen Việt Nam" : "FortifyKitchen Vietnam"}</span>
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
                 ? "Gói dinh dưỡng cao cấp, thực đơn Protein chuẩn gourmet được chế biến từ nguyên liệu tươi sạch bởi đầu bếp chuyên nghiệp để phục vụ mục tiêu sức khỏe của bạn."
                 : "Premium gourmet protein meal prep subscriptions prepared by professional chefs to help you achieve your fitness goals."}
             </p>
-            <div className="space-y-2">
-              <p>
-                <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+            <div className="space-y-2.5">
+              <p className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faMapMarkerAlt} className="text-primary/80 h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  <strong>{lang === "vi" ? "Khu vực phục vụ:" : "Service Area:"}</strong> {lang === "vi" ? "Thành phố Hồ Chí Minh, Việt Nam" : "Ho Chi Minh City, Vietnam"}
+                </span>
               </p>
-              <p>
-                <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+              <p className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faPhone} className="text-primary/80 h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Hotline & Zalo:</strong> [Số điện thoại liên hệ]
+                </span>
               </p>
             </div>
           </div>
@@ -4600,24 +4724,27 @@ export default function CustomerPortal() {
                 ? "Các điều khoản sử dụng và chính sách hoạt động của cửa hàng chúng tôi:"
                 : "Our store's usage terms and operational policies:"}
             </p>
-            <div className="flex flex-col gap-2 font-medium">
+            <div className="flex flex-col gap-2.5 font-medium">
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Điều khoản sử dụng dịch vụ" : "➔ Terms of Service"}
+                <FontAwesomeIcon icon={faInfoCircle} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Điều khoản sử dụng dịch vụ" : "Terms of Service"}</span>
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Chính sách bảo mật thông tin" : "➔ Privacy Policy"}
+                <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Chính sách bảo mật thông tin" : "Privacy Policy"}</span>
               </button>
               <button
                 onClick={() => setShowPrivacyModal(true)}
-                className="text-left text-primary hover:underline cursor-pointer transition-colors"
+                className="text-left text-primary hover:text-primary/80 cursor-pointer transition-colors flex items-center gap-2"
               >
-                {lang === "vi" ? "➔ Chính sách thanh toán & Hoàn tiền" : "➔ Payment & Refund Policy"}
+                <FontAwesomeIcon icon={faCreditCard} className="h-3 w-3 text-primary/60 shrink-0" />
+                <span>{lang === "vi" ? "Chính sách thanh toán & Hoàn tiền" : "Payment & Refund Policy"}</span>
               </button>
             </div>
           </div>
@@ -4625,39 +4752,42 @@ export default function CustomerPortal() {
           {/* Column 3: Secure Payments & Social Channels */}
           <div className="space-y-4">
             <div className="text-sm font-bold text-foreground font-heading">
-              {lang === "vi" ? "Thanh toán & Liên hệ mạng xã hội" : "Payments & Social Channels"}
+              {lang === "vi" ? "Thanh toán & Liên hệ" : "Payments & Contact"}
             </div>
             <p className="leading-relaxed">
               {lang === "vi"
-                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận nơi (COD) và Chuyển khoản VietQR tiện lợi. Liên hệ ngay để được tư vấn thực đơn phù hợp nhất."
-                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Contact us directly for menu consultations."}
+                ? "Chúng tôi hỗ trợ giao hàng thu tiền tận ước (COD) và Chuyển khoản VietQR tiện lợi. Kết nối ngay để được tư vấn thực đơn phù hợp."
+                : "We support convenient Cash on Delivery (COD) and VietQR bank transfers. Connect now for menu consultations."}
             </p>
             
-            {/* Social Connect buttons using text-based tags */}
-            <div className="pt-2 flex flex-wrap gap-3">
+            {/* Social Connect circular buttons */}
+            <div className="pt-2 flex items-center gap-3">
               <a
                 href="https://zalo.me/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Zalo Chat"
               >
-                Zalo Chat
+                <FontAwesomeIcon icon={faComment} className="h-4.5 w-4.5" />
               </a>
               <a
                 href="https://facebook.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Facebook"
               >
-                Facebook
+                <FontAwesomeIcon icon={faFacebook} className="h-4.5 w-4.5" />
               </a>
               <a
                 href="https://instagram.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/20 transition-colors text-[10px]"
+                className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors shadow-xs"
+                title="Instagram"
               >
-                Instagram
+                <FontAwesomeIcon icon={faInstagram} className="h-4.5 w-4.5" />
               </a>
             </div>
           </div>
