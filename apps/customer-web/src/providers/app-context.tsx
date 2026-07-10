@@ -3,7 +3,9 @@
 import * as React from "react";
 import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, User } from "@fortifykitchen/types";
-import { getMenuItemLabel } from "@fortifykitchen/shared";
+import { getMenuItemLabel, translateApiError } from "@fortifykitchen/shared";
+
+type Lang = "vi" | "en";
 
 interface CartItem {
   menuItem: MenuItem;
@@ -19,14 +21,14 @@ interface AppContextType {
   cartTotal: number;
   isCartOpen: boolean;
   setCartOpen: (open: boolean) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (data: any) => Promise<boolean>;
-  logout: () => void;
-  addToCart: (item: MenuItem, qty?: number, notes?: string) => void;
-  removeFromCart: (itemId: string) => void;
-  updateCartQuantity: (itemId: string, qty: number) => void;
+  login: (email: string, password: string, lang?: Lang) => Promise<boolean>;
+  signup: (data: any, lang?: Lang) => Promise<boolean>;
+  logout: (lang?: Lang) => void;
+  addToCart: (item: MenuItem, qty?: number, notes?: string, lang?: Lang) => void;
+  removeFromCart: (itemId: string, lang?: Lang) => void;
+  updateCartQuantity: (itemId: string, qty: number, lang?: Lang) => void;
   clearCart: () => void;
-  placeOrder: (address: string, method: string, notes?: string, code?: string) => Promise<any>;
+  placeOrder: (address: string, method: string, notes?: string, discountCode?: string, lang?: Lang) => Promise<any>;
 }
 
 const AppContext = React.createContext<AppContextType | undefined>(undefined);
@@ -75,7 +77,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, lang: Lang = "vi"): Promise<boolean> => {
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
@@ -86,8 +88,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const result = await res.json();
       if (!res.ok) {
         toast({
-          title: "Login Failed",
-          description: result.message || "Invalid credentials",
+          title: lang === "vi" ? "Đăng nhập thất bại" : "Login Failed",
+          description: translateApiError(
+            result.message,
+            lang,
+            lang === "vi" ? "Email hoặc mật khẩu không đúng." : "Invalid credentials",
+          ),
           type: "error",
         });
         return false;
@@ -99,23 +105,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("fk_user", JSON.stringify(result.data.user));
 
       toast({
-        title: "Welcome Back",
-        description: `Logged in as ${result.data.user.firstName}`,
+        title: lang === "vi" ? "Chào mừng trở lại" : "Welcome Back",
+        description:
+          lang === "vi" ? `Đã đăng nhập với tên ${result.data.user.firstName}` : `Logged in as ${result.data.user.firstName}`,
         type: "success",
       });
       return true;
     } catch (error) {
       console.error(error);
       toast({
-        title: "Login Error",
-        description: "Could not connect to authentication server",
+        title: lang === "vi" ? "Lỗi đăng nhập" : "Login Error",
+        description: lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server",
         type: "error",
       });
       return false;
     }
   };
 
-  const signup = async (data: any): Promise<boolean> => {
+  const signup = async (data: any, lang: Lang = "vi"): Promise<boolean> => {
     try {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: "POST",
@@ -126,8 +133,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const result = await res.json();
       if (!res.ok) {
         toast({
-          title: "Registration Failed",
-          description: result.message || "Failed to create account",
+          title: lang === "vi" ? "Đăng ký thất bại" : "Registration Failed",
+          description: translateApiError(
+            result.message,
+            lang,
+            lang === "vi" ? "Không thể tạo tài khoản. Vui lòng kiểm tra lại thông tin." : "Failed to create account",
+          ),
           type: "error",
         });
         return false;
@@ -139,35 +150,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("fk_user", JSON.stringify(result.data.user));
 
       toast({
-        title: "Account Created",
-        description: "Welcome to FortifyKitchen!",
+        title: lang === "vi" ? "Tạo tài khoản thành công" : "Account Created",
+        description: lang === "vi" ? "Chào mừng bạn đến với Fortify Kitchen!" : "Welcome to FortifyKitchen!",
         type: "success",
       });
       return true;
     } catch (error) {
       console.error(error);
       toast({
-        title: "Signup Error",
-        description: "Could not connect to authentication server",
+        title: lang === "vi" ? "Lỗi đăng ký" : "Signup Error",
+        description: lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server",
         type: "error",
       });
       return false;
     }
   };
 
-  const logout = () => {
+  const logout = (lang: Lang = "vi") => {
     setToken(null);
     setUser(null);
     localStorage.removeItem("fk_token");
     localStorage.removeItem("fk_user");
     toast({
-      title: "Logged Out",
-      description: "You have successfully signed out.",
+      title: lang === "vi" ? "Đã đăng xuất" : "Logged Out",
+      description: lang === "vi" ? "Bạn đã đăng xuất thành công." : "You have successfully signed out.",
       type: "default",
     });
   };
 
-  const addToCart = (menuItem: MenuItem, qty = 1, notes?: string) => {
+  const addToCart = (menuItem: MenuItem, qty = 1, notes?: string, lang: Lang = "vi") => {
     setCart((prev) => {
       const existingIdx = prev.findIndex((item) => item.menuItem.id === menuItem.id);
       if (existingIdx > -1) {
@@ -179,24 +190,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     toast({
-      title: "Added to Cart",
-      description: `${getMenuItemLabel(menuItem)} added.`,
+      title: lang === "vi" ? "Đã thêm vào giỏ" : "Added to Cart",
+      description: lang === "vi" ? `Đã thêm ${getMenuItemLabel(menuItem)}.` : `${getMenuItemLabel(menuItem)} added.`,
       type: "success",
     });
   };
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = (itemId: string, lang: Lang = "vi") => {
     setCart((prev) => prev.filter((item) => item.menuItem.id !== itemId));
     toast({
-      title: "Removed from Cart",
-      description: "Item removed.",
+      title: lang === "vi" ? "Đã xóa khỏi giỏ" : "Removed from Cart",
+      description: lang === "vi" ? "Món đã được xóa." : "Item removed.",
       type: "default",
     });
   };
 
-  const updateCartQuantity = (itemId: string, qty: number) => {
+  const updateCartQuantity = (itemId: string, qty: number, lang: Lang = "vi") => {
     if (qty <= 0) {
-      removeFromCart(itemId);
+      removeFromCart(itemId, lang);
       return;
     }
     setCart((prev) =>
@@ -213,22 +224,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     paymentMethod: string,
     notes?: string,
     discountCode?: string,
+    lang: Lang = "vi",
   ): Promise<any> => {
     if (!token) {
       toast({
-        title: "Checkout Required",
-        description: "Please log in to place an order.",
+        title: lang === "vi" ? "Cần đăng nhập" : "Checkout Required",
+        description: lang === "vi" ? "Vui lòng đăng nhập để đặt hàng." : "Please log in to place an order.",
         type: "error",
       });
       return null;
     }
 
+    // NOTE: discountCode isn't wired up server-side yet — CreateOrderDto has
+    // no such field, and the API rejects unknown properties
+    // (ValidationPipe forbidNonWhitelisted: true). Accepting it here but not
+    // sending it avoids breaking checkout on a feature that doesn't exist
+    // server-side yet; see the UX review notes for the recommended fix
+    // (either wire it up, or remove the "discount code" field from the
+    // checkout form so it stops promising something that can't work).
+    void discountCode;
+
     try {
+      // CreateOrderDto requires `qty` (not `quantity`) per line item, and a
+      // required `deliveryDate` — this previously sent neither, so every
+      // checkout 400'd against the API's strict validation. If the item is
+      // in live stock the server treats it as an immediate order and
+      // overrides this to "now" anyway; tomorrow is just a safe default for
+      // the scheduled-prep case.
       const orderItems = cart.map((item) => ({
         menuItemId: item.menuItem.id,
-        quantity: item.quantity,
-        notes: item.notes,
+        qty: item.quantity,
       }));
+      const deliveryDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
       const res = await fetch(`${API_URL}/orders`, {
         method: "POST",
@@ -238,26 +265,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           items: orderItems,
+          deliveryDate,
           deliveryAddress,
           notes,
           paymentMethod,
-          discountCode,
         }),
       });
 
       const result = await res.json();
       if (!res.ok) {
         toast({
-          title: "Order Failed",
-          description: result.message || "Failed to process order",
+          title: lang === "vi" ? "Đặt hàng thất bại" : "Order Failed",
+          description: translateApiError(
+            result.message,
+            lang,
+            lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order",
+          ),
           type: "error",
         });
         return null;
       }
 
       toast({
-        title: "Order Placed!",
-        description: `Your order has been received (COD).`,
+        title: lang === "vi" ? "Đặt hàng thành công!" : "Order Placed!",
+        description:
+          lang === "vi"
+            ? paymentMethod === "BANK_TRANSFER"
+              ? "Vui lòng chuyển khoản theo hướng dẫn để hoàn tất."
+              : "Đơn hàng của bạn đã được ghi nhận (thanh toán khi nhận hàng)."
+            : paymentMethod === "BANK_TRANSFER"
+              ? "Please complete the bank transfer to confirm your order."
+              : "Your order has been received (Cash on Delivery).",
         type: "success",
       });
 
@@ -266,8 +304,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error(error);
       toast({
-        title: "Checkout Error",
-        description: "An error occurred while placing order",
+        title: lang === "vi" ? "Lỗi thanh toán" : "Checkout Error",
+        description: lang === "vi" ? "Đã có lỗi xảy ra khi đặt hàng. Vui lòng thử lại." : "An error occurred while placing order",
         type: "error",
       });
       return null;
