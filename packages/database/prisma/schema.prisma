@@ -242,6 +242,12 @@ model Order {
   deliveryAddress String?
   subtotal        Int
   discountAmount  Int           @default(0)
+  // Denormalized snapshot of whichever Discount.code was redeemed on this
+  // order, if any — stacks additively with the automatic tier discount
+  // above (both folded into discountAmount); purely for staff/customer
+  // visibility into "why was this discounted." See DiscountRedemption for
+  // the actual one-redemption-per-customer enforcement.
+  discountCode    String?
   total           Int
   notes           String?
   items           OrderItem[]
@@ -397,18 +403,45 @@ model CustomPlanRequest {
 // the tiered "5% off / 10% off" reward described in
 // docs/plan-and-credit-design.md.
 model Discount {
-  id         String    @id @default(uuid())
-  code       String    @unique
-  type       String // PERCENTAGE | FIXED
-  amount     Decimal   @db.Decimal(10, 2)
-  isActive   Boolean   @default(true)
-  startsAt   DateTime
-  endsAt     DateTime
-  customerId String? // set only for a plan-purchase voucher; null for a public code
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String              @id @default(uuid())
+  code        String              @unique
+  type        String // PERCENTAGE | FIXED
+  amount      Decimal             @db.Decimal(10, 2)
+  isActive    Boolean             @default(true)
+  startsAt    DateTime
+  endsAt      DateTime
+  customerId  String? // set only for a plan-purchase voucher; null for a public code
+  redemptions DiscountRedemption[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   @@index([code])
+  @@index([customerId])
+}
+
+// Enforces "one redemption per customer" for a Discount, even a reusable
+// public code (e.g. a "first order only" WELCOME10) that many different
+// customers can each use once — decided: customers should NOT be able to
+// re-apply the same code order after order. A personal plan-purchase
+// voucher (Discount.customerId set) is additionally hard-deactivated
+// (isActive: false) on redemption since it only ever had one eligible
+// customer anyway; this table still logs that redemption too, for one
+// consistent audit trail across both kinds of codes.
+//
+// The @@unique below is what actually prevents a double-redemption under
+// concurrent requests — OrdersService claims this row inside the same
+// transaction as order creation, and relies on the unique constraint
+// throwing (rather than a racy check-then-write) to make the claim atomic.
+model DiscountRedemption {
+  id         String   @id @default(uuid())
+  discountId String
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  customerId String
+  orderId    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([discountId, customerId])
+  @@index([discountId])
   @@index([customerId])
 }
 
