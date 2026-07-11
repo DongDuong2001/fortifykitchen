@@ -1,21 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import { Providers } from "../providers/providers";
 import "./globals.css";
 
-// Inter (body) + JetBrains Mono (display/h1/label) — the "Mint Receipt"
-// pairing from DESIGN.md: monospace for numerics and headings, Inter for body.
-const inter = Inter({
+// Soumaki Sans (DM Sans) for all text levels
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-heading",
   display: "swap",
 });
 
@@ -41,7 +33,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

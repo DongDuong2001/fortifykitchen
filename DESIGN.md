@@ -1,44 +1,44 @@
 ---
 version: alpha
-name: Fresh Meal Prep
-description: Healthy meal prep & food delivery: fresh ingredients, clean layout, warm natural tones.
+name: Soumaki — Your Healthy Food Soulmate
+description: Vietnamese healthy meal-prep & sous-vide bowl brand. Warm, romantic "soulmate" tone wrapped in a clean, cream-and-green, appetite-forward layout.
 
 colors:
-  primary: "#234B36"
-  secondary: "#6E7F74"
-  tertiary: "#F28C38"
-  neutral: "#F6F4EF"
-  surface: "#FFFFFF"
-  border: "#E8E4DA"
-  on-primary: "#FFFFFF"
+  primary: "#1E2016"
+  secondary: "#7B8069"
+  tertiary: "#B0361B"
+  neutral: "#F0EBDA"
+  surface: "#F8F3E1"
+  border: "#E6DFCE"
+  on-primary: "#F8F3E1"
 
 typography:
   display:
-    fontFamily: "Be Vietnam Pro"
-    fontSize: 4.25rem
+    fontFamily: "Soumaki Sans, DM Sans"
+    fontSize: 3.75rem
     fontWeight: 700
-    letterSpacing: "-0.03em"
+    letterSpacing: "-0.02em"
 
   h1:
-    fontFamily: "Be Vietnam Pro"
-    fontSize: 2.5rem
+    fontFamily: "Soumaki Sans, DM Sans"
+    fontSize: 2.25rem
     fontWeight: 700
 
   body:
-    fontFamily: "Be Vietnam Pro"
+    fontFamily: "Soumaki Sans, DM Sans"
     fontSize: 1rem
     lineHeight: 1.7
 
   label:
-    fontFamily: "Be Vietnam Pro"
+    fontFamily: "Soumaki Sans, DM Sans"
     fontSize: 0.8rem
     fontWeight: 600
-    letterSpacing: "0.03em"
+    letterSpacing: "0.08em"
 
 rounded:
-  sm: 6px
-  md: 12px
-  lg: 20px
+  sm: 8px
+  md: 16px
+  lg: 24px
 
 spacing:
   sm: 8px
@@ -51,72 +51,79 @@ components:
     backgroundColor: "{colors.tertiary}"
     textColor: "{colors.on-primary}"
     rounded: "{rounded.md}"
-    padding: 12px 24px
+    padding: 14px 28px
 
   button-secondary:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
     borderColor: "{colors.border}"
     rounded: "{rounded.md}"
-    padding: 12px 24px
+    padding: 14px 28px
 
   card:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
     rounded: "{rounded.lg}"
-    padding: 24px
+    padding: 20px
     borderColor: "{colors.border}"
 
   badge:
     backgroundColor: "{colors.neutral}"
     textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
-    padding: 4px 10px
+    padding: 4px 12px
+
+  filter-pill:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.secondary}"
+    borderColor: "{colors.border}"
+    rounded: 999px
+    padding: 8px 18px
 
 ---
 
 # Overview
 
-Fresh Meal Prep is a design language for healthy meal subscriptions and on-demand food ordering in Vietnam.
+Soumaki is a Ho Chi Minh City healthy-bowl brand (dine-in, delivery, catering) built around sous-vide protein, macro-balanced bowls, and a distinctive brand conceit: Soumaki as your "healthy food soulmate." The 2024 rebrand (by Behalf Studio) leans fully into a dating/relationship metaphor — "tri kỷ," "chân ái," "sou-mates" — expressed through warm, romantic copywriting layered over a clean, nutrition-forward interface.
 
-The visual direction focuses on freshness, simplicity, and trust. Natural colors, generous whitespace, and appetizing food photography create an experience that feels clean without looking clinical.
+Visually the site reads as calm and appetite-first: a warm neutral canvas, a grounded deep-green brand color, a single warm accent reserved for action, generous whitespace, and food photography that carries most of the visual weight. Structure and step-based flows (build-your-own bowl, macro badges) keep the "healthy eating is simple" promise legible.
+
+**Note on this file:** navigation, copy, page structure, content sections, and typography facts (custom "Soumaki Sans" typeface built on open-source DM Sans) are confirmed from the live site and the brand's rebrand case study. Exact hex values, spacing scale, and corner radii are best-effort estimates consistent with the brand's known cream/green/citrus palette and soft, food-forward visual style — treat them as a strong starting point to refine against the live site or brand assets.
 
 ---
 
 # Brand Personality
 
-- Fresh
-- Healthy
-- Reliable
-- Modern
-- Local
-- Minimal
+- Warm
+- Romantic (soulmate/relationship metaphor)
+- Nourishing
+- Trustworthy
+- Playful
+- Clean / uncluttered
 
-The interface should feel welcoming for everyday users while still communicating premium food quality.
+The interface should feel like a caring partner, not a clinical nutrition app — playful "dating" language paired with straightforward macro data.
 
 ---
 
 # Colors
 
-The palette is inspired by fresh vegetables, warm grains, and natural ingredients.
+- **Primary (`#1E2016`)**
+  Deep Matcha Green. Headings, nav text, icon strokes, footer background.
 
-- **Primary (`#234B36`)**
-  Deep green for headings, navigation, and key branding.
+- **Secondary (`#7B8069`)**
+  Bamboo Sage Green. Supporting copy, metadata (macro labels), borders on secondary elements.
 
-- **Secondary (`#6E7F74`)**
-  Supporting text, icons, borders, and metadata.
+- **Tertiary (`#B0361B`)**
+  Clay Red. The single accent color, reserved for primary CTAs ("Đặt ngay," "Đặt món ngay," "Tính calo ngay").
 
-- **Tertiary (`#F28C38`)**
-  The only accent color. Used exclusively for primary actions.
+- **Neutral (`#F0EBDA`)**
+  Rice Paper Warm Neutral. Page background — keeps long Vietnamese/English copy easy on the eyes.
 
-- **Neutral (`#F6F4EF`)**
-  Soft warm background that reduces eye fatigue.
+- **Surface (`#F8F3E1`)**
+  Warm Sand Cream. Bowl cards, testimonial cards, blog cards.
 
-- **Surface (`#FFFFFF`)**
-  Cards, dialogs, and elevated surfaces.
-
-- **Border (`#E8E4DA`)**
-  Dividers and subtle outlines.
+- **Border (`#E6DFCE`)**
+  Rice Paper Border. Card outlines, dividers between sections.
 
 ---
 
@@ -124,27 +131,19 @@ The palette is inspired by fresh vegetables, warm grains, and natural ingredient
 
 ## Display
 
-Be Vietnam Pro
-
-Large marketing headlines.
+Soumaki Sans (custom, built on open-source DM Sans) — large hero statements like "Your healthy food soulmate."
 
 ## H1
 
-Be Vietnam Pro
-
-Page titles.
+Soumaki Sans Bold — section titles: "Build your own healthy bowl," "Sou-made bowls," "Nuôi dưỡng mối quan hệ lành mạnh với thực phẩm."
 
 ## Body
 
-Be Vietnam Pro
+Soumaki Sans Regular — long-form Vietnamese/English copy, generous line-height for readability.
 
-Readable Vietnamese copy with comfortable spacing.
+## Label / Eyebrow
 
-## Labels
-
-Be Vietnam Pro SemiBold
-
-Buttons, badges, filters, and small UI elements.
+Soumaki Sans SemiBold, uppercase, letter-spaced — small kicker labels above headings ("DỊCH VỤ CỦA SOUMAKI," "SÁNG TẠO THOẢ THÍCH VỚI MENU," "NÓI CÓ SÁCH, MÁCH CÓ CHỨNG").
 
 ---
 
@@ -152,126 +151,98 @@ Buttons, badges, filters, and small UI elements.
 
 ## Buttons
 
-Primary button
+**Primary button**
+- Burnt-orange background, white text
+- Medium radius, medium padding
+- One per view — the only place the accent color appears
 
-- Orange background
-- White text
-- Medium radius
-- Reserved for the most important action
+Examples: Đặt ngay · Đặt món ngay · Tính calo ngay · Khám phá ngay
 
-Examples
+**Secondary button**
+- White background, deep-green text, thin border
+- Used for lower-emphasis navigation-style actions
 
-- Đặt ngay
-- Đăng ký gói
-- Thanh toán
-
-Secondary button
-
-- White background
-- Green text
-- Light border
-
-Examples
-
-- Xem thực đơn
-- Chi tiết
-- Quay lại
-
----
+Examples: Ghé cửa hàng · Tìm hiểu thêm · Chọn món bạn yêu
 
 ## Cards
 
-Cards should feel lightweight.
+**Bowl card** (core commerce unit)
+- White surface, large rounded corners, soft border
+- Top-down flatlay food photo
+- Bowl code name (e.g. "B1") + calorie count as the visual anchor
+- Short ingredient list line
+- Three macro badges: PROTEIN / CARBS / FAT
+- "Tải phần ăn" download/order action on hover or below
 
-Use:
+**Service card** (homepage top: Ăn tại chỗ / Giao hàng / Catering)
+- Minimal — icon or background image, heading, one-line description, single text link
 
-- White background
-- Soft border
-- Large food image
-- Plenty of whitespace
-- Minimal shadows
+**Testimonial card**
+- Name, date, quote, source tag ("Customer from Google" / "Customer from Grabfood")
 
-Each meal card should display:
+**News/blog card**
+- Image, category tag pill, date, headline, "Đọc thêm" link
 
-- Image
-- Meal name
-- Calories
-- Protein
-- Price
-- CTA
+## Filters / Pills
 
----
+Rounded pill tabs used for bowl filtering: Ít calo · Cân bằng · Giàu đạm · Chay. Active state uses primary-colored text/underline; inactive state is muted secondary.
+
+## Step Flow
+
+The "Build your own healthy bowl" section uses a 4-step horizontal flow (Đạm → Tinh bột → Ăn kèm → Xốt), each step numbered ("BƯỚC 1–4") and joined by a thin connecting line — a deliberate nod to the brand's "connection/soulmate" motif.
 
 ## Navigation
 
-Keep navigation minimal.
+Top utility bar with store hours/address banner, then a minimal main nav with a language pill switcher (EN/VI) at the far right. No heavy CTA button in the nav itself — ordering actions live inline in page content instead.
 
 Recommended items:
-
-- Trang chủ
+- Tính calories
 - Thực đơn
-- Meal Prep
-- Gói đăng ký
 - Về chúng tôi
+- Catering
+- Cửa hàng
+- Blogs
 
-CTA:
+## Badges
 
-Đặt ngay
+Small pill/rounded-rect tags for macro values and blog categories — neutral cream background, deep-green text.
 
 ---
 
 # Imagery
 
 Photography should prioritize:
-
-- Natural lighting
-- Fresh vegetables
-- Lean proteins
-- Rice, pasta, healthy carbs
-- Wooden textures
-- Clean table settings
+- Top-down flatlay bowl shots on light or wood surfaces
+- Visible sous-vide protein (sliced, glossy, never dry-looking)
+- Fresh, colorful vegetables and grains
+- Soft, natural light
+- Occasional romantic/lifestyle shots reinforcing the "soulmate" narrative (shared meals, warm moments)
 
 Avoid:
-
-- Artificial lighting
-- Oversaturated colors
-- Busy backgrounds
-- Heavy editing
+- Harsh studio lighting
+- Oversaturated, artificial color grading
+- Cluttered backgrounds that compete with the food
 
 ---
 
-# Do's
+# Do's and Don'ts
 
-- Use generous whitespace.
-- Keep layouts simple.
-- Highlight food photography.
-- Use orange for one primary action per screen.
-- Prefer rounded corners over sharp edges.
-- Write in clear Vietnamese.
-- Keep icons simple and consistent.
+**Do**
+- Keep the accent color to one action per screen.
+- Let food photography carry visual weight; keep UI chrome quiet.
+- Pair nutrition facts (calories, macros) with warm, conversational copy.
+- Use generous whitespace and soft rounded corners throughout.
+- Keep the "soulmate/relationship" voice consistent in microcopy.
 
----
-
-# Don'ts
-
-- Don't introduce additional accent colors.
-- Don't use gradients.
-- Don't overcrowd pages.
-- Don't rely on heavy shadows.
-- Don't use decorative fonts.
-- Don't mix multiple button styles on the same screen.
-- Don't compete with food photography using overly colorful UI.
+**Don't**
+- Don't introduce a second accent color alongside the orange.
+- Don't use harsh drop shadows — keep elevation soft and subtle.
+- Don't mix button styles within the same view.
+- Don't let nutrition data feel clinical — always frame it warmly.
+- Don't overcrowd bowl cards; one clear photo, one clear number (calories) per card.
 
 ---
 
 # Overall Experience
 
-Users should immediately feel that the food is:
-
-- Fresh
-- Healthy
-- Convenient
-- Trustworthy
-- Worth subscribing to every week
-
-The interface should support both quick ordering and recurring meal plan subscriptions without unnecessary visual complexity.
+A visitor should come away feeling Soumaki is fresh, dependable, and a little romantic about healthy eating — someone who takes the guesswork out of macros while still making the experience feel personal. The interface should support fast decision-making (browse pre-made bowls by filter, or build-your-own step by step) without ever feeling like a spreadsheet.

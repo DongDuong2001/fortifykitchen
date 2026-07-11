@@ -2,10 +2,14 @@ import { Module } from "@nestjs/common";
 import { SubscriptionsController } from "./controller/subscriptions.controller";
 import { PublicSubscriptionsController } from "./controller/public-subscriptions.controller";
 import { SubscriptionsService } from "./service/subscriptions.service";
-import { DeliveryModule } from "../delivery/delivery.module";
+import { OrdersModule } from "../orders/orders.module";
 
 @Module({
-  imports: [DeliveryModule],
+  // OrdersModule is imported because subscription occurrences are now just
+  // Orders (see SubscriptionsService.syncUpcomingOrders, which calls
+  // OrdersService.createFromSubscription) — the old dedicated DeliveryModule
+  // is gone.
+  imports: [OrdersModule],
   // PublicSubscriptionsController MUST be registered before
   // SubscriptionsController — both live under /subscriptions, and
   // SubscriptionsController's GET/PUT/DELETE ":id" routes would otherwise

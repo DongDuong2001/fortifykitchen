@@ -1,9 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@200..800&display=swap');
 @import "tailwindcss";
 
 /*
- * "Fresh Meal Prep" design system — from DESIGN.md.
- * Healthy meal prep & food delivery: fresh ingredients, clean layout, warm natural tones.
+ * "Soumaki — Your Healthy Food Soulmate" design system — from DESIGN.md.
  * Mapped onto the existing shadcn-style CSS-variable convention
  * (--primary, --secondary, --accent, --muted, --border, --ring, etc.) so
  * every component in packages/ui automatically inherits the palette.
@@ -29,62 +28,49 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  /* Full brand ramp, rebased on the Fresh Meal Prep primary (#234B36) */
-  --color-brand-50: #f3f7f5;
-  --color-brand-100: #e2edeb;
-  --color-brand-200: #c5dbd6;
-  --color-brand-300: #9bbec0;
-  --color-brand-400: #6f9da2;
-  --color-brand-500: #234b36;
-  --color-brand-600: #1c3e2c;
-  --color-brand-700: #163223;
-  --color-brand-800: #10261b;
-  --color-brand-900: #0b1a12;
-  --color-brand-950: #050d09;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Fraunces", "Inter", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-
-  /* DESIGN.md's radius scale (sm: 6px / md: 12px / lg: 20px) */
-  --radius-xs: 6px;
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 20px;
-  --radius-2xl: 20px;
-  --radius-3xl: 20px;
-  --radius-4xl: 20px;
+  /* DESIGN.md's radius scale (sm: 8px / md: 16px / lg: 24px) */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-2xl: 40px;
+  --radius-3xl: 48px;
+  --radius-4xl: 64px;
 
   /* Custom shadows */
-  --shadow-xs: 0 1px 0 rgba(35, 75, 54, 0.04);
-  --shadow-sm: 0 1px 2px rgba(35, 75, 54, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(35, 75, 54, 0.08), 0 2px 4px -1px rgba(35, 75, 54, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(35, 75, 54, 0.08), 0 4px 6px -2px rgba(35, 75, 54, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(35, 75, 54, 0.1), 0 10px 10px -5px rgba(35, 75, 54, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(35, 75, 54, 0.15);
+  --shadow-xs: 0 1px 0 rgba(47, 74, 60, 0.04);
+  --shadow-sm: 0 1px 2px rgba(47, 74, 60, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(47, 74, 60, 0.08), 0 2px 4px -1px rgba(47, 74, 60, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(47, 74, 60, 0.1), 0 10px 10px -5px rgba(47, 74, 60, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(47, 74, 60, 0.15);
 }
 
 :root {
-  --background: #f2efe8;        /* slightly richer warm neutral — more distinct from white cards */
-  --foreground: #1a3828;        /* darker forest green for stronger body text contrast */
-  --primary: #e8791f;           /* slightly deeper orange — still vivid, passes AA on white */
-  --primary-foreground: #ffffff;
-  --secondary: #e4dfd3;         /* warm gray surface */
-  --secondary-foreground: #1a3828;
-  --muted: #e4dfd3;
-  --muted-foreground: #4a6358;  /* was #6e7f74 — darker for readable secondary text */
-  --accent: #e8791f;
-  --accent-foreground: #ffffff;
-  --destructive: #b33d33;
-  --destructive-foreground: #ffffff;
-  --border: #c8c2b4;            /* was #e8e4da — much more visible border */
-  --input: #ffffff;             /* white input background so fields stand out */
-  --ring: #e8791f;
-  --card: #ffffff;
-  --card-foreground: #1a3828;
-  --popover: #ffffff;
-  --popover-foreground: #1a3828;
+  --background: #F0EBDA;        /* Rice paper warm neutral */
+  --foreground: #1E2016;        /* Deep matcha primary */
+  --primary: #B0361B;           /* Clay red tertiary */
+  --primary-foreground: #F8F3E1;/* Warm cream surface text */
+  --secondary: #7B8069;         /* Bamboo secondary green */
+  --secondary-foreground: #F8F3E1;
+  --muted: #E6DFCE;
+  --muted-foreground: #7B8069;  
+  --accent: #B0361B;
+  --accent-foreground: #F8F3E1;
+  --destructive: #B0361B;
+  --destructive-foreground: #F8F3E1;
+  --border: #E6DFCE;            /* Card outlines, dividers */
+  --input: #F8F3E1;             
+  --ring: #B0361B;
+  --card: #F8F3E1;              /* Warm cream surface card */
+  --card-foreground: #1E2016;
+  --popover: #F8F3E1;
+  --popover-foreground: #1E2016;
 }
 
 body {
@@ -106,10 +92,10 @@ h6 {
 }
 
 .shadow-warm {
-  box-shadow: 0 4px 6px -1px rgba(35, 75, 54, 0.05), 0 2px 4px -1px rgba(35, 75, 54, 0.02);
+  box-shadow: 0 4px 6px -1px rgba(47, 74, 60, 0.05), 0 2px 4px -1px rgba(47, 74, 60, 0.02);
 }
 .shadow-warm-lg {
-  box-shadow: 0 10px 15px -3px rgba(35, 75, 54, 0.08), 0 4px 6px -2px rgba(35, 75, 54, 0.04);
+  box-shadow: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
 }
 
 .transition-smooth {

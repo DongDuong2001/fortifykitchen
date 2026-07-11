@@ -1,23 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "../providers/providers";
 import "./globals.css";
-
-// Inter (body) + JetBrains Mono (display/h1/label) — the "Mint Receipt"
-// pairing from DESIGN.md: monospace for numerics and headings, Inter for body.
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-heading",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "FortifyKitchen - Premium Food Ordering & Subscriptions",
@@ -25,12 +9,11 @@ export const metadata: Metadata = {
     "Order healthy bowls, fresh juices, and subscribe to premium nutritional meal plans.",
   icons: {
     icon: [
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo.png", sizes: "any", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
+    shortcut: "/logo.png",
     apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
     ],
   },
   manifest: "/site.webmanifest",
@@ -42,7 +25,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

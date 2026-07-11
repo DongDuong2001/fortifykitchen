@@ -19,7 +19,11 @@ import {
   faChevronLeft,
   faChevronRight,
   faBox,
-  faInfoCircle
+  faInfoCircle,
+  faClipboardCheck,
+  faWallet,
+  faCheck,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   PROTEIN_LABELS,
@@ -31,26 +35,53 @@ import {
   formatGrams,
   DELIVERY_AMOUNT_PRESETS_GRAMS,
   DELIVERY_FREQUENCY_PRESETS,
+  ORDER_STATUS_LABELS,
 } from "@fortifykitchen/shared";
-import type { Protein } from "@fortifykitchen/types";
+import type { Protein, CustomPlanRequestStatus, OrderStatus } from "@fortifykitchen/types";
 import { useToast } from "@fortifykitchen/ui";
 
 const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
 const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
-const DELIVERY_STATUS_OPTIONS = ["SCHEDULED", "PREPPING", "DELIVERED", "SKIPPED", "CANCELLED"] as const;
+// Unified Shopee-style order status — shared by one-off orders and
+// subscription-generated orders alike (see OrderStatus in
+// @fortifykitchen/types). ORDER_STATUS_LABELS (imported above from
+// packages/shared) has the Vietnamese display strings for each.
+const ORDER_STATUS_OPTIONS = [
+  "PENDING_CONFIRMATION",
+  "CONFIRMED",
+  "PREPARING",
+  "OUT_FOR_DELIVERY",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+// Badge color per status — used everywhere an order/subscription-order row
+// renders its current status (Orders tab, Orders from Subscriptions,
+// dashboard recent orders, order detail modal).
+const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
+  PENDING_CONFIRMATION: "bg-amber-50 text-amber-700 border-amber-200",
+  CONFIRMED: "bg-blue-50 text-blue-700 border-blue-200",
+  PREPARING: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  OUT_FOR_DELIVERY: "bg-purple-50 text-purple-700 border-purple-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  CANCELLED: "bg-red-50 text-red-700 border-red-200",
+};
 
-// Orders tab-specific labels for the shared DeliveryStatus enum — reusing
-// the same underlying values as the Deliveries tab (SCHEDULED/PREPPING/
-// DELIVERED) but with wording that matches the Orders workflow: a fresh
-// order is "Ordered", accepting it moves it to "Preparing", and finishing
-// it marks it "Completed". Kept local to this component (not in
-// packages/shared) so it doesn't affect the Deliveries tab's own labels.
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: "Ordered",
-  PREPPING: "Preparing",
-  DELIVERED: "Completed",
-  SKIPPED: "Skipped",
-  CANCELLED: "Cancelled",
+// Custom Plan Request lifecycle — customer submits (PENDING), staff
+// consults and either annotates it (REVIEWED), links it to a real
+// Subscription (MATCHED — set automatically when a Subscription is created
+// with this request's id), or turns it down (DECLINED).
+const CUSTOM_PLAN_REQUEST_STATUS_OPTIONS: CustomPlanRequestStatus[] = ["PENDING", "REVIEWED", "MATCHED", "DECLINED"];
+const CUSTOM_PLAN_REQUEST_STATUS_LABELS: Record<CustomPlanRequestStatus, string> = {
+  PENDING: "Chờ tư vấn",
+  REVIEWED: "Đã xem xét",
+  MATCHED: "Đã ghép gói",
+  DECLINED: "Từ chối",
+};
+const CUSTOM_PLAN_REQUEST_STATUS_BADGE_CLASS: Record<CustomPlanRequestStatus, string> = {
+  PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+  REVIEWED: "bg-blue-50 text-blue-700 border-blue-200",
+  MATCHED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  DECLINED: "bg-red-50 text-red-700 border-red-200",
 };
 
 // `new Date().toISOString().split("T")[0]` computes the UTC calendar date,
@@ -185,7 +216,7 @@ function PaginationControls({
   const rangeEnd = Math.min(safePage * pageSize, totalItems);
   return (
     <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
-      <span className="text-[11px] text-muted-foreground font-mono">
+      <span className="text-[11px] text-muted-foreground ">
         {rangeStart}–{rangeEnd} / {totalItems}
       </span>
       <div className="flex items-center gap-1.5">
@@ -197,7 +228,7 @@ function PaginationControls({
         >
           ‹ Trước
         </button>
-        <span className="text-[11px] font-mono text-muted-foreground px-1.5">
+        <span className="text-[11px]  text-muted-foreground px-1.5">
           Trang {safePage}/{totalPages}
         </span>
         <button
@@ -257,10 +288,12 @@ export default function AdminDashboard() {
     | "menu"
     | "inventory"
     | "subscriptions"
-    | "deliveries"
+    | "custom-plan-requests"
     | "customers"
     | "discounts"
+    | "subscription-plans"
     | "prep-list"
+    | "home-frames"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -298,26 +331,39 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     recentOrders: [],
   });
-  const [orders, setOrders] = React.useState<any[]>([]);
+  const [orders, setOrders] = React.useState<any[]>([]); // every Order row — both source: ONE_OFF and source: SUBSCRIPTION
   const [menuItems, setMenuItems] = React.useState<any[]>([]);
   const [categories, setCategories] = React.useState<any[]>([]);
   const [subscriptions, setSubscriptions] = React.useState<any[]>([]);
-  const [deliveries, setDeliveries] = React.useState<any[]>([]); // unified Order+Subscription entries
-  // Subscription-generated deliveries shown as their own group within the
-  // Orders tab (they're backed by the Delivery model, not Order, but still
-  // need to be visible/actionable — accepted, completed, cancelled — right
-  // alongside one-off orders). Filtered client-side from the same unified
-  // endpoint the Deliveries tab already uses.
-  const [subscriptionOrders, setSubscriptionOrders] = React.useState<any[]>([]);
-  const [deliveryView, setDeliveryView] = React.useState<"all" | "upcoming">("all");
-  const [deliveryGroupBy, setDeliveryGroupBy] = React.useState<"day" | "week" | "month">("day");
-  // Deliveries tab filters — apply to both "Tất cả" (grouped by day) and
-  // "Sắp tới" (grouped by week/month) views.
-  const [deliverySourceFilter, setDeliverySourceFilter] = React.useState<"ALL" | "ORDER" | "SUBSCRIPTION">("ALL");
-  const [deliveryStatusFilter, setDeliveryStatusFilter] = React.useState<(typeof DELIVERY_STATUS_OPTIONS)[number] | "ALL">("ALL");
-  const [deliverySearch, setDeliverySearch] = React.useState("");
+  const [customPlanRequests, setCustomPlanRequests] = React.useState<any[]>([]);
+  // Draft admin-notes text per Custom Plan Request row, keyed by id — lets
+  // staff type a note without saving on every keystroke; "Lưu" commits it.
+  const [cprNoteDrafts, setCprNoteDrafts] = React.useState<Record<string, string>>({});
+  const [cprStatusFilter, setCprStatusFilter] = React.useState<"ALL" | CustomPlanRequestStatus>("ALL");
   const [customers, setCustomers] = React.useState<any[]>([]);
   const [discounts, setDiscounts] = React.useState<any[]>([]);
+  // --- Subscription Plans (wallet top-up catalog) + pending top-ups queue ---
+  const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>([]);
+  const [pendingTopUps, setPendingTopUps] = React.useState<any[]>([]);
+  // Row id currently mid-flight on Confirm/Reject, so a double-click can't
+  // double-fire the request while it's in progress.
+  const [processingTopUpId, setProcessingTopUpId] = React.useState<string | null>(null);
+  // Staff-wide low-balance summary (wallet + subscription pool) shown as a
+  // Dashboard alert widget — same shape as the inventory alerts above it.
+  const [lowBalance, setLowBalance] = React.useState<any>({ poolsLow: [], walletsLow: [], totalCount: 0 });
+  // --- Home Frames State ---
+  const [homeFrames, setHomeFrames] = React.useState<any[]>([]);
+  const [homeFramesPage, setHomeFramesPage] = React.useState(1);
+  const [homeFrameModal, setHomeFrameModal] = React.useState<"create" | "edit" | null>(null);
+  const [editingHomeFrameId, setEditingHomeFrameId] = React.useState<string | null>(null);
+  const [homeFrameTitle, setHomeFrameTitle] = React.useState("");
+  const [homeFrameImageUrl, setHomeFrameImageUrl] = React.useState("");
+  const [homeFrameLinkUrl, setHomeFrameLinkUrl] = React.useState("");
+  const [homeFrameOrder, setHomeFrameOrder] = React.useState(0);
+  const [homeFrameIsActive, setHomeFrameIsActive] = React.useState(true);
+  const [isSavingHomeFrame, setIsSavingHomeFrame] = React.useState(false);
+  const [homeFrameImagePreview, setHomeFrameImagePreview] = React.useState<string>("");
+  const [isHomeFrameUploading, setIsHomeFrameUploading] = React.useState(false);
 
   // --- Pagination state — one page counter per list view. Every list here
   // is small-ish and already loaded in full for client-side tab/search
@@ -326,10 +372,11 @@ export default function AdminDashboard() {
   const [ordersPage, setOrdersPage] = React.useState(1);
   const [subOrdersPage, setSubOrdersPage] = React.useState(1);
   const [customersPage, setCustomersPage] = React.useState(1);
-  const [deliveriesAllPage, setDeliveriesAllPage] = React.useState(1);
-  const [deliveriesUpcomingPage, setDeliveriesUpcomingPage] = React.useState(1);
   const [subscriptionsPage, setSubscriptionsPage] = React.useState(1);
+  const [customPlanRequestsPage, setCustomPlanRequestsPage] = React.useState(1);
   const [discountsPage, setDiscountsPage] = React.useState(1);
+  const [subscriptionPlansPage, setSubscriptionPlansPage] = React.useState(1);
+  const [pendingTopUpsPage, setPendingTopUpsPage] = React.useState(1);
   const [menuPageByProtein, setMenuPageByProtein] = React.useState<Record<string, number>>({});
   const [inventoryPageByProtein, setInventoryPageByProtein] = React.useState<Record<string, number>>({});
 
@@ -361,12 +408,12 @@ export default function AdminDashboard() {
   const [orderAddQty, setOrderAddQty] = React.useState(1);
 
   // --- Orders tab: workflow view + filters ---
-  // "Current" holds everything still in flight (Ordered/Preparing/Skipped);
-  // hitting Complete moves an order to DELIVERED, which drops it out of
-  // Current and into the Completed tab. Cancelled orders get their own tab
-  // too so they don't linger in either working view.
+  // "Current" holds everything still in flight (PENDING_CONFIRMATION through
+  // OUT_FOR_DELIVERY); moving an order to COMPLETED drops it out of Current
+  // and into the Completed tab. Cancelled orders get their own tab too so
+  // they don't linger in either working view.
   const [orderViewTab, setOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
-  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
+  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
   // Typeable date filter — a plain "YYYY-MM-DD" string that drives an
@@ -383,16 +430,10 @@ export default function AdminDashboard() {
   // filters, separate from the one-off Orders filters above — filtering or
   // switching tabs on one table no longer touches the other.
   const [subOrderViewTab, setSubOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
-  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | "SCHEDULED" | "PREPPING" | "SKIPPED">("ALL");
+  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [subOrderSearch, setSubOrderSearch] = React.useState("");
   const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(getLocalDateString());
   const [subOrderDateMode, setSubOrderDateMode] = React.useState<"date" | "upcoming">("date");
-
-  // Deliveries tab: same typeable date filter, applied to both "Tất cả" and
-  // "Sắp tới" views (see matchesDeliveryFilters). Defaults to empty — those
-  // two views already have their own today/upcoming scoping, so the date
-  // filter here is an optional extra narrowing rather than a default.
-  const [deliveryDateFilter, setDeliveryDateFilter] = React.useState("");
 
   // Jump back to page 1 whenever a filter/tab/search change would otherwise
   // leave the paginated table showing a stale, filter-mismatched page.
@@ -405,13 +446,17 @@ export default function AdminDashboard() {
   }, [subOrderViewTab, subOrderStatusFilter, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
 
   React.useEffect(() => {
-    setDeliveriesAllPage(1);
-    setDeliveriesUpcomingPage(1);
-  }, [deliverySourceFilter, deliveryStatusFilter, deliverySearch, deliveryGroupBy, deliveryDateFilter]);
+    setCustomPlanRequestsPage(1);
+  }, [cprStatusFilter]);
 
   // --- Subscription form state (volume-based: one or more protein pools +
   // a delivery cadence — flavor is chosen per-delivery, not at purchase) ---
   const [subModal, setSubModal] = React.useState<"create" | null>(null);
+  // Set when the create-subscription form was opened from a specific
+  // CustomPlanRequest ("Tạo gói từ yêu cầu này") — included in the create
+  // payload so the backend marks that request MATCHED and links it to the
+  // new Subscription. Left null for an ordinary from-scratch subscription.
+  const [subLinkedCustomPlanRequestId, setSubLinkedCustomPlanRequestId] = React.useState<string | null>(null);
   const [subDetailId, setSubDetailId] = React.useState<string | null>(null);
   const [subDetailDeliveries, setSubDetailDeliveries] = React.useState<any[]>([]);
   const [isSubDetailLoading, setIsSubDetailLoading] = React.useState(false);
@@ -456,6 +501,17 @@ export default function AdminDashboard() {
   const [discountStarts, setDiscountStarts] = React.useState("2026-07-04T00:00:00Z");
   const [discountEnds, setDiscountEnds] = React.useState("2026-12-31T23:59:59Z");
 
+  // --- Subscription Plan (wallet top-up tier) form state — one form does
+  // double duty for create and edit, same as the Promotional Codes form,
+  // distinguished by editingSubPlanId being set or null. ---
+  const [editingSubPlanId, setEditingSubPlanId] = React.useState<string | null>(null);
+  const [subPlanName, setSubPlanName] = React.useState("");
+  const [subPlanPrice, setSubPlanPrice] = React.useState(1500000);
+  const [subPlanVoucherPercent, setSubPlanVoucherPercent] = React.useState(5);
+  const [subPlanDescription, setSubPlanDescription] = React.useState("");
+  const [subPlanIsActive, setSubPlanIsActive] = React.useState(true);
+  const [isSavingSubPlan, setIsSavingSubPlan] = React.useState(false);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   // Hydrate auth
@@ -499,34 +555,40 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (section === "dashboard") {
-        const [resStats, resMenu] = await Promise.all([
+        const [resStats, resMenu, resLowBalance] = await Promise.all([
           fetch(`${API_URL}/dashboard/stats`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/notifications/low-balance`, { headers }),
         ]);
-        if (handleUnauthorized([resStats, resMenu])) return;
+        if (handleUnauthorized([resStats, resMenu, resLowBalance])) return;
         if (resStats.ok) {
           const result = await resStats.json();
           setStats(result.data);
         }
         if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
+        if (resLowBalance.ok) {
+          const result = await resLowBalance.json();
+          setLowBalance(result.data || { poolsLow: [], walletsLow: [], totalCount: 0 });
+        }
       } else if (section === "orders") {
-        const [resOrders, resCustomers, resMenu, resUnified] = await Promise.all([
+        // `orders` now covers every Order row regardless of source
+        // (ONE_OFF or SUBSCRIPTION, per the unified Shopee-style model) —
+        // no separate deliveries endpoint needed anymore. Pull the rolling
+        // upcoming window forward first so newly-due subscription
+        // occurrences show up without waiting on an external cron.
+        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers });
+        const [resOrders, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/orders`, { headers }),
           fetch(`${API_URL}/customers`, { headers }),
           fetch(`${API_URL}/menu/admin`, { headers }),
-          fetch(`${API_URL}/deliveries/unified`, { headers }),
         ]);
-        if (handleUnauthorized([resOrders, resCustomers, resMenu, resUnified])) return;
+        if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
         if (resOrders.ok) setOrders((await resOrders.json()).data || []);
         if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
         if (resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
           if (menuData.length > 0) setOrderSelectedMenuItemId((prev) => prev || menuData[0].id);
-        }
-        if (resUnified.ok) {
-          const unified = (await resUnified.json()).data || [];
-          setSubscriptionOrders(unified.filter((e: any) => e.source === "SUBSCRIPTION"));
         }
       } else if (section === "customers") {
         const res = await fetch(`${API_URL}/customers`, { headers });
@@ -535,18 +597,10 @@ export default function AdminDashboard() {
           const result = await res.json();
           setCustomers(result.data || []);
         }
-      } else if (section === "deliveries") {
-        // Pull the rolling 7-day-ahead window forward before displaying,
-        // so newly-due subscription occurrences show up without staff
-        // having to wait for some external cron to run. Both "Tất cả" and
-        // "Sắp tới" are now derived client-side from this one unified list
-        // (see filteredUpcomingGroups) so both views group by the exact
-        // same day/week/month logic — no more risk of the two tabs
-        // disagreeing about where a day boundary falls.
-        await fetch(`${API_URL}/subscriptions/sync-deliveries`, { method: "POST", headers });
-        const res = await fetch(`${API_URL}/deliveries/unified`, { headers });
+      } else if (section === "custom-plan-requests") {
+        const res = await fetch(`${API_URL}/custom-plan-requests`, { headers });
         if (handleUnauthorized([res])) return;
-        if (res.ok) setDeliveries((await res.json()).data || []);
+        if (res.ok) setCustomPlanRequests((await res.json()).data || []);
       } else if (section === "menu") {
         const [resMenu, resCat] = await Promise.all([
           fetch(`${API_URL}/menu/admin`, { headers }),
@@ -585,6 +639,21 @@ export default function AdminDashboard() {
         if (res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
+        }
+      } else if (section === "subscription-plans") {
+        const [resPlans, resPending] = await Promise.all([
+          fetch(`${API_URL}/subscription-plans`, { headers }),
+          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }),
+        ]);
+        if (handleUnauthorized([resPlans, resPending])) return;
+        if (resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
+        if (resPending.ok) setPendingTopUps((await resPending.json()).data || []);
+      } else if (section === "home-frames") {
+        const res = await fetch(`${API_URL}/home-frames/admin`, { headers });
+        if (handleUnauthorized([res])) return;
+        if (res.ok) {
+          const result = await res.json();
+          setHomeFrames(result.data || []);
         }
       }
     } catch (e) {
@@ -677,17 +746,36 @@ export default function AdminDashboard() {
     [token],
   );
 
-  const handleUpdateOrderDeliveryStatus = async (orderId: string, deliveryStatus: string) => {
+  const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
-      const res = await fetch(`${API_URL}/orders/${orderId}/delivery-status`, {
+      const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
         method: "PATCH",
         headers: authHeaders(),
-        body: JSON.stringify({ deliveryStatus }),
+        body: JSON.stringify({ status }),
       });
       if (res.ok) loadData();
+      else {
+        const error = await res.json().catch(() => null);
+        toast({ title: error?.message || "Failed to update order status", type: "error" });
+      }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handlePostponeOrder = (orderId: string) => {
+    requestConfirm("Hoãn đơn này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.", async () => {
+      try {
+        const res = await fetch(`${API_URL}/orders/${orderId}/postpone`, { method: "POST", headers: authHeaders() });
+        if (res.ok) loadData();
+        else {
+          const error = await res.json().catch(() => null);
+          toast({ title: error?.message || "Failed to postpone order", type: "error" });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
   };
 
   const handleUpdateOrderPaymentStatus = async (orderId: string, paymentStatus: string) => {
@@ -900,6 +988,30 @@ export default function AdminDashboard() {
     setSubDeliveryIntervalDays(1);
     setSubStartDate(getLocalDateString());
     setSubPaymentStatus("UNPAID");
+    setSubLinkedCustomPlanRequestId(null);
+  };
+
+  // Opens the create-subscription form pre-filled from a customer's custom
+  // plan request — the consultation-first flow required by the business:
+  // customers ask for a custom plan, staff review it here, then build the
+  // actual Subscription (this form) with customPlanRequestId set so the
+  // request gets linked + marked MATCHED automatically.
+  const handleOpenSubFromCustomPlanRequest = (req: any) => {
+    resetSubForm();
+    if (req.customerId) setSubCustomerId(req.customerId);
+    setSubPackageName(`Gói riêng - ${req.customerName}`);
+    if (req.desiredProteins?.length) {
+      setSubPools(
+        req.desiredProteins.map((protein: Protein) => ({
+          protein,
+          sizeGrams: 150,
+          qty: Math.max(1, Math.round((req.estimatedTotalGrams || 4500) / 150 / req.desiredProteins.length)),
+        })),
+      );
+    }
+    if (req.preferredIntervalDays) setSubDeliveryIntervalDays(req.preferredIntervalDays);
+    setSubLinkedCustomPlanRequestId(req.id);
+    setSubModal("create");
   };
 
   const handleCreateSubscription = async (e: React.FormEvent) => {
@@ -924,6 +1036,7 @@ export default function AdminDashboard() {
         deliveryIntervalDays: subDeliveryIntervalDays,
         startDate: subStartDate,
         paymentStatus: subPaymentStatus,
+        ...(subLinkedCustomPlanRequestId ? { customPlanRequestId: subLinkedCustomPlanRequestId } : {}),
       };
       const res = await fetch(`${API_URL}/subscriptions`, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
       if (res.ok) {
@@ -967,11 +1080,48 @@ export default function AdminDashboard() {
     );
   };
 
+  // --- Custom Plan Requests: staff review queue for customer-submitted
+  // "I want something custom" asks. Creation is always customer-initiated
+  // (public form on customer-web); staff can only review/annotate/decline
+  // here, or match one by building a Subscription from it (see
+  // handleOpenSubFromCustomPlanRequest above).
+  const handleUpdateCustomPlanRequest = async (id: string, updates: { status?: string; adminNotes?: string }) => {
+    try {
+      const res = await fetch(`${API_URL}/custom-plan-requests/${id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) loadData();
+      else {
+        const error = await res.json().catch(() => null);
+        toast({ title: error?.message || "Failed to update request", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteCustomPlanRequest = (id: string) => {
+    requestConfirm(
+      "Xóa yêu cầu tư vấn gói riêng này?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/custom-plan-requests/${id}`, { method: "DELETE", headers: authHeaders() });
+          if (res.ok) loadData();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
   const handleOpenSubDetail = async (subId: string) => {
     setSubDetailId(subId);
     setIsSubDetailLoading(true);
     try {
-      const res = await fetch(`${API_URL}/subscriptions/${subId}/deliveries`, { headers: authHeaders() });
+      const res = await fetch(`${API_URL}/orders/subscription/${subId}`, { headers: authHeaders() });
       if (res.ok) setSubDetailDeliveries((await res.json()).data || []);
     } catch (e) {
       console.error(e);
@@ -999,86 +1149,6 @@ export default function AdminDashboard() {
     } catch (e) {
       console.error(e);
     }
-  };
-
-  // --- Deliveries (unified Order + Subscription entries) ---
-  // Subscription-generated entries route through /deliveries/:id/..., while
-  // one-off Order entries route through /orders/:id/delivery-status — the
-  // unified list is tagged by `source` so we can dispatch correctly.
-  const handleUpdateUnifiedStatus = async (entry: any, status: string) => {
-    try {
-      if (entry.source === "ORDER") {
-        const res = await fetch(`${API_URL}/orders/${entry.id}/delivery-status`, {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify({ deliveryStatus: status }),
-        });
-        if (res.ok) loadData();
-      } else {
-        const res = await fetch(`${API_URL}/deliveries/${entry.id}/status`, {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify({ status }),
-        });
-        if (res.ok) loadData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleMarkDelivered = (entry: any) => {
-    requestConfirm("Xác nhận đã giao? Số lượng sẽ được trừ vào gói đăng ký.", async () => {
-      if (entry.source === "ORDER") {
-        await handleUpdateUnifiedStatus(entry, "DELIVERED");
-        return;
-      }
-      try {
-        const res = await fetch(`${API_URL}/deliveries/${entry.id}/deliver`, { method: "POST", headers: authHeaders() });
-        if (res.ok) loadData();
-        else {
-          const error = await res.json();
-          toast({ title: error.message || "Failed to mark delivered", type: "error" });
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    });
-  };
-
-  const handlePostponeDelivery = (entry: any) => {
-    if (entry.source !== "SUBSCRIPTION") return;
-    requestConfirm("Hoãn lần giao này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.", async () => {
-      try {
-        const res = await fetch(`${API_URL}/deliveries/${entry.id}/postpone`, { method: "POST", headers: authHeaders() });
-        if (res.ok) loadData();
-        else {
-          const error = await res.json();
-          toast({ title: error.message || "Failed to postpone delivery", type: "error" });
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    });
-  };
-
-  const handleDeleteDelivery = (entry: any) => {
-    if (entry.source === "ORDER") {
-      toast({ title: "Xóa đơn hàng lẻ trong tab Orders dispatcher.", type: "default" });
-      return;
-    }
-    requestConfirm(
-      "Xóa lần giao này?",
-      async () => {
-        try {
-          const res = await fetch(`${API_URL}/deliveries/${entry.id}`, { method: "DELETE", headers: authHeaders() });
-          if (res.ok) loadData();
-        } catch (e) {
-          console.error(e);
-        }
-      },
-      { variant: "destructive" },
-    );
   };
 
   // Create or Update Menu Item
@@ -1241,6 +1311,114 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- Home Frames Handlers ---
+  const resetHomeFrameForm = () => {
+    setEditingHomeFrameId(null);
+    setHomeFrameTitle("");
+    setHomeFrameImageUrl("");
+    setHomeFrameLinkUrl("");
+    setHomeFrameOrder(0);
+    setHomeFrameIsActive(true);
+    setHomeFrameImagePreview("");
+  };
+
+  const handleSaveHomeFrame = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!homeFrameImageUrl.trim()) {
+      toast({ title: "Ảnh khung không được để trống", type: "error" });
+      return;
+    }
+    try {
+      setIsSavingHomeFrame(true);
+      const payload = {
+        title: homeFrameTitle || undefined,
+        imageUrl: homeFrameImageUrl,
+        linkUrl: homeFrameLinkUrl || undefined,
+        order: Number(homeFrameOrder),
+        isActive: homeFrameIsActive,
+      };
+      const url = homeFrameModal === "edit" ? `${API_URL}/home-frames/${editingHomeFrameId}` : `${API_URL}/home-frames`;
+      const method = homeFrameModal === "edit" ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setHomeFrameModal(null);
+        resetHomeFrameForm();
+        loadData();
+        toast({ title: "Đã lưu khung ảnh thành công", type: "success" });
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Không thể lưu khung ảnh", type: "error" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Có lỗi xảy ra khi lưu", type: "error" });
+    } finally {
+      setIsSavingHomeFrame(false);
+    }
+  };
+
+  const handleDeleteHomeFrame = (id: string) => {
+    requestConfirm(
+      "Bạn chắc chắn muốn xóa khung ảnh này khỏi trang chủ?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/home-frames/${id}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          });
+          if (res.ok) {
+            loadData();
+            toast({ title: "Đã xóa khung ảnh", type: "success" });
+          } else {
+            toast({ title: "Không thể xóa khung ảnh", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" }
+    );
+  };
+
+  const handleHomeFrameImageUpload = async (file: File) => {
+    if (!file) return;
+    const localPreview = URL.createObjectURL(file);
+    setHomeFrameImagePreview(localPreview);
+    setIsHomeFrameUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${API_URL}/upload/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const url = body?.data?.url;
+        setHomeFrameImageUrl(url);
+      } else {
+        const error = await res.json();
+        toast({ title: error.message || "Upload ảnh thất bại", type: "error" });
+        setHomeFrameImagePreview("");
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi upload ảnh", type: "error" });
+      setHomeFrameImagePreview("");
+    } finally {
+      setIsHomeFrameUploading(false);
+      URL.revokeObjectURL(localPreview);
+    }
+  };
+
   // Quick +/- stock adjust from the catalog card — hits the dedicated
   // PATCH /menu/:id/stock endpoint (delta) rather than resending the whole
   // item form, and optimistically updates the local list so the card
@@ -1356,18 +1534,152 @@ export default function AdminDashboard() {
     );
   };
 
+  // --- Subscription Plans (wallet top-up catalog) ---
+  const resetSubPlanForm = () => {
+    setEditingSubPlanId(null);
+    setSubPlanName("");
+    setSubPlanPrice(1500000);
+    setSubPlanVoucherPercent(5);
+    setSubPlanDescription("");
+    setSubPlanIsActive(true);
+  };
+
+  const handleEditSubPlanTrigger = (plan: any) => {
+    setEditingSubPlanId(plan.id);
+    setSubPlanName(plan.name);
+    setSubPlanPrice(plan.price);
+    setSubPlanVoucherPercent(plan.voucherPercent ?? 0);
+    setSubPlanDescription(plan.description || "");
+    setSubPlanIsActive(plan.isActive);
+  };
+
+  // Create or update a price tier — same form serves both, distinguished by
+  // editingSubPlanId (mirrors the Menu Item / Home Frame create-vs-edit
+  // pattern elsewhere in this console).
+  const handleSaveSubscriptionPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingSubPlan(true);
+      const payload = {
+        name: subPlanName,
+        price: Number(subPlanPrice),
+        voucherPercent: Number(subPlanVoucherPercent),
+        description: subPlanDescription || undefined,
+        isActive: subPlanIsActive,
+      };
+      const url = editingSubPlanId ? `${API_URL}/subscription-plans/${editingSubPlanId}` : `${API_URL}/subscription-plans`;
+      const method = editingSubPlanId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        resetSubPlanForm();
+        loadData();
+        toast({ title: editingSubPlanId ? "Đã cập nhật gói nạp" : "Đã tạo gói nạp mới", type: "success" });
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể lưu gói nạp", type: "error" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Lỗi kết nối khi lưu gói nạp", type: "error" });
+    } finally {
+      setIsSavingSubPlan(false);
+    }
+  };
+
+  const handleDeleteSubscriptionPlan = (id: string) => {
+    requestConfirm(
+      "Bạn chắc chắn muốn xóa gói nạp này?",
+      async () => {
+        try {
+          const res = await fetch(`${API_URL}/subscription-plans/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            if (editingSubPlanId === id) resetSubPlanForm();
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể xóa gói nạp", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
+  // --- Pending wallet top-ups queue ---
+  const handleConfirmTopUp = async (id: string) => {
+    try {
+      setProcessingTopUpId(id);
+      const res = await fetch(`${API_URL}/subscription-plan-purchases/${id}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast({ title: "Đã xác nhận chuyển khoản — ví khách hàng đã được cộng tiền", type: "success" });
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể xác nhận giao dịch", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi xác nhận giao dịch", type: "error" });
+    } finally {
+      setProcessingTopUpId(null);
+    }
+  };
+
+  const handleRejectTopUp = (id: string) => {
+    requestConfirm(
+      "Từ chối giao dịch nạp ví này? Ví khách hàng sẽ không được cộng tiền.",
+      async () => {
+        try {
+          setProcessingTopUpId(id);
+          const res = await fetch(`${API_URL}/subscription-plan-purchases/${id}/reject`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            toast({ title: "Đã từ chối giao dịch", type: "default" });
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể từ chối giao dịch", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setProcessingTopUpId(null);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
   const formatVND = (num: number) => {
     return `${num.toLocaleString()} ₫`;
   };
 
   // One-off Orders — filtered + sorted the same way the table below used to
-  // do inline, pulled out here so it can be paginated.
+  // do inline, pulled out here so it can be paginated. `orders` now holds
+  // every Order row (both source: ONE_OFF and source: SUBSCRIPTION, per the
+  // unified model) so this list narrows to ONE_OFF; subscription-sourced
+  // rows are shown separately below in "Orders from Subscriptions".
   const filteredOrders = orders
+    .filter((o) => o.source !== "SUBSCRIPTION")
     .filter((o) => {
-      if (orderViewTab === "completed") return o.deliveryStatus === "DELIVERED";
-      if (orderViewTab === "cancelled") return o.deliveryStatus === "CANCELLED";
-      if (o.deliveryStatus === "DELIVERED" || o.deliveryStatus === "CANCELLED") return false;
-      if (orderStatusFilter !== "ALL" && o.deliveryStatus !== orderStatusFilter) return false;
+      if (orderViewTab === "completed") return o.status === "COMPLETED";
+      if (orderViewTab === "cancelled") return o.status === "CANCELLED";
+      if (o.status === "COMPLETED" || o.status === "CANCELLED") return false;
+      if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
       if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
       if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
       // "Sắp tới" (upcoming) mode ignores the date input and shows
@@ -1391,81 +1703,40 @@ export default function AdminDashboard() {
 
   // Orders from Subscriptions: filtered by its own independent
   // Current/Completed/Cancelled tab + search + status filter — entirely
-  // separate from the one-off Orders filters above.
+  // separate from the one-off Orders filters above. Derived from the same
+  // `orders` state, narrowed to source: SUBSCRIPTION.
+  const subscriptionOrders = orders.filter((o) => o.source === "SUBSCRIPTION");
   const filteredSubscriptionOrders = subscriptionOrders
     .filter((d) => {
-      if (subOrderViewTab === "completed") return d.status === "DELIVERED";
+      if (subOrderViewTab === "completed") return d.status === "COMPLETED";
       if (subOrderViewTab === "cancelled") return d.status === "CANCELLED";
-      if (d.status === "DELIVERED" || d.status === "CANCELLED") return false;
+      if (d.status === "COMPLETED" || d.status === "CANCELLED") return false;
       if (subOrderStatusFilter !== "ALL" && d.status !== subOrderStatusFilter) return false;
       if (subOrderSearch.trim() && !d.customerName?.toLowerCase().includes(subOrderSearch.trim().toLowerCase())) return false;
       if (subOrderDateMode === "upcoming") {
-        if (isToday(d.scheduledDate)) return false;
-      } else if (subOrderDateFilter && getLocalDateString(new Date(d.scheduledDate)) !== subOrderDateFilter) {
+        if (isToday(d.deliveryDate)) return false;
+      } else if (subOrderDateFilter && getLocalDateString(new Date(d.deliveryDate)) !== subOrderDateFilter) {
         return false;
       }
       return true;
     })
-    // Sorted ascending by scheduled date (oldest first) before being
+    // Sorted ascending by delivery date (oldest first) before being
     // bucketed into day-groups below, matching the one-off Orders sort.
-    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
-  const subOrderDayGroups = groupEntriesByDate(filteredSubscriptionOrders, (d) => d.scheduledDate, "day");
+    .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
+  const subOrderDayGroups = groupEntriesByDate(filteredSubscriptionOrders, (d) => d.deliveryDate, "day");
   const subOrdersTotalPages = Math.ceil(subOrderDayGroups.length / CARD_PAGE_SIZE) || 1;
   const pagedSubOrderDayGroups = paginate(subOrderDayGroups, clampPage(subOrdersPage, subOrdersTotalPages), CARD_PAGE_SIZE);
 
-  // Shared filter predicate for the Deliveries tab — applies identically to
-  // the "Tất cả" (day-grouped) and "Sắp tới" (week/month-grouped) views so
-  // filtering doesn't behave differently depending on which grouping mode
-  // is active.
-  const matchesDeliveryFilters = (d: any): boolean => {
-    if (deliverySourceFilter !== "ALL" && d.source !== deliverySourceFilter) return false;
-    if (deliveryStatusFilter !== "ALL" && d.status !== deliveryStatusFilter) return false;
-    if (deliverySearch.trim() && !d.customerName?.toLowerCase().includes(deliverySearch.trim().toLowerCase())) return false;
-    // Typeable date filter — empty means no date narrowing; applies
-    // identically to both "Tất cả" and "Sắp tới" views.
-    if (deliveryDateFilter && getLocalDateString(new Date(d.scheduledDate)) !== deliveryDateFilter) return false;
-    return true;
-  };
-
-  // Groups the flat "Tất cả" delivery list by calendar day (local time) so
-  // staff can see everything due on a given date at a glance, instead of
-  // scrolling one long table — same grouping shape as the "Sắp tới" view's
-  // week/month groups, just at day granularity.
-  const filteredDeliveriesAll = deliveries.filter(matchesDeliveryFilters);
-  const deliveryDayGroups = groupEntriesByDate(filteredDeliveriesAll, (d) => d.scheduledDate, "day").map((g) => ({
-    date: g.key,
-    entries: g.entries,
-    totalGrams: g.entries.reduce((s, e: any) => s + (e.totalGrams || 0), 0),
-  }));
-  const deliveriesAllTotalPages = Math.ceil(deliveryDayGroups.length / CARD_PAGE_SIZE) || 1;
-  const pagedDeliveryDayGroups = paginate(
-    deliveryDayGroups,
-    clampPage(deliveriesAllPage, deliveriesAllTotalPages),
-    CARD_PAGE_SIZE,
+  // Custom Plan Requests — newest first (API already returns them that
+  // way), narrowed by the status filter tab.
+  const filteredCustomPlanRequests = customPlanRequests.filter(
+    (r) => cprStatusFilter === "ALL" || r.status === cprStatusFilter,
   );
-
-  // "Sắp tới" (upcoming) view — derived from the exact same unified
-  // `deliveries` list "Tất cả" uses (filtered to today-onward, non-terminal
-  // status, plus the shared search/source/status filters), then bucketed
-  // with the same groupEntriesByDate helper. Previously this view fetched
-  // its own server-grouped data from a separate endpoint, which could
-  // disagree with "Tất cả" about where a day boundary falls; computing both
-  // from one shared list/function guarantees they always agree.
-  const upcomingCutoff = new Date();
-  upcomingCutoff.setHours(0, 0, 0, 0);
-  const upcomingEntries = deliveries.filter(
-    (d) =>
-      new Date(d.scheduledDate) >= upcomingCutoff &&
-      d.status !== "CANCELLED" &&
-      d.status !== "DELIVERED" &&
-      matchesDeliveryFilters(d),
-  );
-  const filteredUpcomingGroups = groupEntriesByDate(upcomingEntries, (d) => d.scheduledDate, deliveryGroupBy);
-  const deliveriesUpcomingTotalPages = Math.ceil(filteredUpcomingGroups.length / CARD_PAGE_SIZE) || 1;
-  const pagedUpcomingGroups = paginate(
-    filteredUpcomingGroups,
-    clampPage(deliveriesUpcomingPage, deliveriesUpcomingTotalPages),
-    CARD_PAGE_SIZE,
+  const customPlanRequestsTotalPages = Math.ceil(filteredCustomPlanRequests.length / PAGE_SIZE) || 1;
+  const pagedCustomPlanRequests = paginate(
+    filteredCustomPlanRequests,
+    clampPage(customPlanRequestsPage, customPlanRequestsTotalPages),
+    PAGE_SIZE,
   );
 
   // Render Login state if not authenticated
@@ -1557,9 +1828,11 @@ export default function AdminDashboard() {
                 { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
                 { id: "inventory", label: "Inventory", icon: faBox },
                 { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
-                { id: "deliveries", label: "Deliveries", icon: faTruck },
+                { id: "custom-plan-requests", label: "Custom Plan Requests", icon: faClipboardCheck },
                 { id: "prep-list", label: "Prep List", icon: faUtensils },
                 { id: "discounts", label: "Promotional Codes", icon: faTag },
+                { id: "subscription-plans", label: "Subscription Plans", icon: faWallet },
+                { id: "home-frames", label: "Home Banners", icon: faThLarge },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -1643,7 +1916,7 @@ export default function AdminDashboard() {
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -1687,7 +1960,7 @@ export default function AdminDashboard() {
                         }`}
                       >
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div
@@ -1734,7 +2007,7 @@ export default function AdminDashboard() {
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
                           <div className="text-xl font-semibold font-heading">{item.value}</div>
                         </div>
                         <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -1776,6 +2049,59 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
+                  {/* Low-balance alerts — customer wallets running low and
+                      subscription pools nearing depletion (fewer than ~3
+                      deliveries' worth left). In-app only, per
+                      docs/plan-and-credit-design.md. */}
+                  {(lowBalance.totalCount || 0) > 0 && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setSection("customers")}
+                        className="w-full text-left border border-amber-300 bg-amber-50 rounded-lg p-4 flex items-center justify-between hover:opacity-90 transition-smooth cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-md border border-amber-300 bg-amber-100 text-amber-700">
+                            <FontAwesomeIcon icon={faWallet} className="h-4 w-4" />
+                          </div>
+                          <span className="text-xs font-bold text-amber-800">
+                            {lowBalance.totalCount} cảnh báo số dư thấp cần chú ý
+                          </span>
+                        </div>
+                      </button>
+                      <div className="grid gap-6 sm:grid-cols-2">
+                        {(lowBalance.walletsLow || []).length > 0 && (
+                          <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
+                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Ví khách hàng sắp cạn</h3>
+                            <ul className="space-y-1.5 text-xs">
+                              {lowBalance.walletsLow.map((w: any) => (
+                                <li key={w.customerId} className="flex justify-between text-amber-700">
+                                  <span>{w.customerName}</span>
+                                  <span className="font-bold">{formatVND(w.walletBalance)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {(lowBalance.poolsLow || []).length > 0 && (
+                          <div className="border border-rose-200 bg-rose-50 rounded-2xl p-6">
+                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">Gói ăn sắp hết lượng</h3>
+                            <ul className="space-y-1.5 text-xs">
+                              {lowBalance.poolsLow.map((p: any) => (
+                                <li key={p.subscriptionId} className="flex justify-between text-rose-700 gap-2">
+                                  <span>
+                                    {p.customerName} · {p.packageName} · {PROTEIN_LABELS[p.protein as Protein] || p.protein}
+                                  </span>
+                                  <span className="font-bold whitespace-nowrap">{formatGrams(p.remainingGrams)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                     <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
@@ -1803,7 +2129,7 @@ export default function AdminDashboard() {
                               {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
                             </span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                              {o.deliveryStatus}
+                              {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
                             </span>
                           </div>
                         </div>
@@ -1840,7 +2166,7 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                  {o.deliveryStatus}
+                                  {o.status}
                                 </span>
                               </td>
                               <td className="py-3.5 text-muted-foreground">
@@ -1890,10 +2216,11 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Current / Completed / Cancelled — accepting an order
-                      moves it Ordered -> Preparing; marking it Completed
-                      moves it to DELIVERED, which drops it out of Current
-                      into the Completed tab here. */}
+                  {/* Current / Completed / Cancelled — the status dropdown
+                      walks an order through PENDING_CONFIRMATION →
+                      CONFIRMED → PREPARING → OUT_FOR_DELIVERY → COMPLETED;
+                      reaching COMPLETED drops it out of Current into the
+                      Completed tab here. */}
                   <div className="flex gap-2 border-b border-border">
                     {(
                       [
@@ -1933,9 +2260,9 @@ export default function AdminDashboard() {
                         className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
                       >
                         <option value="ALL">All statuses</option>
-                        <option value="SCHEDULED">Ordered</option>
-                        <option value="PREPPING">Preparing</option>
-                        <option value="SKIPPED">Skipped</option>
+                        {ORDER_STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                        ))}
                       </select>
                       <select
                         value={orderFulfillmentFilter}
@@ -1957,10 +2284,10 @@ export default function AdminDashboard() {
                     pagedOrderDayGroups.map((group) => (
                       <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider">
                             {formatGroupKeyLabel(group.key, "day")}
                           </h4>
-                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                          <span className="text-[10px] text-muted-foreground ">{group.entries.length} đơn</span>
                         </div>
                         {/* Mobile cards view */}
                         <div className="md:hidden space-y-3">
@@ -1992,19 +2319,9 @@ export default function AdminDashboard() {
                                   {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
                                 </span>
                                 <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                    o.deliveryStatus === "PREPPING"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : o.deliveryStatus === "DELIVERED"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : o.deliveryStatus === "CANCELLED"
-                                          ? "bg-red-50 text-red-700 border-red-200"
-                                          : o.deliveryStatus === "SKIPPED"
-                                            ? "bg-muted text-muted-foreground border-border"
-                                            : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[o.status as string] || "bg-amber-50 text-amber-700 border-amber-200"}`}
                                 >
-                                  {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                  {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
                                 </span>
                               </div>
 
@@ -2020,30 +2337,15 @@ export default function AdminDashboard() {
                                   </select>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  {o.deliveryStatus === "SCHEDULED" && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
-                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
-                                    >
-                                      Accept
-                                    </button>
-                                  )}
-                                  {o.deliveryStatus === "PREPPING" && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
-                                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
-                                    >
-                                      Complete
-                                    </button>
-                                  )}
-                                  {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
-                                    <button
-                                      onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
-                                      className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
-                                    >
-                                      Cancel
-                                    </button>
-                                  )}
+                                  <select
+                                    value={o.status}
+                                    onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
+                                    className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                                  >
+                                    {ORDER_STATUS_OPTIONS.map((s) => (
+                                      <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                                    ))}
+                                  </select>
                                   <button
                                     onClick={() => handleEditOrderTrigger(o)}
                                     className="text-muted-foreground hover:text-primary p-1.5 cursor-pointer bg-card border border-border rounded-lg"
@@ -2120,47 +2422,22 @@ export default function AdminDashboard() {
                                   </td>
                                   <td className="py-4">
                                     <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                        o.deliveryStatus === "PREPPING"
-                                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                                          : o.deliveryStatus === "DELIVERED"
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : o.deliveryStatus === "CANCELLED"
-                                              ? "bg-red-50 text-red-700 border-red-200"
-                                              : o.deliveryStatus === "SKIPPED"
-                                                ? "bg-muted text-muted-foreground border-border"
-                                                : "bg-amber-50 text-amber-700 border-amber-200"
-                                      }`}
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[o.status as string] || "bg-amber-50 text-amber-700 border-amber-200"}`}
                                     >
-                                      {ORDER_STATUS_LABELS[o.deliveryStatus] || o.deliveryStatus}
+                                      {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
                                     </span>
                                   </td>
                                   <td className="py-4" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex justify-center items-center gap-2 flex-wrap">
-                                      {o.deliveryStatus === "SCHEDULED" && (
-                                        <button
-                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "PREPPING")}
-                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          Accept Order
-                                        </button>
-                                      )}
-                                      {o.deliveryStatus === "PREPPING" && (
-                                        <button
-                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "DELIVERED")}
-                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
-                                        >
-                                          Mark Completed
-                                        </button>
-                                      )}
-                                      {(o.deliveryStatus === "SCHEDULED" || o.deliveryStatus === "PREPPING") && (
-                                        <button
-                                          onClick={() => handleUpdateOrderDeliveryStatus(o.id, "CANCELLED")}
-                                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                      )}
+                                      <select
+                                        value={o.status}
+                                        onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                                      >
+                                        {ORDER_STATUS_OPTIONS.map((s) => (
+                                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                                        ))}
+                                      </select>
                                       <button
                                         onClick={() => handleEditOrderTrigger(o)}
                                         className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
@@ -2193,14 +2470,13 @@ export default function AdminDashboard() {
                     onChange={setOrdersPage}
                   />
 
-                  {/* Orders generated from Subscriptions — a separate group
-                      from the one-off Order rows above (these are Delivery
-                      rows, not Order rows), so staff can still monitor and
-                      action them from the Orders view. Accepting/completing/
-                      cancelling and postponing route through the same
-                      unified handlers the Deliveries tab uses; "Mark
-                      Completed" goes through markDelivered, which deducts
-                      the delivered amount from the subscription's pool. */}
+                  {/* Orders generated from Subscriptions — same Order model
+                      and same status lifecycle as the one-off rows above,
+                      just tagged source: SUBSCRIPTION and shown as their own
+                      group so staff can still tell at a glance which orders
+                      came from a subscription pool. Moving one to COMPLETED
+                      deducts the delivered amount from the subscription's
+                      pool server-side (see OrdersService.markCompleted). */}
                   <div className="flex justify-between items-center pt-4">
                     <h3 className="text-sm font-bold font-heading">
                       Orders from Subscriptions ({filteredSubscriptionOrders.length})
@@ -2270,9 +2546,9 @@ export default function AdminDashboard() {
                         className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
                       >
                         <option value="ALL">All statuses</option>
-                        <option value="SCHEDULED">Ordered</option>
-                        <option value="PREPPING">Preparing</option>
-                        <option value="SKIPPED">Skipped</option>
+                        {ORDER_STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                        ))}
                       </select>
                     </div>
                   )}
@@ -2285,10 +2561,10 @@ export default function AdminDashboard() {
                     pagedSubOrderDayGroups.map((group) => (
                       <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider">
                             {formatGroupKeyLabel(group.key, "day")}
                           </h4>
-                          <span className="text-[10px] text-muted-foreground font-mono">{group.entries.length} đơn</span>
+                          <span className="text-[10px] text-muted-foreground ">{group.entries.length} đơn</span>
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs text-left">
@@ -2308,54 +2584,29 @@ export default function AdminDashboard() {
                                     <div className="font-bold">{d.customerName}</div>
                                   </td>
                                   <td className="py-4 text-primary font-semibold">{d.packageName}</td>
-                                  <td className="py-4 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
+                                  <td className="py-4  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
                                   <td className="py-4">
                                     <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                        d.status === "PREPPING"
-                                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                                          : d.status === "DELIVERED"
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : d.status === "CANCELLED"
-                                              ? "bg-red-50 text-red-700 border-red-200"
-                                              : d.status === "SKIPPED"
-                                                ? "bg-muted text-muted-foreground border-border"
-                                                : "bg-amber-50 text-amber-700 border-amber-200"
-                                      }`}
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[d.status as string] || "bg-amber-50 text-amber-700 border-amber-200"}`}
                                     >
-                                      {ORDER_STATUS_LABELS[d.status] || d.status}
+                                      {ORDER_STATUS_LABELS[d.status as OrderStatus] || d.status}
                                     </span>
                                   </td>
                                   <td className="py-4">
                                     <div className="flex justify-center items-center gap-2 flex-wrap">
-                                      {d.status === "SCHEDULED" && (
+                                      <select
+                                        value={d.status}
+                                        onChange={(e) => handleUpdateOrderStatus(d.id, e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                                      >
+                                        {ORDER_STATUS_OPTIONS.map((s) => (
+                                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                                        ))}
+                                      </select>
+                                      {d.status !== "COMPLETED" && d.status !== "CANCELLED" && (
                                         <button
-                                          onClick={() => handleUpdateUnifiedStatus(d, "PREPPING")}
-                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
-                                        >
-                                          Accept Order
-                                        </button>
-                                      )}
-                                      {d.status === "PREPPING" && (
-                                        <button
-                                          onClick={() => handleMarkDelivered(d)}
-                                          className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer whitespace-nowrap"
-                                        >
-                                          Mark Completed
-                                        </button>
-                                      )}
-                                      {(d.status === "SCHEDULED" || d.status === "PREPPING") && (
-                                        <button
-                                          onClick={() => handleUpdateUnifiedStatus(d, "CANCELLED")}
-                                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-red-500/20 text-red-500 hover:bg-red-500/10 cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                      )}
-                                      {(d.status === "SCHEDULED" || d.status === "PREPPING") && (
-                                        <button
-                                          onClick={() => handlePostponeDelivery(d)}
-                                          title="Hoãn lần giao này (bảo lưu số lượng)"
+                                          onClick={() => handlePostponeOrder(d.id)}
+                                          title="Hoãn đơn này (bảo lưu số lượng)"
                                           className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border hover:bg-muted cursor-pointer whitespace-nowrap"
                                         >
                                           Hoãn
@@ -2423,6 +2674,20 @@ export default function AdminDashboard() {
                           <div className="text-[11px] text-muted-foreground bg-background p-2 rounded-lg border border-border/40">
                             <span className="font-semibold text-foreground">Địa chỉ:</span> {c.address || "—"}
                           </div>
+                          <div className="flex items-center justify-between text-[11px] bg-primary/5 border border-primary/20 p-2 rounded-lg">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <FontAwesomeIcon icon={faWallet} className="h-3 w-3 text-primary" /> Số dư ví:
+                            </span>
+                            <span className="font-bold text-primary">{formatVND(c.walletBalance || 0)}</span>
+                          </div>
+                          {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() && (
+                            <div className="flex items-center justify-between text-[11px] bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                              <span className="font-semibold text-foreground">Ưu đãi gói:</span>
+                              <span className="font-bold text-emerald-700">
+                                {c.planDiscountPercent}% — đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2436,6 +2701,8 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">SĐT</th>
                             <th className="pb-3 font-semibold">Zalo</th>
                             <th className="pb-3 font-semibold">Địa chỉ</th>
+                            <th className="pb-3 font-semibold text-right">Số dư ví</th>
+                            <th className="pb-3 font-semibold">Ưu đãi gói</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
                         </thead>
@@ -2446,6 +2713,16 @@ export default function AdminDashboard() {
                               <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
                               <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
                               <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
+                              <td className="py-3.5 text-right font-bold text-primary">{formatVND(c.walletBalance || 0)}</td>
+                              <td className="py-3.5">
+                                {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() ? (
+                                  <span className="font-bold text-emerald-700">
+                                    {c.planDiscountPercent}% đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
                               <td className="py-3.5">
                                 <div className="flex justify-center gap-2">
                                   <button
@@ -2478,363 +2755,6 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* SECTION: DELIVERIES */}
-              {section === "deliveries" && (
-                <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <h3 className="text-sm font-bold font-heading">
-                      Deliveries {deliveryView === "all" ? `(${filteredDeliveriesAll.length})` : ""}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex rounded-md border border-border overflow-hidden text-[10px] font-bold">
-                        <button
-                          onClick={() => setDeliveryView("all")}
-                          className={`px-3 py-1.5 cursor-pointer ${deliveryView === "all" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
-                        >
-                          Tất cả
-                        </button>
-                        <button
-                          onClick={() => setDeliveryView("upcoming")}
-                          className={`px-3 py-1.5 cursor-pointer border-l border-border ${deliveryView === "upcoming" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
-                        >
-                          Sắp tới
-                        </button>
-                      </div>
-                      {deliveryView === "upcoming" && (
-                        <select
-                          value={deliveryGroupBy}
-                          onChange={(e) => setDeliveryGroupBy(e.target.value as "day" | "week" | "month")}
-                          className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
-                        >
-                          <option value="day">Theo ngày</option>
-                          <option value="week">Theo tuần</option>
-                          <option value="month">Theo tháng</option>
-                        </select>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Filters — apply to both views */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Tìm khách hàng..."
-                      value={deliverySearch}
-                      onChange={(e) => setDeliverySearch(e.target.value)}
-                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
-                    />
-                    <select
-                      value={deliverySourceFilter}
-                      onChange={(e) => setDeliverySourceFilter(e.target.value as typeof deliverySourceFilter)}
-                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                    >
-                      <option value="ALL">Tất cả loại</option>
-                      <option value="ORDER">Đơn lẻ</option>
-                      <option value="SUBSCRIPTION">Gói đăng ký</option>
-                    </select>
-                    <select
-                      value={deliveryStatusFilter}
-                      onChange={(e) => setDeliveryStatusFilter(e.target.value as typeof deliveryStatusFilter)}
-                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                    >
-                      <option value="ALL">Tất cả trạng thái</option>
-                      {DELIVERY_STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="date"
-                      value={deliveryDateFilter}
-                      onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                      className="text-[11px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
-                    />
-                    {deliveryDateFilter && (
-                      <button
-                        onClick={() => setDeliveryDateFilter("")}
-                        className="text-[10px] font-bold px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted cursor-pointer"
-                      >
-                        Bỏ lọc ngày
-                      </button>
-                    )}
-                  </div>
-
-                  {deliveryView === "all" ? (
-                    <div className="space-y-6">
-                      {deliveryDayGroups.length === 0 ? (
-                        <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
-                          Không có lịch giao nào khớp bộ lọc
-                        </div>
-                      ) : (
-                        pagedDeliveryDayGroups.map((group) => (
-                          <div key={group.date} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
-                                {new Date(group.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
-                              </h4>
-                              <span className="text-[10px] text-muted-foreground font-mono">
-                                {group.entries.length} lần giao · {formatGrams(group.totalGrams)}
-                              </span>
-                            </div>
-
-                            {/* Mobile cards view */}
-                            <div className="md:hidden space-y-3">
-                              {group.entries.map((d: any) => (
-                                <div key={`${d.source}-${d.id}`} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                                            d.source === "SUBSCRIPTION"
-                                              ? "bg-primary/10 text-primary border-primary/20"
-                                              : "bg-muted text-muted-foreground border-border"
-                                          }`}
-                                        >
-                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
-                                        </span>
-                                        <span className="font-bold text-foreground">{d.customerName}</span>
-                                      </div>
-                                      <p className="text-primary font-semibold mt-1">
-                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
-                                      </p>
-                                    </div>
-                                    <span className="font-mono text-muted-foreground font-semibold">{formatGrams(d.totalGrams)}</span>
-                                  </div>
-
-                                  <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
-                                    <div className="space-y-1">
-                                      <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block">Trạng thái</span>
-                                      <select
-                                        value={d.status}
-                                        onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
-                                        className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                      >
-                                        {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                        <button
-                                          onClick={() => handleMarkDelivered(d)}
-                                          className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                                        >
-                                          Đã giao
-                                        </button>
-                                      )}
-                                      {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                        <button
-                                          onClick={() => handlePostponeDelivery(d)}
-                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
-                                        >
-                                          Hoãn
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={() => handleDeleteDelivery(d)}
-                                        className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
-                                      >
-                                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Desktop table view */}
-                            <div className="hidden md:block overflow-x-auto">
-                              <table className="w-full text-xs text-left">
-                                <thead>
-                                  <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                                    <th className="pb-2 font-semibold">Loại</th>
-                                    <th className="pb-2 font-semibold">Khách hàng</th>
-                                    <th className="pb-2 font-semibold">Gói / Món</th>
-                                    <th className="pb-2 font-semibold">Khối lượng</th>
-                                    <th className="pb-2 font-semibold">Trạng thái</th>
-                                    <th className="pb-2 font-semibold text-center">Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {group.entries.map((d: any) => (
-                                    <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
-                                      <td className="py-3">
-                                        <span
-                                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                            d.source === "SUBSCRIPTION"
-                                              ? "bg-primary/10 text-primary border-primary/20"
-                                              : "bg-muted text-muted-foreground border-border"
-                                          }`}
-                                        >
-                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
-                                        </span>
-                                      </td>
-                                      <td className="py-3 font-bold">{d.customerName}</td>
-                                      <td className="py-3 text-primary font-semibold">
-                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
-                                      </td>
-                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
-                                      <td className="py-3">
-                                        <select
-                                          value={d.status}
-                                          onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
-                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                        >
-                                          {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                      </td>
-                                      <td className="py-3 text-center">
-                                        <div className="flex justify-center items-center gap-2">
-                                          {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                            <button
-                                              onClick={() => handleMarkDelivered(d)}
-                                              title="Xác nhận đã giao"
-                                              className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                                            >
-                                              Đã giao
-                                            </button>
-                                          )}
-                                          {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                            <button
-                                              onClick={() => handlePostponeDelivery(d)}
-                                              title="Hoãn lần giao này (bảo lưu số lượng)"
-                                              className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
-                                            >
-                                              Hoãn
-                                            </button>
-                                          )}
-                                          <button
-                                            onClick={() => handleDeleteDelivery(d)}
-                                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                          >
-                                            <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <PaginationControls
-                        page={deliveriesAllPage}
-                        totalPages={deliveriesAllTotalPages}
-                        totalItems={deliveryDayGroups.length}
-                        pageSize={CARD_PAGE_SIZE}
-                        onChange={setDeliveriesAllPage}
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {filteredUpcomingGroups.length === 0 ? (
-                        <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
-                          Không có lịch giao nào khớp bộ lọc
-                        </div>
-                      ) : (
-                        pagedUpcomingGroups.map((group) => (
-                          <div key={group.key} className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xs font-bold font-mono uppercase tracking-wider">
-                                {formatGroupKeyLabel(group.key, deliveryGroupBy)}
-                              </h4>
-                              <span className="text-[10px] text-muted-foreground font-mono">
-                                {group.entries.length} lần giao · {formatGrams(group.entries.reduce((s: number, e: any) => s + (e.totalGrams || 0), 0))}
-                              </span>
-                            </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs text-left">
-                                <thead>
-                                  <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                                    <th className="pb-2 font-semibold">Ngày giao</th>
-                                    <th className="pb-2 font-semibold">Loại</th>
-                                    <th className="pb-2 font-semibold">Khách hàng</th>
-                                    <th className="pb-2 font-semibold">Gói / Món</th>
-                                    <th className="pb-2 font-semibold">Khối lượng</th>
-                                    <th className="pb-2 font-semibold">Trạng thái</th>
-                                    <th className="pb-2 font-semibold text-center">Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {group.entries.map((d: any) => (
-                                    <tr key={`${d.source}-${d.id}`} className="border-b border-border/20 last:border-0">
-                                      <td className="py-3 text-muted-foreground">
-                                        {new Date(d.scheduledDate).toLocaleDateString("vi-VN")}
-                                      </td>
-                                      <td className="py-3">
-                                        <span
-                                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                            d.source === "SUBSCRIPTION"
-                                              ? "bg-primary/10 text-primary border-primary/20"
-                                              : "bg-muted text-muted-foreground border-border"
-                                          }`}
-                                        >
-                                          {d.source === "SUBSCRIPTION" ? "Gói đăng ký" : "Đơn lẻ"}
-                                        </span>
-                                      </td>
-                                      <td className="py-3 font-bold">{d.customerName}</td>
-                                      <td className="py-3 text-primary font-semibold">
-                                        {d.packageName || d.items.map((i: any) => `${i.flavor}×${i.qty}`).join(", ")}
-                                      </td>
-                                      <td className="py-3 font-mono text-muted-foreground">{formatGrams(d.totalGrams)}</td>
-                                      <td className="py-3">
-                                        <select
-                                          value={d.status}
-                                          onChange={(e) => handleUpdateUnifiedStatus(d, e.target.value)}
-                                          className="text-[10px] font-bold px-2 py-1 rounded border border-border bg-background cursor-pointer"
-                                        >
-                                          {DELIVERY_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                      </td>
-                                      <td className="py-3 text-center">
-                                        <div className="flex justify-center items-center gap-2">
-                                          {d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                            <button
-                                              onClick={() => handleMarkDelivered(d)}
-                                              title="Xác nhận đã giao"
-                                              className="text-[10px] font-bold px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                                            >
-                                              Đã giao
-                                            </button>
-                                          )}
-                                          {d.source === "SUBSCRIPTION" && d.status !== "DELIVERED" && d.status !== "CANCELLED" && (
-                                            <button
-                                              onClick={() => handlePostponeDelivery(d)}
-                                              title="Hoãn lần giao này (bảo lưu số lượng)"
-                                              className="text-[10px] font-bold px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer"
-                                            >
-                                              Hoãn
-                                            </button>
-                                          )}
-                                          <button
-                                            onClick={() => handleDeleteDelivery(d)}
-                                            className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                          >
-                                            <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <PaginationControls
-                        page={deliveriesUpcomingPage}
-                        totalPages={deliveriesUpcomingTotalPages}
-                        totalItems={filteredUpcomingGroups.length}
-                        pageSize={CARD_PAGE_SIZE}
-                        onChange={setDeliveriesUpcomingPage}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* SECTION C: MENU CATALOG MANAGER */}
               {section === "menu" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
@@ -2859,10 +2779,10 @@ export default function AdminDashboard() {
                     return (
                       <div key={protein} className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                          <h4 className="text-xs font-bold  uppercase tracking-wider text-muted-foreground">
                             {PROTEIN_LABELS[protein]}
                           </h4>
-                          <span className="text-[10px] font-mono text-muted-foreground">({dishes.length})</span>
+                          <span className="text-[10px]  text-muted-foreground">({dishes.length})</span>
                           <div className="flex-1 border-t border-border/60" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -2875,7 +2795,7 @@ export default function AdminDashboard() {
                                 <div>
                                   <div className="flex justify-between items-start gap-3">
                                     <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
-                                    <span className="text-xs font-bold text-primary shrink-0 font-mono">{formatVND(item.price)}</span>
+                                    <span className="text-xs font-bold text-primary shrink-0 ">{formatVND(item.price)}</span>
                                   </div>
 
                                   {dish.sizes.length > 1 ? (
@@ -2913,7 +2833,7 @@ export default function AdminDashboard() {
                                       0 means an order for this item needs prep (SCHEDULED). */}
                                   <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
                                     <span
-                                      className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                                      className={`text-[10px] font-bold  px-1.5 py-0.5 rounded ${
                                         (item.stockQuantity ?? 0) > 0
                                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                           : "bg-amber-50 text-amber-700 border border-amber-200"
@@ -3044,10 +2964,10 @@ export default function AdminDashboard() {
                           return (
                             <div key={protein} className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-muted-foreground">
+                                <h4 className="text-xs font-bold  uppercase tracking-wider text-muted-foreground">
                                   {PROTEIN_LABELS[protein]}
                                 </h4>
-                                <span className="text-[10px] font-mono text-muted-foreground">({items.length})</span>
+                                <span className="text-[10px]  text-muted-foreground">({items.length})</span>
                                 <div className="flex-1 border-t border-border/60" />
                               </div>
                               <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
@@ -3066,7 +2986,7 @@ export default function AdminDashboard() {
                                         <tr key={item.id} className="border-b border-border/20 last:border-0">
                                           <td className="py-3 font-bold">{item.flavor}</td>
                                           <td className="py-3 text-muted-foreground">{item.sizeGrams}g</td>
-                                          <td className="py-3 font-mono font-bold">{item.stockQuantity ?? 0}</td>
+                                          <td className="py-3  font-bold">{item.stockQuantity ?? 0}</td>
                                           <td className="py-3">
                                             <div className="flex items-center justify-end gap-1.5">
                                               <button
@@ -3210,7 +3130,7 @@ export default function AdminDashboard() {
                                 <div key={p.id} className="space-y-1">
                                   <div className="flex justify-between text-[11px]">
                                     <span className="font-semibold">{PROTEIN_LABELS[p.protein as Protein] || p.protein}</span>
-                                    <span className="font-mono text-muted-foreground">
+                                    <span className=" text-muted-foreground">
                                       {formatGrams(p.remainingGrams)} / {formatGrams(p.totalGrams)} còn lại
                                     </span>
                                   </div>
@@ -3278,6 +3198,143 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {/* SECTION: CUSTOM PLAN REQUESTS — customer-submitted asks for
+                  a plan outside the standard catalog, always starting as a
+                  consultation request (never a self-serve Subscription).
+                  Staff review here, annotate, and either build a matching
+                  Subscription ("Tạo gói từ yêu cầu này" → pre-fills the
+                  Subscription form above and links back on save) or
+                  decline. */}
+              {section === "custom-plan-requests" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h3 className="text-sm font-bold font-heading">
+                      Custom Plan Requests ({filteredCustomPlanRequests.length})
+                    </h3>
+                    <select
+                      value={cprStatusFilter}
+                      onChange={(e) => setCprStatusFilter(e.target.value as typeof cprStatusFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      {CUSTOM_PLAN_REQUEST_STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{CUSTOM_PLAN_REQUEST_STATUS_LABELS[s]}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {pagedCustomPlanRequests.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                      Chưa có yêu cầu tư vấn gói riêng nào
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {pagedCustomPlanRequests.map((r: any) => (
+                        <div key={r.id} className="border border-border bg-card rounded-2xl p-5 shadow-sm space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-sm">{r.customerName}</p>
+                              <p className="text-[11px] text-muted-foreground">{r.phone || "—"}</p>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${CUSTOM_PLAN_REQUEST_STATUS_BADGE_CLASS[r.status as CustomPlanRequestStatus]}`}
+                            >
+                              {CUSTOM_PLAN_REQUEST_STATUS_LABELS[r.status as CustomPlanRequestStatus] || r.status}
+                            </span>
+                          </div>
+
+                          <div className="text-xs space-y-1 bg-muted/30 border border-border/50 rounded-lg p-3">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Protein mong muốn:</span>
+                              <span className="font-semibold text-right">
+                                {(r.desiredProteins || []).map((p: Protein) => PROTEIN_LABELS[p] || p).join(", ") || "—"}
+                              </span>
+                            </div>
+                            {r.estimatedTotalGrams != null && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Khối lượng ước tính:</span>
+                                <span className="font-semibold">{formatGrams(r.estimatedTotalGrams)}</span>
+                              </div>
+                            )}
+                            {r.preferredIntervalDays != null && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Chu kỳ mong muốn:</span>
+                                <span className="font-semibold">{formatIntervalLabel(r.preferredIntervalDays)}</span>
+                              </div>
+                            )}
+                            {r.budgetHint != null && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Ngân sách tham khảo:</span>
+                                <span className="font-semibold">{formatVND(r.budgetHint)}</span>
+                              </div>
+                            )}
+                            {r.notes && (
+                              <div className="pt-1 border-t border-border/40 text-primary italic">&quot;{r.notes}&quot;</div>
+                            )}
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
+                              Ghi chú nội bộ
+                            </label>
+                            <div className="flex gap-2">
+                              <textarea
+                                rows={2}
+                                value={cprNoteDrafts[r.id] ?? r.adminNotes ?? ""}
+                                onChange={(e) => setCprNoteDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                                className="flex-1 bg-background border border-border focus:border-primary text-xs py-2 px-2.5 rounded-lg outline-none resize-none"
+                              />
+                              <button
+                                onClick={() => handleUpdateCustomPlanRequest(r.id, { adminNotes: cprNoteDrafts[r.id] ?? r.adminNotes ?? "" })}
+                                className="text-[10px] font-bold px-2.5 rounded-md border border-border hover:bg-muted cursor-pointer whitespace-nowrap"
+                              >
+                                Lưu
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+                            <select
+                              value={r.status}
+                              onChange={(e) => handleUpdateCustomPlanRequest(r.id, { status: e.target.value })}
+                              className="text-[10px] font-bold px-2 py-1.5 rounded-md border border-border bg-background cursor-pointer"
+                            >
+                              {CUSTOM_PLAN_REQUEST_STATUS_OPTIONS.map((s) => (
+                                <option key={s} value={s}>{CUSTOM_PLAN_REQUEST_STATUS_LABELS[s]}</option>
+                              ))}
+                            </select>
+                            <div className="flex items-center gap-1.5">
+                              {r.status !== "MATCHED" && (
+                                <button
+                                  onClick={() => handleOpenSubFromCustomPlanRequest(r)}
+                                  className="text-[10px] font-bold px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer whitespace-nowrap"
+                                >
+                                  Tạo gói từ yêu cầu này
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteCustomPlanRequest(r.id)}
+                                className="text-muted-foreground hover:text-red-500 p-1.5 cursor-pointer bg-card border border-border rounded-lg"
+                                title="Xóa"
+                              >
+                                <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <PaginationControls
+                    page={customPlanRequestsPage}
+                    totalPages={customPlanRequestsTotalPages}
+                    totalItems={filteredCustomPlanRequests.length}
+                    pageSize={PAGE_SIZE}
+                    onChange={setCustomPlanRequestsPage}
+                  />
+                </div>
+              )}
+
               {/* SECTION: PREP LIST */}
               {section === "prep-list" && (
                 <div className="space-y-6 animate-in fade-in duration-200">
@@ -3339,9 +3396,9 @@ export default function AdminDashboard() {
                           <table className="w-full text-xs text-left">
                             <thead>
                               <tr className="bg-muted/50 border-b border-border">
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground">Món</th>
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-center">Phần</th>
-                                <th className="px-4 py-3 font-semibold font-mono uppercase tracking-wide text-muted-foreground text-right">Tổng gram</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground">Món</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground text-center">Phần</th>
+                                <th className="px-4 py-3 font-semibold  uppercase tracking-wide text-muted-foreground text-right">Tổng gram</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3361,11 +3418,11 @@ export default function AdminDashboard() {
                                     <span className="text-muted-foreground ml-1">({item.sizeGrams}g)</span>
                                   </td>
                                   <td className="px-4 py-3 text-center">
-                                    <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md font-bold font-mono">
+                                    <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md font-bold ">
                                       {item.portions}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-right font-semibold font-mono">
+                                  <td className="px-4 py-3 text-right font-semibold ">
                                     {item.totalGrams.toLocaleString()}g
                                   </td>
                                 </tr>
@@ -3374,8 +3431,8 @@ export default function AdminDashboard() {
                             <tfoot>
                               <tr className="border-t-2 border-primary/30 bg-primary/5">
                                 <td className="px-4 py-3 font-bold">Tổng cộng</td>
-                                <td className="px-4 py-3 text-center font-bold font-mono">{prepData.totalPortions}</td>
-                                <td className="px-4 py-3 text-right font-bold font-mono">
+                                <td className="px-4 py-3 text-center font-bold ">{prepData.totalPortions}</td>
+                                <td className="px-4 py-3 text-right font-bold ">
                                   {prepData.totalGrams.toLocaleString()}g
                                 </td>
                               </tr>
@@ -3508,6 +3565,361 @@ export default function AdminDashboard() {
                       totalItems={discounts.length}
                       pageSize={PAGE_SIZE}
                       onChange={setDiscountsPage}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION F: SUBSCRIPTION PLANS (wallet top-up catalog + pending queue) */}
+              {section === "subscription-plans" && (
+                <div className="space-y-8 animate-in fade-in duration-200">
+                  {/* Catalog management — mirrors the Promotional Codes
+                      create-form-plus-list layout, extended with edit
+                      support (a plan can be retired via isActive rather
+                      than only deleted). */}
+                  <div className="grid lg:grid-cols-3 gap-8">
+                    <div className="border border-border bg-card rounded-2xl p-6 shadow-sm h-fit">
+                      <h3 className="text-sm font-bold font-heading mb-4">
+                        {editingSubPlanId ? "Chỉnh sửa gói nạp" : "Tạo gói nạp mới"}
+                      </h3>
+                      <form onSubmit={handleSaveSubscriptionPlan} className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tên gói</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="vd: Gói 1.5 triệu"
+                            value={subPlanName}
+                            onChange={(e) => setSubPlanName(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Giá (VND)</label>
+                            <input
+                              type="number"
+                              required
+                              min={0}
+                              value={subPlanPrice}
+                              onChange={(e) => setSubPlanPrice(Number(e.target.value))}
+                              className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Voucher (%)</label>
+                            <input
+                              type="number"
+                              required
+                              min={0}
+                              max={100}
+                              value={subPlanVoucherPercent}
+                              onChange={(e) => setSubPlanVoucherPercent(Number(e.target.value))}
+                              className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mô tả (tùy chọn)</label>
+                          <textarea
+                            rows={2}
+                            value={subPlanDescription}
+                            onChange={(e) => setSubPlanDescription(e.target.value)}
+                            className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none resize-none"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={subPlanIsActive}
+                            onChange={(e) => setSubPlanIsActive(e.target.checked)}
+                            className="h-3.5 w-3.5 cursor-pointer"
+                          />
+                          Đang hoạt động (hiển thị cho khách hàng)
+                        </label>
+
+                        <div className="flex gap-2">
+                          {editingSubPlanId && (
+                            <button
+                              type="button"
+                              onClick={resetSubPlanForm}
+                              className="flex-1 border border-border hover:bg-muted text-xs font-bold py-3.5 rounded-xl transition-all cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={isSavingSubPlan}
+                            className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {isSavingSubPlan ? "Đang lưu..." : editingSubPlanId ? "Lưu thay đổi" : "Tạo gói nạp"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div className="lg:col-span-2 border border-border bg-card rounded-2xl p-6 shadow-sm">
+                      <h3 className="text-sm font-bold font-heading mb-4">Danh mục gói nạp ({subscriptionPlans.length})</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="text-muted-foreground border-b border-border/50 pb-2">
+                              <th className="pb-3 font-semibold">Tên gói</th>
+                              <th className="pb-3 font-semibold">Giá</th>
+                              <th className="pb-3 font-semibold">Voucher</th>
+                              <th className="pb-3 font-semibold text-center">Trạng thái</th>
+                              <th className="pb-3 font-semibold text-center">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginate(
+                              subscriptionPlans,
+                              clampPage(subscriptionPlansPage, Math.ceil(subscriptionPlans.length / PAGE_SIZE) || 1),
+                              PAGE_SIZE,
+                            ).map((p: any) => (
+                              <tr key={p.id} className="border-b border-border/20 last:border-0">
+                                <td className="py-3.5 font-bold">{p.name}</td>
+                                <td className="py-3.5 font-bold text-primary">{formatVND(p.price)}</td>
+                                <td className="py-3.5 text-muted-foreground">{p.voucherPercent}%</td>
+                                <td className="py-3.5 text-center">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                      p.isActive
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-muted text-muted-foreground border-border"
+                                    }`}
+                                  >
+                                    {p.isActive ? "Hoạt động" : "Đã ẩn"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5">
+                                  <div className="flex justify-center gap-2">
+                                    <button
+                                      onClick={() => handleEditSubPlanTrigger(p)}
+                                      className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSubscriptionPlan(p.id)}
+                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                    >
+                                      <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {subscriptionPlans.length === 0 && (
+                        <div className="border border-dashed border-border rounded-lg py-12 text-center text-xs text-muted-foreground">
+                          Chưa có gói nạp nào
+                        </div>
+                      )}
+                      <PaginationControls
+                        page={subscriptionPlansPage}
+                        totalPages={Math.ceil(subscriptionPlans.length / PAGE_SIZE) || 1}
+                        totalItems={subscriptionPlans.length}
+                        pageSize={PAGE_SIZE}
+                        onChange={setSubscriptionPlansPage}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pending top-ups queue — bank transfers awaiting staff
+                      reconciliation. Confirming credits the customer's
+                      wallet + issues the tier's voucher; rejecting leaves
+                      the wallet untouched. Card-queue layout mirrors Custom
+                      Plan Requests. */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold font-heading">Chờ xác nhận chuyển khoản ({pendingTopUps.length})</h3>
+                    {pendingTopUps.length === 0 ? (
+                      <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                        Không có giao dịch nạp ví nào đang chờ xác nhận
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {paginate(
+                          pendingTopUps,
+                          clampPage(pendingTopUpsPage, Math.ceil(pendingTopUps.length / PAGE_SIZE) || 1),
+                          PAGE_SIZE,
+                        ).map((t: any) => (
+                          <div key={t.id} className="border border-border bg-card rounded-2xl p-5 shadow-sm space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-sm">{t.customerName}</p>
+                                <p className="text-[11px] text-muted-foreground">{t.planName}</p>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200">
+                                Chờ xác nhận
+                              </span>
+                            </div>
+
+                            <div className="text-xs space-y-1 bg-muted/30 border border-border/50 rounded-lg p-3">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Số tiền:</span>
+                                <span className="font-bold text-primary">{formatVND(t.amount)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Ngày tạo:</span>
+                                <span className="font-semibold">{new Date(t.createdAt).toLocaleString("vi-VN")}</span>
+                              </div>
+                              {t.transactionId && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Mã giao dịch:</span>
+                                  <span className="font-semibold">{t.transactionId}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                              <button
+                                onClick={() => handleConfirmTopUp(t.id)}
+                                disabled={processingTopUpId === t.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faCheck} className="h-3 w-3" /> Xác nhận
+                              </button>
+                              <button
+                                onClick={() => handleRejectTopUp(t.id)}
+                                disabled={processingTopUpId === t.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="h-3 w-3" /> Từ chối
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <PaginationControls
+                      page={pendingTopUpsPage}
+                      totalPages={Math.ceil(pendingTopUps.length / PAGE_SIZE) || 1}
+                      totalItems={pendingTopUps.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setPendingTopUpsPage}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* HOME FRAMES MANAGER */}
+              {section === "home-frames" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold font-heading">Quản lý Banners/Khung ảnh Trang chủ</h2>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Cập nhật và sắp xếp các khung hình quảng cáo sẽ xuất hiện trên trang chủ khách hàng.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        resetHomeFrameForm();
+                        setHomeFrameModal("create");
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/10 transition-smooth font-heading"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                      Thêm Banner Mới
+                    </button>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/60 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
+                            <th className="pb-3.5 w-24">Hình ảnh</th>
+                            <th className="pb-3.5">Tiêu đề (Tùy chọn)</th>
+                            <th className="pb-3.5">Đường dẫn liên kết</th>
+                            <th className="pb-3.5 text-center">Thứ tự</th>
+                            <th className="pb-3.5 text-center">Trạng thái</th>
+                            <th className="pb-3.5 text-center w-24">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40 font-medium">
+                          {homeFrames.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                Chưa có banner nào được tạo. Nhấn &quot;Thêm Banner Mới&quot; để bắt đầu.
+                              </td>
+                            </tr>
+                          ) : (
+                            paginate(homeFrames, homeFramesPage, PAGE_SIZE).map((frame: any) => (
+                              <tr key={frame.id} className="hover:bg-muted/10 transition-colors">
+                                <td className="py-3.5">
+                                  <img
+                                    src={frame.imageUrl}
+                                    alt={frame.title || "Banner"}
+                                    className="h-12 w-20 rounded-md object-cover border border-border bg-muted"
+                                  />
+                                </td>
+                                <td className="py-3.5 font-semibold text-foreground">
+                                  {frame.title || <span className="text-muted-foreground italic font-normal">Không có</span>}
+                                </td>
+                                <td className="py-3.5 text-muted-foreground break-all">
+                                  {frame.linkUrl || <span className="text-muted-foreground/50 italic">Không có</span>}
+                                </td>
+                                <td className="py-3.5 text-center font-bold">
+                                  {frame.order}
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                      frame.isActive
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    }`}
+                                  >
+                                    {frame.isActive ? "Hoạt động" : "Tạm ẩn"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingHomeFrameId(frame.id);
+                                        setHomeFrameTitle(frame.title || "");
+                                        setHomeFrameImageUrl(frame.imageUrl);
+                                        setHomeFrameImagePreview(frame.imageUrl);
+                                        setHomeFrameLinkUrl(frame.linkUrl || "");
+                                        setHomeFrameOrder(frame.order);
+                                        setHomeFrameIsActive(frame.isActive);
+                                        setHomeFrameModal("edit");
+                                      }}
+                                      className="text-primary hover:text-primary/80 p-1.5 cursor-pointer transition-colors"
+                                      title="Chỉnh sửa"
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteHomeFrame(frame.id)}
+                                      className="text-red-500 hover:text-red-600 p-1.5 cursor-pointer transition-colors"
+                                      title="Xóa"
+                                    >
+                                      <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationControls
+                      page={homeFramesPage}
+                      totalPages={Math.ceil(homeFrames.length / PAGE_SIZE) || 1}
+                      totalItems={homeFrames.length}
+                      pageSize={PAGE_SIZE}
+                      onChange={setHomeFramesPage}
                     />
                   </div>
                 </div>
@@ -3839,20 +4251,15 @@ export default function AdminDashboard() {
                 {orderDetailView.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                  orderDetailView.deliveryStatus === "PREPPING"
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : orderDetailView.deliveryStatus === "DELIVERED"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : orderDetailView.deliveryStatus === "CANCELLED"
-                        ? "bg-red-50 text-red-700 border-red-200"
-                        : orderDetailView.deliveryStatus === "SKIPPED"
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
-                }`}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[orderDetailView.status as string] || "bg-amber-50 text-amber-700 border-amber-200"}`}
               >
-                {ORDER_STATUS_LABELS[orderDetailView.deliveryStatus] || orderDetailView.deliveryStatus}
+                {ORDER_STATUS_LABELS[orderDetailView.status as OrderStatus] || orderDetailView.status}
               </span>
+              {orderDetailView.source === "SUBSCRIPTION" && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
+                  Gói đăng ký: {orderDetailView.packageName || "—"}
+                </span>
+              )}
               <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
                 {orderDetailView.paymentStatus}
               </span>
@@ -3876,7 +4283,7 @@ export default function AdminDashboard() {
                     <span className="font-bold">{i.flavor}</span>
                     <span className="text-muted-foreground"> · {i.sizeGrams}g × {i.qty}</span>
                   </div>
-                  <span className="font-mono text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
+                  <span className=" text-muted-foreground">{formatVND(i.unitPrice * i.qty)}</span>
                 </div>
               ))}
             </div>
@@ -3884,12 +4291,12 @@ export default function AdminDashboard() {
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Tạm tính</span>
-                <span className="font-mono">{formatVND(orderDetailView.subtotal)}</span>
+                <span className="">{formatVND(orderDetailView.subtotal)}</span>
               </div>
               {orderDetailView.discountAmount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Giảm giá</span>
-                  <span className="font-mono">−{formatVND(orderDetailView.discountAmount)}</span>
+                  <span className="">−{formatVND(orderDetailView.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-1.5 border-t border-border/50">
@@ -4066,10 +4473,15 @@ export default function AdminDashboard() {
       {/* SUBSCRIPTION CREATE DIALOG MODAL */}
       {subModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="absolute inset-0 cursor-pointer" onClick={() => setSubModal(null)} />
+          <div className="absolute inset-0 cursor-pointer" onClick={() => { setSubModal(null); resetSubForm(); }} />
           <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6 my-8">
             <div className="text-center">
               <h3 className="text-lg font-bold font-heading">Tạo gói đăng ký</h3>
+              {subLinkedCustomPlanRequestId && (
+                <p className="text-[11px] text-primary font-semibold mt-1">
+                  Đang tạo từ yêu cầu tư vấn gói riêng — sẽ tự động đánh dấu &quot;Đã ghép gói&quot; khi lưu
+                </p>
+              )}
             </div>
 
             <form onSubmit={handleCreateSubscription} className="space-y-4">
@@ -4265,7 +4677,7 @@ export default function AdminDashboard() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setSubModal(null)}
+                  onClick={() => { setSubModal(null); resetSubForm(); }}
                   className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border"
                 >
                   Hủy
@@ -4302,8 +4714,8 @@ export default function AdminDashboard() {
                 {subDetailDeliveries.map((d: any) => (
                   <div key={d.id} className="border border-border rounded-lg p-3 text-xs space-y-1">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold">{new Date(d.scheduledDate).toLocaleDateString("vi-VN")}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-muted">{d.status}</span>
+                      <span className="font-bold">{new Date(d.deliveryDate).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-muted">{ORDER_STATUS_LABELS[d.status as OrderStatus] || d.status}</span>
                     </div>
                     <div className="text-muted-foreground">
                       {d.items.map((i: any) => `${PROTEIN_LABELS[i.protein as Protein] || i.protein} ${i.flavor} (${i.sizeGrams}g) ×${i.qty}`).join(", ")}
@@ -4399,6 +4811,146 @@ export default function AdminDashboard() {
             >
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* HOME FRAME CREATE/EDIT DIALOG MODAL */}
+      {homeFrameModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setHomeFrameModal(null)} />
+          <div className="relative w-full max-w-lg bg-card border border-border/60 rounded-2xl shadow-2xl p-8 z-10 space-y-6 text-left">
+            <div className="text-center pb-1 border-b border-border/40">
+              <h3 className="text-lg font-bold font-heading text-foreground">
+                {homeFrameModal === "create" ? "Thêm Banner Mới" : "Chỉnh sửa Banner"}
+              </h3>
+              <p className="text-[11px] text-foreground/50 mt-0.5">
+                {homeFrameModal === "create" ? "Thiết lập thông tin cho banner quảng cáo mới" : "Cập nhật thông tin banner quảng cáo"}
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveHomeFrame} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiêu đề (Tùy chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Giảm giá mùa hè"
+                  value={homeFrameTitle}
+                  onChange={(e) => setHomeFrameTitle(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Đường dẫn liên kết (Tùy chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: /menu hoặc link ngoài"
+                  value={homeFrameLinkUrl}
+                  onChange={(e) => setHomeFrameLinkUrl(e.target.value)}
+                  className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Thứ tự hiển thị</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={homeFrameOrder}
+                    onChange={(e) => setHomeFrameOrder(Number(e.target.value))}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none font-bold"
+                  />
+                </div>
+                <div className="space-y-1 flex flex-col justify-end">
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer pb-2 select-none">
+                    <input
+                      type="checkbox"
+                      checked={homeFrameIsActive}
+                      onChange={(e) => setHomeFrameIsActive(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <span>Kích hoạt hiển thị</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Upload section */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Hình ảnh Banner</label>
+                
+                <div className="flex gap-4 items-start">
+                  <div className="relative h-28 w-48 border border-border rounded-xl bg-background overflow-hidden flex items-center justify-center shrink-0">
+                    {homeFrameImagePreview ? (
+                      <>
+                        <img src={homeFrameImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                        {isHomeFrameUploading && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                            <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin" />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/60 text-center px-4">
+                        Chưa chọn ảnh (hoặc điền link trực tiếp bên dưới)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-border hover:bg-muted text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-sm bg-background select-none">
+                      <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5 text-muted-foreground" />
+                      Tải ảnh lên
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleHomeFrameImageUpload(file);
+                        }}
+                      />
+                    </label>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Chấp nhận PNG, JPG, GIF. Dung lượng tối đa 5MB. Ảnh sẽ được tự động đồng bộ lên Cloudinary.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-muted-foreground/80 block uppercase">Hoặc dán URL trực tiếp</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="https://..."
+                    value={homeFrameImageUrl}
+                    onChange={(e) => {
+                      setHomeFrameImageUrl(e.target.value);
+                      setHomeFrameImagePreview(e.target.value);
+                    }}
+                    className="w-full bg-background border border-border focus:border-primary text-xs py-2 px-3 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border/40">
+                <button
+                  type="button"
+                  onClick={() => setHomeFrameModal(null)}
+                  className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border transition-colors font-heading"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingHomeFrame || isHomeFrameUploading}
+                  className="flex-1 bg-primary hover:bg-primary/95 disabled:opacity-50 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-colors font-heading"
+                >
+                  {isSavingHomeFrame ? "Đang lưu..." : "Lưu banner"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

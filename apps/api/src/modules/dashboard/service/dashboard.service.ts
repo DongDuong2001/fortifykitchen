@@ -41,47 +41,38 @@ export class DashboardService {
       id: o.id,
       customerName: o.customerName,
       total: o.total,
-      deliveryStatus: o.deliveryStatus,
+      status: o.status,
       paymentStatus: o.paymentStatus,
       deliveryDate: o.deliveryDate,
       createdAt: o.createdAt,
       fulfillmentType: o.fulfillmentType,
+      source: o.source,
     }));
 
-    // Deliveries due in the next 7 days (subscription deliveries + one-off
-    // orders combined) — matches the original dashboard's reorder alerts,
-    // extended to cover both delivery kinds now that the Deliveries tab
-    // shows them together.
+    // Orders due in the next 7 days (subscription-sourced + one-off
+    // combined — they're the same table now) that are still in flight —
+    // matches the original dashboard's reorder alerts.
     const today = new Date();
     const in7Days = new Date(Date.now() + 7 * 86_400_000);
-    const [subDeliveriesThisWeek, ordersThisWeek] = await Promise.all([
-      this.db.client.delivery.count({
-        where: {
-          scheduledDate: { gte: today, lte: in7Days },
-          status: { in: ["SCHEDULED", "PREPPING"] },
-        },
-      }),
-      this.db.client.order.count({
-        where: {
-          deliveryDate: { gte: today, lte: in7Days },
-          deliveryStatus: { in: ["SCHEDULED", "PREPPING"] },
-        },
-      }),
-    ]);
-    const deliveriesThisWeek = subDeliveriesThisWeek + ordersThisWeek;
+    const deliveriesThisWeek = await this.db.client.order.count({
+      where: {
+        deliveryDate: { gte: today, lte: in7Days },
+        status: { in: ["PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"] },
+      },
+    });
 
     const unpaidOrders = await this.db.client.order.count({
       where: { paymentStatus: { not: PaymentState.PAID } },
     });
 
-    // Order-workflow stats (Ordered -> Preparing -> Completed) — surfaced so
-    // staff can see how much is waiting on them right now without opening
-    // the Orders tab first.
+    // Order-workflow stats (Chờ xác nhận -> Đang chuẩn bị -> Hoàn thành) —
+    // surfaced so staff can see how much is waiting on them right now
+    // without opening the Orders tab first.
     const [ordersAwaitingAcceptance, ordersInPreparation, ordersCancelledToday] = await Promise.all([
-      this.db.client.order.count({ where: { deliveryStatus: "SCHEDULED" } }),
-      this.db.client.order.count({ where: { deliveryStatus: "PREPPING" } }),
+      this.db.client.order.count({ where: { status: "PENDING_CONFIRMATION" } }),
+      this.db.client.order.count({ where: { status: { in: ["CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"] } } }),
       this.db.client.order.count({
-        where: { deliveryStatus: "CANCELLED", updatedAt: { gte: today } },
+        where: { status: "CANCELLED", updatedAt: { gte: today } },
       }),
     ]);
 
@@ -119,12 +110,12 @@ export class DashboardService {
     }
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const deliveredThisMonth = await this.db.client.delivery.findMany({
-      where: { status: "DELIVERED", updatedAt: { gte: startOfMonth } },
+    const completedThisMonth = await this.db.client.order.findMany({
+      where: { source: "SUBSCRIPTION", status: "COMPLETED", updatedAt: { gte: startOfMonth } },
       include: { items: true },
     });
-    const gramsDeliveredThisMonth = deliveredThisMonth.reduce(
-      (sum, d) => sum + d.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
+    const gramsDeliveredThisMonth = completedThisMonth.reduce(
+      (sum, o) => sum + o.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
       0,
     );
 

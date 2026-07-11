@@ -100,6 +100,9 @@ export class CustomersService {
     zalo: string | null;
     address: string | null;
     notes: string | null;
+    walletBalance: number;
+    planDiscountPercent: number;
+    planDiscountEndsAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): Customer {
@@ -111,6 +114,9 @@ export class CustomersService {
       zalo: customer.zalo ?? undefined,
       address: customer.address ?? undefined,
       notes: customer.notes ?? undefined,
+      walletBalance: customer.walletBalance,
+      planDiscountPercent: customer.planDiscountPercent,
+      planDiscountEndsAt: customer.planDiscountEndsAt ?? undefined,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };

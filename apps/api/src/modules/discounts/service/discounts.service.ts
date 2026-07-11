@@ -43,7 +43,14 @@ export class DiscountsService {
     };
   }
 
-  async verify(code: string) {
+  // userId is optional — this endpoint is intentionally public (usable
+  // before login, e.g. a guest previewing a code) — but when the caller IS
+  // logged in, the customer-web live-preview widget calls this with their
+  // token so it can catch "you've already used this code" up front instead
+  // of only discovering it after a full checkout attempt fails at order
+  // creation (which was confusing: the preview showed the discount as
+  // applied right up until the "Đặt hàng" click did nothing obvious).
+  async verify(code: string, userId?: string) {
     const discount = await this.db.client.discount.findUnique({
       where: { code: code.toUpperCase() },
     });
@@ -63,6 +70,21 @@ export class DiscountsService {
 
     if (now > discount.endsAt) {
       throw new BadRequestException("Discount code has expired");
+    }
+
+    if (userId) {
+      const customer = await this.db.client.customer.findFirst({ where: { userId } });
+      if (customer) {
+        if (discount.customerId && discount.customerId !== customer.id) {
+          throw new BadRequestException(`Discount code "${code}" is not valid for your account`);
+        }
+        const alreadyUsed = await this.db.client.discountRedemption.findFirst({
+          where: { discountId: discount.id, customerId: customer.id },
+        });
+        if (alreadyUsed) {
+          throw new BadRequestException(`Discount code "${code}" has already been used on your account.`);
+        }
+      }
     }
 
     return {

@@ -2,13 +2,13 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsEnum } from "class-validator";
 import { PaymentState, SubscriptionStatus } from "@fortifykitchen/database";
 
-// Editing a subscription does NOT touch already-materialized Delivery rows
-// or pool balances — deliveryAmountGrams/deliveryIntervalDays changes only
+// Editing a subscription does NOT touch already-materialized Order rows or
+// pool balances — deliveryAmountGrams/deliveryIntervalDays changes only
 // take effect for occurrences generated AFTER this edit (the next
-// syncUpcomingDeliveries run picks up the new cadence from whatever the
-// last existing delivery's date is). Use the Delivery endpoints
-// (mark-delivered / postpone) to adjust individual occurrences, and the
-// pool top-up endpoint to add more purchased weight.
+// syncUpcomingOrders run picks up the new cadence from whatever the last
+// existing order's date is). Use the Orders endpoints (status / postpone)
+// to adjust individual occurrences, and the pool top-up endpoint to add
+// more purchased weight.
 export class UpdateSubscriptionDto {
   @ApiProperty({ required: false })
   @IsString()

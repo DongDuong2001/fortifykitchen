@@ -9,9 +9,9 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-semibold font-mono tracking-tight transition-smooth focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "inline-flex items-center rounded-sm px-3 py-1 text-[0.8rem] font-semibold uppercase tracking-wider transition-smooth focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
         {
-          "border-transparent bg-primary text-primary-foreground hover:opacity-80":
+          "border border-border bg-[#F7F3EC] text-foreground hover:opacity-80":
             variant === "default",
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80":
             variant === "secondary",
@@ -21,7 +21,7 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
             variant === "success",
           "border-transparent bg-amber-100 text-amber-700 hover:bg-amber-200":
             variant === "warning",
-          "text-foreground": variant === "outline"
+          "text-foreground border border-border": variant === "outline"
         },
         className
       )}

@@ -1,30 +1,41 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
 import { TopUpPoolDto } from "../dto/top-up-pool.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
+import { OrdersService } from "../../orders/service/orders.service";
 import { calculatePoolPricing, addDays } from "@fortifykitchen/shared";
 import { Subscription, SubscriptionPool } from "@fortifykitchen/types";
-import { PaymentState, Protein } from "@fortifykitchen/database";
+import { PaymentState, Protein, CustomPlanRequestStatus, PaymentMethod, PaymentStatus, Decimal, SubscriptionStatus } from "@fortifykitchen/database";
 
-// How far ahead of "today" a subscription's Delivery rows get materialized.
-// See syncUpcomingDeliveries — this is what makes requirement #2's "added 1
-// week before the delivery for easier management" true: we don't create
-// every future occurrence at subscription creation time, only a rolling
-// window, called again whenever the sync endpoint is hit (creation, and
-// opportunistically from the admin Deliveries/Dashboard pages).
+// How far ahead of "today" a subscription's Order occurrences get
+// materialized. See syncUpcomingOrders — this is what makes requirement
+// #2's "added 1 week before the delivery for easier management" true: we
+// don't create every future occurrence at subscription creation time, only
+// a rolling window, called again whenever the sync endpoint is hit
+// (creation, and opportunistically from the admin Orders/Dashboard pages).
 const SYNC_HORIZON_DAYS = 7;
-const MAX_DELIVERIES_PER_SYNC = 60; // safety guard against runaway generation
+const MAX_ORDERS_PER_SYNC = 60; // safety guard against runaway generation
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   async create(dto: CreateSubscriptionDto): Promise<Subscription> {
     const customer = await this.db.client.customer.findUnique({ where: { id: dto.customerId } });
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
+    }
+
+    if (dto.customPlanRequestId) {
+      const request = await this.db.client.customPlanRequest.findUnique({ where: { id: dto.customPlanRequestId } });
+      if (!request) {
+        throw new NotFoundException(`Custom plan request with ID ${dto.customPlanRequestId} not found`);
+      }
     }
 
     // Flatten to one (protein, sizeGrams, qty) entry per portion selection,
@@ -65,32 +76,46 @@ export class SubscriptionsService {
     }
     const totalPrice = dto.totalPrice ?? Math.round(pricing.finalTotal);
 
-    const subscription = await this.db.client.subscription.create({
-      data: {
-        customerId: customer.id,
-        customerName: customer.name,
-        packageName: dto.packageName,
-        totalGrams,
-        deliveryAmountGrams: dto.deliveryAmountGrams,
-        deliveryIntervalDays: dto.deliveryIntervalDays,
-        startDate: new Date(dto.startDate),
-        totalPrice,
-        paymentStatus: dto.paymentStatus ?? PaymentState.UNPAID,
-        status: "ACTIVE",
-        pools: {
-          create: pools.map((p) => ({
-            protein: p.protein,
-            totalGrams: p.totalGrams,
-            remainingGrams: p.totalGrams,
-          })),
+    const subscription = await this.db.client.$transaction(async (tx) => {
+      const created = await tx.subscription.create({
+        data: {
+          customerId: customer.id,
+          customerName: customer.name,
+          packageName: dto.packageName,
+          totalGrams,
+          deliveryAmountGrams: dto.deliveryAmountGrams,
+          deliveryIntervalDays: dto.deliveryIntervalDays,
+          startDate: new Date(dto.startDate),
+          totalPrice,
+          paymentStatus: dto.paymentStatus ?? PaymentState.UNPAID,
+          status: "ACTIVE",
+          pools: {
+            create: pools.map((p) => ({
+              protein: p.protein,
+              totalGrams: p.totalGrams,
+              remainingGrams: p.totalGrams,
+            })),
+          },
         },
-      },
-      include: { pools: true, deliveries: { include: { items: true } } },
+        include: { pools: true },
+      });
+
+      // If this subscription was created to satisfy a customer's custom
+      // plan request, link it back and mark the request MATCHED so it
+      // drops off the admin's "pending" queue.
+      if (dto.customPlanRequestId) {
+        await tx.customPlanRequest.update({
+          where: { id: dto.customPlanRequestId },
+          data: { matchedSubscriptionId: created.id, status: CustomPlanRequestStatus.MATCHED },
+        });
+      }
+
+      return created;
     });
 
-    // Bootstrap the first week's worth of deliveries immediately so a
+    // Bootstrap the first week's worth of orders immediately so a
     // subscription starting today/tomorrow shows up in Prep List right away.
-    await this.syncUpcomingDeliveries(subscription.id);
+    await this.syncUpcomingOrders(subscription.id);
 
     const refreshed = await this.db.client.subscription.findUniqueOrThrow({
       where: { id: subscription.id },
@@ -118,16 +143,6 @@ export class SubscriptionsService {
     return this.mapSubscription(sub);
   }
 
-  async findDeliveries(id: string) {
-    await this.findOne(id);
-    const deliveries = await this.db.client.delivery.findMany({
-      where: { subscriptionId: id },
-      include: { items: true },
-      orderBy: { scheduledDate: "asc" },
-    });
-    return deliveries;
-  }
-
   async findForCustomer(customerId: string): Promise<Subscription[]> {
     const list = await this.db.client.subscription.findMany({
       where: { customerId },
@@ -138,9 +153,9 @@ export class SubscriptionsService {
   }
 
   // Phone-based lookup for the customer-web self-service view — there's no
-  // customer login system in this product yet, so a phone number (which
+  // customer login system wired to this yet, so a phone number (which
   // staff already collect on every Customer record) stands in as the
-  // identity check for read-only balance viewing and postponing a delivery.
+  // identity check for read-only balance viewing and postponing an order.
   async findForPhone(phone: string): Promise<Subscription[]> {
     const customer = await this.db.client.customer.findFirst({ where: { phone: normalizePhone(phone) } });
     if (!customer) return [];
@@ -151,17 +166,6 @@ export class SubscriptionsService {
     const customer = await this.db.client.customer.findFirst({ where: { userId } });
     if (!customer) return [];
     return this.findForCustomer(customer.id);
-  }
-
-  // Verifies a delivery actually belongs to a subscription owned by the
-  // customer with this phone number, before allowing the public postpone
-  // action — prevents anyone from postponing an arbitrary delivery id.
-  async verifyDeliveryOwnership(deliveryId: string, phone: string): Promise<boolean> {
-    const delivery = await this.db.client.delivery.findUnique({
-      where: { id: deliveryId },
-      include: { subscription: { include: { customer: true } } },
-    });
-    return !!delivery && normalizePhone(delivery.subscription.customer?.phone ?? "") === normalizePhone(phone);
   }
 
   async update(id: string, dto: UpdateSubscriptionDto): Promise<Subscription> {
@@ -181,6 +185,35 @@ export class SubscriptionsService {
     });
 
     return this.mapSubscription(sub);
+  }
+
+  async updateStatus(
+    id: string,
+    status: SubscriptionStatus,
+    requestingUser?: { id: string; role: string },
+  ): Promise<Subscription> {
+    const sub = await this.db.client.subscription.findUnique({ where: { id } });
+    if (!sub) {
+      throw new NotFoundException(`Subscription with ID ${id} not found`);
+    }
+
+    if (requestingUser?.role === "CUSTOMER") {
+      const customer = await this.db.client.customer.findFirst({ where: { userId: requestingUser.id } });
+      if (!customer || customer.id !== sub.customerId) {
+        throw new ForbiddenException("You can only update the status of your own subscription.");
+      }
+      if (status !== "ACTIVE" && status !== "PAUSED") {
+        throw new BadRequestException("Customers can only set status to ACTIVE or PAUSED.");
+      }
+    }
+
+    const updated = await this.db.client.subscription.update({
+      where: { id },
+      data: { status },
+      include: { pools: true },
+    });
+
+    return this.mapSubscription(updated);
   }
 
   // Adds more purchased weight to an existing pool, or creates a new one if
@@ -223,24 +256,81 @@ export class SubscriptionsService {
 
     // A top-up means there's more to schedule — pull forward what we can
     // within the usual 7-day horizon right away.
-    await this.syncUpcomingDeliveries(id);
+    await this.syncUpcomingOrders(id);
 
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<{ deletedDeliveries: number }> {
-    await this.findOne(id);
-    const deletedDeliveries = await this.db.client.delivery.count({ where: { subscriptionId: id } });
-    await this.db.client.subscription.delete({ where: { id } });
-    return { deletedDeliveries };
+  // Funds a staff-built Subscription (typically from an approved
+  // CustomPlanRequest) straight from the customer's wallet balance —
+  // decided: this only ever happens in FULL, never a partial/split payment
+  // with a bank transfer covering the rest. If the balance is short, the
+  // customer tops up first (buys a SubscriptionPlan) or pays the whole
+  // totalPrice by bank transfer instead (the existing `update()` /
+  // paymentStatus flow), leaving the wallet untouched. See
+  // docs/plan-and-credit-design.md. `Subscription` itself needs no schema
+  // change for this — it's recorded via the Payment ledger, same as a
+  // wallet-paid order.
+  async payFromWallet(id: string, requestingUser?: { id: string; role: string }): Promise<Subscription> {
+    const sub = await this.db.client.subscription.findUnique({ where: { id } });
+    if (!sub) {
+      throw new NotFoundException(`Subscription with ID ${id} not found`);
+    }
+    if (!sub.customerId) {
+      throw new BadRequestException("This subscription has no linked customer to charge.");
+    }
+    if (sub.paymentStatus === PaymentState.PAID) {
+      throw new BadRequestException("This subscription is already paid.");
+    }
+
+    // A customer can only pay for their own subscription; staff can pay on
+    // behalf of any customer (e.g. while on the phone finalizing a custom
+    // plan request).
+    if (requestingUser?.role === "CUSTOMER") {
+      const customer = await this.db.client.customer.findFirst({ where: { userId: requestingUser.id } });
+      if (!customer || customer.id !== sub.customerId) {
+        throw new ForbiddenException("You can only pay for your own subscription.");
+      }
+    }
+
+    await this.db.client.$transaction(async (tx) => {
+      const result = await tx.customer.updateMany({
+        where: { id: sub.customerId!, walletBalance: { gte: sub.totalPrice } },
+        data: { walletBalance: { decrement: sub.totalPrice } },
+      });
+      if (result.count === 0) {
+        throw new BadRequestException("Wallet balance is insufficient to cover this subscription in full.");
+      }
+
+      await tx.subscription.update({ where: { id }, data: { paymentStatus: PaymentState.PAID } });
+
+      await tx.payment.create({
+        data: {
+          subscriptionId: id,
+          customerId: sub.customerId!,
+          amount: new Decimal(sub.totalPrice),
+          method: PaymentMethod.WALLET,
+          status: PaymentStatus.COMPLETED,
+        },
+      });
+    });
+
+    return this.findOne(id);
   }
 
-  // Picks a sensible default flavor for a protein when auto-generating a
-  // delivery's line items — smallest available portion size first, so
+  async remove(id: string): Promise<{ deletedOrders: number }> {
+    await this.findOne(id);
+    const deletedOrders = await this.db.client.order.count({ where: { subscriptionId: id } });
+    await this.db.client.subscription.delete({ where: { id } });
+    return { deletedOrders };
+  }
+
+  // Picks a sensible default flavor for a protein when auto-generating an
+  // order's line items — smallest available portion size first, so
   // rounding to a whole number of packs loses the least precision against
   // the target gram allocation. Whoever's on the ground (admin, or the
-  // customer later) can still edit the flavor/size on a not-yet-delivered
-  // Delivery before it actually goes out.
+  // customer later) can still edit the flavor/size on a not-yet-completed
+  // Order before it actually goes out.
   private async pickDefaultMenuItem(protein: Protein) {
     return this.db.client.menuItem.findFirst({
       where: { protein, isAvailable: true },
@@ -249,21 +339,22 @@ export class SubscriptionsService {
   }
 
   /**
-   * Materializes real Delivery rows for a subscription's volume schedule,
-   * but only ones landing within the next SYNC_HORIZON_DAYS — never the
-   * whole theoretical future. Safe to call repeatedly (idempotent: it only
-   * ever looks at what's already on disk to decide what's next), so it's
-   * called after create/top-up and can also be triggered manually or from
-   * page loads elsewhere in the admin app to keep the rolling window fresh.
+   * Materializes real Order rows (source SUBSCRIPTION) for a subscription's
+   * volume schedule, but only ones landing within the next
+   * SYNC_HORIZON_DAYS — never the whole theoretical future. Safe to call
+   * repeatedly (idempotent: it only ever looks at what's already on disk to
+   * decide what's next), so it's called after create/top-up and can also be
+   * triggered manually or from page loads elsewhere in the admin app to
+   * keep the rolling window fresh.
    *
-   * Allocation across multiple protein pools within one delivery is
+   * Allocation across multiple protein pools within one order is
    * proportional to how much of each protein is still *unscheduled*
    * (totalGrams minus whatever's already represented in existing,
-   * non-cancelled Delivery rows) — deliberately NOT based on
-   * remainingGrams, which only changes once a delivery is actually marked
-   * DELIVERED (requirement: postponing/scheduling never touches balance).
+   * non-cancelled Order rows) — deliberately NOT based on remainingGrams,
+   * which only changes once an order's status is actually marked COMPLETED
+   * (requirement: scheduling/postponing never touches balance).
    */
-  async syncUpcomingDeliveries(subscriptionId?: string): Promise<{ created: number }> {
+  async syncUpcomingOrders(subscriptionId?: string): Promise<{ created: number }> {
     const subs = await this.db.client.subscription.findMany({
       where: {
         status: "ACTIVE",
@@ -271,7 +362,8 @@ export class SubscriptionsService {
       },
       include: {
         pools: true,
-        deliveries: { include: { items: true } },
+        customer: { select: { address: true } },
+        orders: { include: { items: true } },
       },
     });
 
@@ -282,9 +374,9 @@ export class SubscriptionsService {
 
     for (const sub of subs) {
       const scheduledByProtein: Record<string, number> = {};
-      for (const delivery of sub.deliveries) {
-        if (delivery.status === "CANCELLED") continue;
-        for (const item of delivery.items) {
+      for (const order of sub.orders) {
+        if (order.status === "CANCELLED") continue;
+        for (const item of order.items) {
           scheduledByProtein[item.protein] = (scheduledByProtein[item.protein] ?? 0) + item.qty * item.sizeGrams;
         }
       }
@@ -296,13 +388,13 @@ export class SubscriptionsService {
       }
 
       let lastDate =
-        sub.deliveries.length > 0
-          ? sub.deliveries.reduce((max, d) => (d.scheduledDate > max ? d.scheduledDate : max), sub.deliveries[0].scheduledDate)
+        sub.orders.length > 0
+          ? sub.orders.reduce((max, o) => (o.deliveryDate > max ? o.deliveryDate : max), sub.orders[0].deliveryDate)
           : null;
       let nextDate = lastDate ? addDays(lastDate, sub.deliveryIntervalDays) : new Date(sub.startDate);
 
       let guard = 0;
-      while (nextDate <= horizon && guard < MAX_DELIVERIES_PER_SYNC) {
+      while (nextDate <= horizon && guard < MAX_ORDERS_PER_SYNC) {
         guard += 1;
         const totalUnscheduled = Object.values(unscheduledByProtein).reduce((s, g) => s + g, 0);
         if (totalUnscheduled <= 0) break;
@@ -344,13 +436,13 @@ export class SubscriptionsService {
 
         if (itemsToCreate.length === 0) break;
 
-        await this.db.client.delivery.create({
-          data: {
-            subscriptionId: sub.id,
-            scheduledDate: nextDate,
-            status: "SCHEDULED",
-            items: { create: itemsToCreate },
-          },
+        await this.ordersService.createFromSubscription({
+          subscriptionId: sub.id,
+          customerId: sub.customerId,
+          customerName: sub.customerName,
+          deliveryAddress: sub.customer?.address ?? undefined,
+          deliveryDate: nextDate,
+          items: itemsToCreate,
         });
         totalCreated += 1;
         lastDate = nextDate;
