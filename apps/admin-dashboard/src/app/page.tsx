@@ -20,7 +20,6 @@ import {
   faChevronRight,
   faBox,
   faInfoCircle,
-  faClipboardCheck,
   faWallet,
   faCheck,
   faTimes,
@@ -296,6 +295,54 @@ export default function AdminDashboard() {
     | "home-frames"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+  // Grouped Navigation Tabs State
+  const [activeGroup, setActiveGroup] = React.useState<
+    "operations" | "sales" | "products" | "subscriptions" | "marketing"
+  >("operations");
+
+  const NAVIGATION_GROUPS = React.useMemo(() => [
+    { id: "operations", label: "Operations", icon: faThLarge, defaultSection: "dashboard" },
+    { id: "sales", label: "Sales & Customers", icon: faShoppingBag, defaultSection: "orders" },
+    { id: "products", label: "Catalog & Stock", icon: faUtensils, defaultSection: "menu" },
+    { id: "subscriptions", label: "Membership Subs", icon: faCalendarAlt, defaultSection: "subscriptions" },
+    { id: "marketing", label: "Marketing & Ads", icon: faTag, defaultSection: "discounts" },
+  ], []);
+
+  const SUB_TABS = React.useMemo(() => ({
+    operations: [
+      { id: "dashboard", label: "Dashboard Overview" },
+      { id: "prep-list", label: "Prep List" },
+    ],
+    sales: [
+      { id: "orders", label: "Orders dispatcher" },
+      { id: "customers", label: "Customers" },
+    ],
+    products: [
+      { id: "menu", label: "Menu Catalog Manager" },
+      { id: "inventory", label: "Inventory" },
+    ],
+    subscriptions: [
+      { id: "subscriptions", label: "Subscriptions" },
+      { id: "custom-plan-requests", label: "Custom Plan Requests" },
+      { id: "subscription-plans", label: "Subscription Plans" },
+    ],
+    marketing: [
+      { id: "discounts", label: "Promotional Codes" },
+      { id: "home-frames", label: "Home Banners" },
+    ],
+  }), []);
+
+  React.useEffect(() => {
+    // Automatically switch activeGroup if section is changed via internal redirection
+    for (const group of NAVIGATION_GROUPS) {
+      const match = SUB_TABS[group.id as keyof typeof SUB_TABS].find((tab) => tab.id === section);
+      if (match) {
+        setActiveGroup(group.id as any);
+        break;
+      }
+    }
+  }, [section, NAVIGATION_GROUPS, SUB_TABS]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -1821,29 +1868,18 @@ export default function AdminDashboard() {
             </div>
 
             <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
-              {[
-                { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
-                { id: "customers", label: "Customers", icon: faUsers },
-                { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
-                { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
-                { id: "inventory", label: "Inventory", icon: faBox },
-                { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
-                { id: "custom-plan-requests", label: "Custom Plan Requests", icon: faClipboardCheck },
-                { id: "prep-list", label: "Prep List", icon: faUtensils },
-                { id: "discounts", label: "Promotional Codes", icon: faTag },
-                { id: "subscription-plans", label: "Subscription Plans", icon: faWallet },
-                { id: "home-frames", label: "Home Banners", icon: faThLarge },
-              ].map((item) => (
+              {NAVIGATION_GROUPS.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => {
-                    setSection(item.id as any);
+                    setActiveGroup(item.id as any);
+                    setSection(item.defaultSection as any);
                     if (typeof window !== "undefined" && window.innerWidth < 768) {
                       setSidebarOpen(false);
                     }
                   }}
                   className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                    section === item.id
+                    activeGroup === item.id
                       ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
                       : "text-muted-foreground hover:bg-muted"
                   }`}
@@ -1896,14 +1932,32 @@ export default function AdminDashboard() {
         </header>
 
         {/* Workspace Body */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto bg-muted/20">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center py-20 gap-2">
               <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
               <span className="text-xs text-muted-foreground">Syncing workspace...</span>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
+              {/* Horizontal Sub-Tabs Bar */}
+              <div className="flex border-b border-border gap-2 pb-px overflow-x-auto">
+                {SUB_TABS[activeGroup].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSection(tab.id as any)}
+                    className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                      section === tab.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-8">
               {/* SECTION A: DASHBOARD OVERVIEW */}
               {section === "dashboard" && (
                 <div className="space-y-8 animate-in fade-in duration-200">
@@ -3925,7 +3979,8 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-          )}
+          </div>
+        )}
         </main>
       </div>
 

@@ -2146,12 +2146,12 @@ export default function CustomerPortal() {
             {/* Header section with refined editorial spacing */}
             <div className="space-y-5 text-center py-6">
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.25em] block">
-                {lang === "vi" ? "Sứ Mệnh Của Chúng Tôi" : "Our Ultimate Mission"}
+                {lang === "vi" ? "Sứ Mệnh Của Chúng Tôi" : "Our Mission"}
               </span>
-              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight font-heading text-foreground leading-tight max-w-2xl mx-auto">
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading text-foreground leading-tight max-w-2xl mx-auto">
                 {lang === "vi" 
-                  ? "Sự khỏe mạnh đích thực bắt đầu từ tình yêu và sự tử tế."
-                  : "True wellness begins with culinary compassion."}
+                  ? "Đồng hành cùng mục tiêu sức khỏe của bạn qua chế độ dinh dưỡng cân bằng."
+                  : "Supporting your fitness and health goals with balanced nutrition."}
               </h2>
               <div className="h-[1px] w-20 bg-primary/45 mx-auto mt-4" />
             </div>
@@ -2162,13 +2162,13 @@ export default function CustomerPortal() {
               <div className="space-y-4">
                 <p className="text-base sm:text-lg text-foreground font-heading italic leading-relaxed">
                   {lang === "vi"
-                    ? "Chúng tôi không tin vào những chế độ ăn kiêng khắc nghiệt hay những thực đơn khô khan vô vị. Ăn uống lành mạnh trước hết phải là một trải nghiệm ẩm thực đầy cảm hứng, mang lại niềm vui cho cả cơ thể lẫn tâm hồn."
-                    : "We do not believe in punishing diets or tasteless restrictions. Healthy eating should be an inspiring culinary experience that brings joy to both the body and the soul."}
+                    ? "Chúng tôi tập trung nghiên cứu và chuẩn hóa các khẩu phần ăn ngon miệng, đảm bảo đầy đủ hàm lượng dinh dưỡng thiết yếu và tính tiện lợi cho cuộc sống năng động."
+                    : "We focus on designing and standardizing delicious meals that guarantee essential nutritional requirements and convenience for active lifestyles."}
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="h-[1px] w-8 bg-secondary/40" />
                   <span className="text-[10px] font-bold text-secondary uppercase tracking-widest font-sans">
-                    {lang === "vi" ? "Đội ngũ Sáng lập Fortify Kitchen" : "Fortify Kitchen Founders"}
+                    {lang === "vi" ? "Đội ngũ Phát triển Fortify Kitchen" : "Fortify Kitchen Development Team"}
                   </span>
                 </div>
               </div>
@@ -2193,12 +2193,12 @@ export default function CustomerPortal() {
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
-                      {lang === "vi" ? "Kỹ nghệ Sous-vide" : "Sous-vide Craft"}
+                      {lang === "vi" ? "Phương pháp Sous-vide" : "Sous-vide Method"}
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {lang === "vi"
-                        ? "Nấu chậm chân không giúp giữ trọn vẹn thớ thịt mềm ẩm, ngọt nước tự nhiên và bảo vệ tối đa hàm lượng dinh dưỡng."
-                        : "Precise vacuum slow-cooking preserves absolute tenderness, natural juices, and vital nutritional values."}
+                        ? "Phương pháp nấu chậm chân không giữ độ ẩm tự nhiên của nguyên liệu và hạn chế thất thoát chất dinh dưỡng."
+                        : "Vacuum slow-cooking maintains natural moisture of ingredients and limits nutrient loss."}
                     </p>
                   </div>
                 </div>
@@ -2210,12 +2210,12 @@ export default function CustomerPortal() {
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
-                      {lang === "vi" ? "Nông Sản Sạch" : "Clean Crops"}
+                      {lang === "vi" ? "Nông Sản Chuẩn VietGAP" : "VietGAP Standard Crops"}
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {lang === "vi"
-                        ? "Toàn bộ rau quả Đà Lạt VietGAP được chọn lọc trực tiếp mỗi sáng sớm để đảm bảo độ tươi giòn, an toàn tuyệt đối."
-                        : "Dalat organic crops are selected fresh every morning to guarantee crispness and biological safety."}
+                        ? "Sử dụng rau củ từ các nhà cung cấp đạt chuẩn VietGAP tại Đà Lạt và được nhập mới mỗi ngày."
+                        : "Sourced from VietGAP-certified suppliers in Dalat with fresh daily arrivals."}
                     </p>
                   </div>
                 </div>
@@ -2227,12 +2227,12 @@ export default function CustomerPortal() {
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
-                      {lang === "vi" ? "Đo Ni Dinh Dưỡng" : "Custom Macros"}
+                      {lang === "vi" ? "Định Lượng Dinh Dưỡng" : "Precise Macros"}
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {lang === "vi"
-                        ? "Thực đơn dinh dưỡng chuẩn chỉnh được tối ưu hóa theo chỉ số protein, carb và calo của riêng mục tiêu thể hình."
-                        : "Dietary macros customized to target your specific protein, carb, and fitness goals."}
+                        ? "Thông tin hàm lượng calo, protein, carb và fat được định lượng rõ ràng cho từng phần ăn."
+                        : "Calories, protein, carb, and fat metrics are clearly calculated and measured per serving."}
                     </p>
                   </div>
                 </div>
@@ -2244,12 +2244,12 @@ export default function CustomerPortal() {
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
-                      {lang === "vi" ? "Minh Bạch Tuyệt Đối" : "100% Transparency"}
+                      {lang === "vi" ? "Minh Bạch Thông Tin" : "Transparent Info"}
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {lang === "vi"
-                        ? "Chúng tôi cam kết không dùng phụ gia, không chất bảo quản, chỉ có hương vị tự nhiên và thông tin minh bạch."
-                        : "We guarantee no additives, no preservatives, and complete structural breakdown of calories."}
+                        ? "Các phần ăn được cam kết chế biến không chất bảo quản nhân tạo và công khai chi tiết nguyên liệu sử dụng."
+                        : "Meals are prepared without artificial preservatives and are served with detailed ingredient labels."}
                     </p>
                   </div>
                 </div>
@@ -2260,17 +2260,17 @@ export default function CustomerPortal() {
             <div className="grid md:grid-cols-2 gap-10 items-center pt-4">
               <div className="space-y-5">
                 <span className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] block">
-                  {lang === "vi" ? "Câu Chuyện Của Chúng Tôi" : "The Kitchen Philosophy"}
+                  {lang === "vi" ? "Phương Pháp Chế Biến" : "The Kitchen Method"}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-bold font-heading text-foreground">
                   {lang === "vi"
-                    ? "Tại sao lại là nấu chậm chân không?"
-                    : "The science behind gourmet sous-vide."}
+                    ? "Tại sao lại áp dụng nấu chậm chân không?"
+                    : "The science behind precision sous-vide."}
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {lang === "vi"
-                    ? "Ở nhiệt độ cao thông thường, thớ cơ của thịt gà hay thịt bò sẽ co rút đột ngột, đẩy nước ngọt ra ngoài khiến thịt bị khô xơ và phá hủy các vitamin nhạy cảm với nhiệt độ. Phương pháp Sous-vide giữ thực phẩm trong túi chân không và làm chín chậm trong bể nước ổn định ở nhiệt độ thấp chuẩn xác. Kết quả là thớ thịt chín đều hoàn hảo từ trong ra ngoài, giữ nguyên độ ẩm ngọt tự nhiên và 100% giá trị dinh dưỡng thiết yếu."
-                    : "Conventional cooking at high temperatures causes protein fibers to shrink rapidly, squeezing out natural juices and destroying heat-sensitive vitamins. By vacuum-sealing ingredients and slowly cooking them in a water bath at a precise low temperature, sous-vide ensures perfect edge-to-edge cooking, lock-in hydration, and preserves 100% of essential nutrients."}
+                    ? "Ở nhiệt độ nấu thông thường, thớ cơ của thịt bò hoặc thịt gà có xu hướng co rút và mất nước, làm giảm độ mọng nước và độ ẩm tự nhiên của thực phẩm. Phương pháp nấu chậm chân không (Sous-vide) làm chín thực phẩm trong bể nước được điều khiển nhiệt độ chính xác. Kỹ thuật này giúp món ăn chín đều từ trong ra ngoài, giữ được độ ẩm tự nhiên cũng như các chất dinh dưỡng hòa tan có trong nguyên liệu."
+                    : "Traditional high-temperature cooking causes protein fibers to contract and lose moisture. The low-temperature vacuum method (Sous-vide) cooks ingredients evenly in a precise temperature-controlled water bath. This technique preserves the natural moisture and soluble nutrients of the food."}
                 </p>
               </div>
 
