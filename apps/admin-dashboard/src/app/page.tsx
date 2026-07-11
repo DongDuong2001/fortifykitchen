@@ -585,8 +585,8 @@ export default function AdminDashboard() {
   // silently rendering empty data. Returns true if it fired, so callers can
   // bail out of the rest of their response handling.
   const handleUnauthorized = React.useCallback(
-    (responses: { status: number }[]) => {
-      if (responses.some((r) => r.status === 401)) {
+    (responses: ({ status: number } | null)[]) => {
+      if (responses.some((r) => r && r.status === 401)) {
         handleLogout();
         toast({ title: "Your session has expired — please log in again.", type: "error" });
         return true;
@@ -603,17 +603,17 @@ export default function AdminDashboard() {
 
       if (section === "dashboard") {
         const [resStats, resMenu, resLowBalance] = await Promise.all([
-          fetch(`${API_URL}/dashboard/stats`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
-          fetch(`${API_URL}/notifications/low-balance`, { headers }),
+          fetch(`${API_URL}/dashboard/stats`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
+          fetch(`${API_URL}/notifications/low-balance`, { headers }).catch(() => null),
         ]);
         if (handleUnauthorized([resStats, resMenu, resLowBalance])) return;
-        if (resStats.ok) {
+        if (resStats && resStats.ok) {
           const result = await resStats.json();
           setStats(result.data);
         }
-        if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
-        if (resLowBalance.ok) {
+        if (resMenu && resMenu.ok) setMenuItems((await resMenu.json()).data || []);
+        if (resLowBalance && resLowBalance.ok) {
           const result = await resLowBalance.json();
           setLowBalance(result.data || { poolsLow: [], walletsLow: [], totalCount: 0 });
         }
@@ -623,38 +623,38 @@ export default function AdminDashboard() {
         // no separate deliveries endpoint needed anymore. Pull the rolling
         // upcoming window forward first so newly-due subscription
         // occurrences show up without waiting on an external cron.
-        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers });
+        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers }).catch(() => null);
         const [resOrders, resCustomers, resMenu] = await Promise.all([
-          fetch(`${API_URL}/orders`, { headers }),
-          fetch(`${API_URL}/customers`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/orders`, { headers }).catch(() => null),
+          fetch(`${API_URL}/customers`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
         if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
-        if (resOrders.ok) setOrders((await resOrders.json()).data || []);
-        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
-        if (resMenu.ok) {
+        if (resOrders && resOrders.ok) setOrders((await resOrders.json()).data || []);
+        if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu && resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
           if (menuData.length > 0) setOrderSelectedMenuItemId((prev) => prev || menuData[0].id);
         }
       } else if (section === "customers") {
-        const res = await fetch(`${API_URL}/customers`, { headers });
+        const res = await fetch(`${API_URL}/customers`, { headers }).catch(() => null);
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setCustomers(result.data || []);
         }
       } else if (section === "custom-plan-requests") {
-        const res = await fetch(`${API_URL}/custom-plan-requests`, { headers });
+        const res = await fetch(`${API_URL}/custom-plan-requests`, { headers }).catch(() => null);
         if (handleUnauthorized([res])) return;
-        if (res.ok) setCustomPlanRequests((await res.json()).data || []);
+        if (res && res.ok) setCustomPlanRequests((await res.json()).data || []);
       } else if (section === "menu") {
         const [resMenu, resCat] = await Promise.all([
-          fetch(`${API_URL}/menu/admin`, { headers }),
-          fetch(`${API_URL}/categories`),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
+          fetch(`${API_URL}/categories`).catch(() => null),
         ]);
         if (handleUnauthorized([resMenu])) return;
-        if (resMenu.ok && resCat.ok) {
+        if (resMenu && resCat && resMenu.ok && resCat.ok) {
           const menuData = await resMenu.json();
           const catData = await resCat.json();
           setMenuItems(menuData.data || []);
@@ -664,41 +664,41 @@ export default function AdminDashboard() {
           }
         }
       } else if (section === "inventory") {
-        const res = await fetch(`${API_URL}/menu/admin`, { headers });
+        const res = await fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null);
         if (handleUnauthorized([res])) return;
-        if (res.ok) setMenuItems((await res.json()).data || []);
+        if (res && res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
         const [resSubs, resCustomers, resMenu] = await Promise.all([
-          fetch(`${API_URL}/subscriptions`, { headers }),
-          fetch(`${API_URL}/customers`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/subscriptions`, { headers }).catch(() => null),
+          fetch(`${API_URL}/customers`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
         if (handleUnauthorized([resSubs, resCustomers, resMenu])) return;
-        if (resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
-        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
-        if (resMenu.ok) {
+        if (resSubs && resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
+        if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu && resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
         }
       } else if (section === "discounts") {
-        const res = await fetch(`${API_URL}/discounts`, { headers });
+        const res = await fetch(`${API_URL}/discounts`, { headers }).catch(() => null);
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
         }
       } else if (section === "subscription-plans") {
         const [resPlans, resPending] = await Promise.all([
-          fetch(`${API_URL}/subscription-plans`, { headers }),
-          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }),
+          fetch(`${API_URL}/subscription-plans`, { headers }).catch(() => null),
+          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }).catch(() => null),
         ]);
         if (handleUnauthorized([resPlans, resPending])) return;
-        if (resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
-        if (resPending.ok) setPendingTopUps((await resPending.json()).data || []);
+        if (resPlans && resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
+        if (resPending && resPending.ok) setPendingTopUps((await resPending.json()).data || []);
       } else if (section === "home-frames") {
-        const res = await fetch(`${API_URL}/home-frames/admin`, { headers });
+        const res = await fetch(`${API_URL}/home-frames/admin`, { headers }).catch(() => null);
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setHomeFrames(result.data || []);
         }
@@ -728,7 +728,11 @@ export default function AdminDashboard() {
       try {
         const res = await fetch(`${API_URL}/prep-list?date=${prepDate}`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }).catch(() => null);
+        if (!res) {
+          if (!cancelled) setPrepError("Network error — is the API reachable?");
+          return;
+        }
         const result = await res.json().catch(() => null);
         if (cancelled) return;
         if (res.status === 401) {
