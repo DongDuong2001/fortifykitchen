@@ -297,10 +297,23 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
   // Grouped Navigation Tabs State
-  const [lang, setLang] = React.useState<"vi" | "en">("vi");
+  const [lang, setLang] = React.useState<"vi" | "en">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("fortifykitchen_admin_lang") as "vi" | "en") || "vi";
+    }
+    return "vi";
+  });
   const [activeGroup, setActiveGroup] = React.useState<
     "operations" | "sales" | "products" | "subscriptions" | "marketing"
   >("operations");
+  const [isOffline, setIsOffline] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fortifykitchen_admin_lang", lang);
+      document.documentElement.lang = lang;
+    }
+  }, [lang]);
 
   const NAVIGATION_GROUPS = React.useMemo(() => [
     { id: "operations", label: lang === "vi" ? "Vận hành" : "Operations", icon: faThLarge, defaultSection: "dashboard" },
@@ -605,6 +618,12 @@ export default function AdminDashboard() {
     [handleLogout, toast],
   );
 
+  const checkOffline = React.useCallback((responses: (any)[]) => {
+    const offline = responses.some((r) => r === null);
+    setIsOffline(offline);
+    return offline;
+  }, []);
+
   const loadData = React.useCallback(async () => {
     try {
       setIsLoading(true);
@@ -616,6 +635,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
           fetch(`${API_URL}/notifications/low-balance`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resStats, resMenu, resLowBalance])) return;
         if (handleUnauthorized([resStats, resMenu, resLowBalance])) return;
         if (resStats && resStats.ok) {
           const result = await resStats.json();
@@ -638,6 +658,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/customers`, { headers }).catch(() => null),
           fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resOrders, resCustomers, resMenu])) return;
         if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
         if (resOrders && resOrders.ok) setOrders((await resOrders.json()).data || []);
         if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
@@ -648,6 +669,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "customers") {
         const res = await fetch(`${API_URL}/customers`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
         if (res && res.ok) {
           const result = await res.json();
@@ -655,6 +677,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "custom-plan-requests") {
         const res = await fetch(`${API_URL}/custom-plan-requests`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
         if (res && res.ok) setCustomPlanRequests((await res.json()).data || []);
       } else if (section === "menu") {
@@ -662,6 +685,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
           fetch(`${API_URL}/categories`).catch(() => null),
         ]);
+        if (checkOffline([resMenu, resCat])) return;
         if (handleUnauthorized([resMenu])) return;
         if (resMenu && resCat && resMenu.ok && resCat.ok) {
           const menuData = await resMenu.json();
@@ -674,6 +698,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "inventory") {
         const res = await fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
         if (res && res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
@@ -682,6 +707,7 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/customers`, { headers }).catch(() => null),
           fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resSubs, resCustomers, resMenu])) return;
         if (handleUnauthorized([resSubs, resCustomers, resMenu])) return;
         if (resSubs && resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
         if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
@@ -691,6 +717,7 @@ export default function AdminDashboard() {
         }
       } else if (section === "discounts") {
         const res = await fetch(`${API_URL}/discounts`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
         if (res && res.ok) {
           const result = await res.json();
@@ -701,11 +728,13 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/subscription-plans`, { headers }).catch(() => null),
           fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resPlans, resPending])) return;
         if (handleUnauthorized([resPlans, resPending])) return;
         if (resPlans && resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
         if (resPending && resPending.ok) setPendingTopUps((await resPending.json()).data || []);
       } else if (section === "home-frames") {
         const res = await fetch(`${API_URL}/home-frames/admin`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
         if (res && res.ok) {
           const result = await res.json();
@@ -717,7 +746,74 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL, handleUnauthorized]);
+  }, [token, section, API_URL, handleUnauthorized, checkOffline]);
+
+  // Push Notification & Polling states
+  const prevOrdersCount = React.useRef<number | null>(null);
+  const prevPendingTopUpsCount = React.useRef<number | null>(null);
+  const prevCustomRequestsCount = React.useRef<number | null>(null);
+
+  const triggerPushNotification = React.useCallback((title: string, body: string) => {
+    if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
+      try {
+        new window.Notification(title, {
+          body,
+          icon: "/logo.png"
+        });
+      } catch (err) {
+        console.error("Failed to trigger Notification API:", err);
+      }
+    }
+  }, []);
+
+  // Request browser notification permission
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (window.Notification.permission === "default") {
+        window.Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // Polling loop: silently reload data in background every 20 seconds
+  React.useEffect(() => {
+    if (!token) return;
+    const timer = window.setInterval(() => {
+      loadData();
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [token, loadData]);
+
+  // Change detectors to push alerts on new entries
+  React.useEffect(() => {
+    if (prevOrdersCount.current !== null && orders.length > prevOrdersCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Đơn hàng mới!" : "New Order!",
+        lang === "vi" ? `Hệ thống vừa nhận thêm đơn hàng mới.` : `A new order has been received.`
+      );
+    }
+    prevOrdersCount.current = orders.length;
+  }, [orders.length, lang, triggerPushNotification]);
+
+  React.useEffect(() => {
+    if (prevPendingTopUpsCount.current !== null && pendingTopUps.length > prevPendingTopUpsCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Yêu cầu nạp ví mới!" : "New Wallet Top-Up!",
+        lang === "vi" ? `Có giao dịch chuyển khoản chờ xác nhận.` : `A new bank transfer requires confirmation.`
+      );
+    }
+    prevPendingTopUpsCount.current = pendingTopUps.length;
+  }, [pendingTopUps.length, lang, triggerPushNotification]);
+
+  React.useEffect(() => {
+    if (prevCustomRequestsCount.current !== null && customPlanRequests.length > prevCustomRequestsCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Yêu cầu gói tùy chọn mới!" : "New Custom Plan Request!",
+        lang === "vi" ? `Có yêu cầu thiết kế gói ăn mới từ khách hàng.` : `A customer submitted a custom plate request.`
+      );
+    }
+    prevCustomRequestsCount.current = customPlanRequests.length;
+  }, [customPlanRequests.length, lang, triggerPushNotification]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -1953,6 +2049,21 @@ export default function AdminDashboard() {
             <span className={lang === "en" ? "text-primary" : "text-muted-foreground"}>EN</span>
           </button>
         </header>
+
+        {/* Offline notification banner */}
+        {isOffline && (
+          <div className="bg-destructive/15 border-b border-destructive/20 text-destructive text-xs py-2 px-6 flex items-center justify-between gap-3 animate-in slide-in-from-top duration-200 shrink-0">
+            <span className="font-semibold">
+              {lang === "vi" ? "Không thể kết nối đến máy chủ. Đang thử kết nối lại..." : "Cannot connect to server. Retrying connection..."}
+            </span>
+            <button
+              onClick={() => loadData()}
+              className="underline hover:text-destructive/80 font-bold cursor-pointer"
+            >
+              {lang === "vi" ? "Thử lại ngay" : "Retry now"}
+            </button>
+          </div>
+        )}
 
         {/* Workspace Body */}
         <main className="flex-1 p-6 overflow-y-auto bg-muted/20">
