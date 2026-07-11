@@ -20,7 +20,6 @@ import {
   faChevronRight,
   faBox,
   faInfoCircle,
-  faClipboardCheck,
   faWallet,
   faCheck,
   faTimes,
@@ -297,6 +296,76 @@ export default function AdminDashboard() {
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
+  // Grouped Navigation Tabs State
+  const [lang, setLang] = React.useState<"vi" | "en">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("fortifykitchen_admin_lang") as "vi" | "en") || "vi";
+    }
+    return "vi";
+  });
+  const [activeGroup, setActiveGroup] = React.useState<
+    "operations" | "sales" | "products" | "subscriptions" | "marketing"
+  >("operations");
+  const [isOffline, setIsOffline] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fortifykitchen_admin_lang", lang);
+      document.documentElement.lang = lang;
+    }
+  }, [lang]);
+
+  const NAVIGATION_GROUPS = React.useMemo(() => [
+    { id: "operations", label: lang === "vi" ? "Vận hành" : "Operations", icon: faThLarge, defaultSection: "dashboard" },
+    { id: "sales", label: lang === "vi" ? "Doanh thu & Khách" : "Sales & Customers", icon: faShoppingBag, defaultSection: "orders" },
+    { id: "products", label: lang === "vi" ? "Thực đơn & Kho" : "Catalog & Stock", icon: faUtensils, defaultSection: "menu" },
+    { id: "subscriptions", label: lang === "vi" ? "Gói hội viên" : "Membership Subs", icon: faCalendarAlt, defaultSection: "subscriptions" },
+    { id: "marketing", label: lang === "vi" ? "Tiếp thị & Banner" : "Marketing & Ads", icon: faTag, defaultSection: "discounts" },
+  ], [lang]);
+
+  const SUB_TABS = React.useMemo(() => ({
+    operations: [
+      { id: "dashboard", label: lang === "vi" ? "Tổng quan" : "Dashboard Overview" },
+      { id: "prep-list", label: lang === "vi" ? "Danh sách chuẩn bị" : "Prep List" },
+    ],
+    sales: [
+      { id: "orders", label: lang === "vi" ? "Điều phối đơn hàng" : "Orders dispatcher" },
+      { id: "customers", label: lang === "vi" ? "Khách hàng" : "Customers" },
+    ],
+    products: [
+      { id: "menu", label: lang === "vi" ? "Quản lý thực đơn" : "Menu Catalog Manager" },
+      { id: "inventory", label: lang === "vi" ? "Kho hàng" : "Inventory" },
+    ],
+    subscriptions: [
+      { id: "subscriptions", label: lang === "vi" ? "Gói đăng ký" : "Subscriptions" },
+      { id: "custom-plan-requests", label: lang === "vi" ? "Yêu cầu gói tùy chỉnh" : "Custom Plan Requests" },
+      { id: "subscription-plans", label: lang === "vi" ? "Cấu hình gói dịch vụ" : "Subscription Plans" },
+    ],
+    marketing: [
+      { id: "discounts", label: lang === "vi" ? "Mã khuyến mãi" : "Promotional Codes" },
+      { id: "home-frames", label: lang === "vi" ? "Banner trang chủ" : "Home Banners" },
+    ],
+  }), [lang]);
+
+  React.useEffect(() => {
+    // Automatically switch activeGroup if section is changed via internal redirection
+    for (const group of NAVIGATION_GROUPS) {
+      const match = SUB_TABS[group.id as keyof typeof SUB_TABS].find((tab) => tab.id === section);
+      if (match) {
+        setActiveGroup(group.id as any);
+        break;
+      }
+    }
+  }, [section, NAVIGATION_GROUPS, SUB_TABS]);
+
+  const getSectionLabel = React.useCallback(() => {
+    for (const group of Object.values(SUB_TABS)) {
+      const match = group.find((tab) => tab.id === section);
+      if (match) return match.label;
+    }
+    return section.replace("-", " ");
+  }, [section, SUB_TABS]);
+
   React.useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       setSidebarOpen(false);
@@ -538,8 +607,8 @@ export default function AdminDashboard() {
   // silently rendering empty data. Returns true if it fired, so callers can
   // bail out of the rest of their response handling.
   const handleUnauthorized = React.useCallback(
-    (responses: { status: number }[]) => {
-      if (responses.some((r) => r.status === 401)) {
+    (responses: ({ status: number } | null)[]) => {
+      if (responses.some((r) => r && r.status === 401)) {
         handleLogout();
         toast({ title: "Your session has expired — please log in again.", type: "error" });
         return true;
@@ -549,6 +618,12 @@ export default function AdminDashboard() {
     [handleLogout, toast],
   );
 
+  const checkOffline = React.useCallback((responses: (any)[]) => {
+    const offline = responses.some((r) => r === null);
+    setIsOffline(offline);
+    return offline;
+  }, []);
+
   const loadData = React.useCallback(async () => {
     try {
       setIsLoading(true);
@@ -556,17 +631,18 @@ export default function AdminDashboard() {
 
       if (section === "dashboard") {
         const [resStats, resMenu, resLowBalance] = await Promise.all([
-          fetch(`${API_URL}/dashboard/stats`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
-          fetch(`${API_URL}/notifications/low-balance`, { headers }),
+          fetch(`${API_URL}/dashboard/stats`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
+          fetch(`${API_URL}/notifications/low-balance`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resStats, resMenu, resLowBalance])) return;
         if (handleUnauthorized([resStats, resMenu, resLowBalance])) return;
-        if (resStats.ok) {
+        if (resStats && resStats.ok) {
           const result = await resStats.json();
           setStats(result.data);
         }
-        if (resMenu.ok) setMenuItems((await resMenu.json()).data || []);
-        if (resLowBalance.ok) {
+        if (resMenu && resMenu.ok) setMenuItems((await resMenu.json()).data || []);
+        if (resLowBalance && resLowBalance.ok) {
           const result = await resLowBalance.json();
           setLowBalance(result.data || { poolsLow: [], walletsLow: [], totalCount: 0 });
         }
@@ -576,38 +652,42 @@ export default function AdminDashboard() {
         // no separate deliveries endpoint needed anymore. Pull the rolling
         // upcoming window forward first so newly-due subscription
         // occurrences show up without waiting on an external cron.
-        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers });
+        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers }).catch(() => null);
         const [resOrders, resCustomers, resMenu] = await Promise.all([
-          fetch(`${API_URL}/orders`, { headers }),
-          fetch(`${API_URL}/customers`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/orders`, { headers }).catch(() => null),
+          fetch(`${API_URL}/customers`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resOrders, resCustomers, resMenu])) return;
         if (handleUnauthorized([resOrders, resCustomers, resMenu])) return;
-        if (resOrders.ok) setOrders((await resOrders.json()).data || []);
-        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
-        if (resMenu.ok) {
+        if (resOrders && resOrders.ok) setOrders((await resOrders.json()).data || []);
+        if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu && resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
           if (menuData.length > 0) setOrderSelectedMenuItemId((prev) => prev || menuData[0].id);
         }
       } else if (section === "customers") {
-        const res = await fetch(`${API_URL}/customers`, { headers });
+        const res = await fetch(`${API_URL}/customers`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setCustomers(result.data || []);
         }
       } else if (section === "custom-plan-requests") {
-        const res = await fetch(`${API_URL}/custom-plan-requests`, { headers });
+        const res = await fetch(`${API_URL}/custom-plan-requests`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
-        if (res.ok) setCustomPlanRequests((await res.json()).data || []);
+        if (res && res.ok) setCustomPlanRequests((await res.json()).data || []);
       } else if (section === "menu") {
         const [resMenu, resCat] = await Promise.all([
-          fetch(`${API_URL}/menu/admin`, { headers }),
-          fetch(`${API_URL}/categories`),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
+          fetch(`${API_URL}/categories`).catch(() => null),
         ]);
+        if (checkOffline([resMenu, resCat])) return;
         if (handleUnauthorized([resMenu])) return;
-        if (resMenu.ok && resCat.ok) {
+        if (resMenu && resCat && resMenu.ok && resCat.ok) {
           const menuData = await resMenu.json();
           const catData = await resCat.json();
           setMenuItems(menuData.data || []);
@@ -617,41 +697,46 @@ export default function AdminDashboard() {
           }
         }
       } else if (section === "inventory") {
-        const res = await fetch(`${API_URL}/menu/admin`, { headers });
+        const res = await fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
-        if (res.ok) setMenuItems((await res.json()).data || []);
+        if (res && res.ok) setMenuItems((await res.json()).data || []);
       } else if (section === "subscriptions") {
         const [resSubs, resCustomers, resMenu] = await Promise.all([
-          fetch(`${API_URL}/subscriptions`, { headers }),
-          fetch(`${API_URL}/customers`, { headers }),
-          fetch(`${API_URL}/menu/admin`, { headers }),
+          fetch(`${API_URL}/subscriptions`, { headers }).catch(() => null),
+          fetch(`${API_URL}/customers`, { headers }).catch(() => null),
+          fetch(`${API_URL}/menu/admin`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resSubs, resCustomers, resMenu])) return;
         if (handleUnauthorized([resSubs, resCustomers, resMenu])) return;
-        if (resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
-        if (resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
-        if (resMenu.ok) {
+        if (resSubs && resSubs.ok) setSubscriptions((await resSubs.json()).data || []);
+        if (resCustomers && resCustomers.ok) setCustomers((await resCustomers.json()).data || []);
+        if (resMenu && resMenu.ok) {
           const menuData = (await resMenu.json()).data || [];
           setMenuItems(menuData);
         }
       } else if (section === "discounts") {
-        const res = await fetch(`${API_URL}/discounts`, { headers });
+        const res = await fetch(`${API_URL}/discounts`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setDiscounts(result.data || []);
         }
       } else if (section === "subscription-plans") {
         const [resPlans, resPending] = await Promise.all([
-          fetch(`${API_URL}/subscription-plans`, { headers }),
-          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }),
+          fetch(`${API_URL}/subscription-plans`, { headers }).catch(() => null),
+          fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }).catch(() => null),
         ]);
+        if (checkOffline([resPlans, resPending])) return;
         if (handleUnauthorized([resPlans, resPending])) return;
-        if (resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
-        if (resPending.ok) setPendingTopUps((await resPending.json()).data || []);
+        if (resPlans && resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
+        if (resPending && resPending.ok) setPendingTopUps((await resPending.json()).data || []);
       } else if (section === "home-frames") {
-        const res = await fetch(`${API_URL}/home-frames/admin`, { headers });
+        const res = await fetch(`${API_URL}/home-frames/admin`, { headers }).catch(() => null);
+        if (checkOffline([res])) return;
         if (handleUnauthorized([res])) return;
-        if (res.ok) {
+        if (res && res.ok) {
           const result = await res.json();
           setHomeFrames(result.data || []);
         }
@@ -661,7 +746,74 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, section, API_URL, handleUnauthorized]);
+  }, [token, section, API_URL, handleUnauthorized, checkOffline]);
+
+  // Push Notification & Polling states
+  const prevOrdersCount = React.useRef<number | null>(null);
+  const prevPendingTopUpsCount = React.useRef<number | null>(null);
+  const prevCustomRequestsCount = React.useRef<number | null>(null);
+
+  const triggerPushNotification = React.useCallback((title: string, body: string) => {
+    if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
+      try {
+        new window.Notification(title, {
+          body,
+          icon: "/logo.png"
+        });
+      } catch (err) {
+        console.error("Failed to trigger Notification API:", err);
+      }
+    }
+  }, []);
+
+  // Request browser notification permission
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (window.Notification.permission === "default") {
+        window.Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // Polling loop: silently reload data in background every 20 seconds
+  React.useEffect(() => {
+    if (!token) return;
+    const timer = window.setInterval(() => {
+      loadData();
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [token, loadData]);
+
+  // Change detectors to push alerts on new entries
+  React.useEffect(() => {
+    if (prevOrdersCount.current !== null && orders.length > prevOrdersCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Đơn hàng mới!" : "New Order!",
+        lang === "vi" ? `Hệ thống vừa nhận thêm đơn hàng mới.` : `A new order has been received.`
+      );
+    }
+    prevOrdersCount.current = orders.length;
+  }, [orders.length, lang, triggerPushNotification]);
+
+  React.useEffect(() => {
+    if (prevPendingTopUpsCount.current !== null && pendingTopUps.length > prevPendingTopUpsCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Yêu cầu nạp ví mới!" : "New Wallet Top-Up!",
+        lang === "vi" ? `Có giao dịch chuyển khoản chờ xác nhận.` : `A new bank transfer requires confirmation.`
+      );
+    }
+    prevPendingTopUpsCount.current = pendingTopUps.length;
+  }, [pendingTopUps.length, lang, triggerPushNotification]);
+
+  React.useEffect(() => {
+    if (prevCustomRequestsCount.current !== null && customPlanRequests.length > prevCustomRequestsCount.current) {
+      triggerPushNotification(
+        lang === "vi" ? "Yêu cầu gói tùy chọn mới!" : "New Custom Plan Request!",
+        lang === "vi" ? `Có yêu cầu thiết kế gói ăn mới từ khách hàng.` : `A customer submitted a custom plate request.`
+      );
+    }
+    prevCustomRequestsCount.current = customPlanRequests.length;
+  }, [customPlanRequests.length, lang, triggerPushNotification]);
 
   // Fetch data when authenticated or section changes
   React.useEffect(() => {
@@ -681,7 +833,11 @@ export default function AdminDashboard() {
       try {
         const res = await fetch(`${API_URL}/prep-list?date=${prepDate}`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }).catch(() => null);
+        if (!res) {
+          if (!cancelled) setPrepError("Network error — is the API reachable?");
+          return;
+        }
         const result = await res.json().catch(() => null);
         if (cancelled) return;
         if (res.status === 401) {
@@ -1821,29 +1977,18 @@ export default function AdminDashboard() {
             </div>
 
             <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
-              {[
-                { id: "dashboard", label: "Dashboard Overview", icon: faThLarge },
-                { id: "customers", label: "Customers", icon: faUsers },
-                { id: "orders", label: "Orders dispatcher", icon: faShoppingBag },
-                { id: "menu", label: "Menu Catalog Manager", icon: faUtensils },
-                { id: "inventory", label: "Inventory", icon: faBox },
-                { id: "subscriptions", label: "Subscriptions", icon: faCalendarAlt },
-                { id: "custom-plan-requests", label: "Custom Plan Requests", icon: faClipboardCheck },
-                { id: "prep-list", label: "Prep List", icon: faUtensils },
-                { id: "discounts", label: "Promotional Codes", icon: faTag },
-                { id: "subscription-plans", label: "Subscription Plans", icon: faWallet },
-                { id: "home-frames", label: "Home Banners", icon: faThLarge },
-              ].map((item) => (
+              {NAVIGATION_GROUPS.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => {
-                    setSection(item.id as any);
+                    setActiveGroup(item.id as any);
+                    setSection(item.defaultSection as any);
                     if (typeof window !== "undefined" && window.innerWidth < 768) {
                       setSidebarOpen(false);
                     }
                   }}
                   className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                    section === item.id
+                    activeGroup === item.id
                       ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
                       : "text-muted-foreground hover:bg-muted"
                   }`}
@@ -1890,29 +2035,72 @@ export default function AdminDashboard() {
               {sidebarOpen ? <FontAwesomeIcon icon={faChevronLeft} className="h-4 w-4" /> : <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4" />}
             </button>
             <h2 className="font-extrabold tracking-tight font-heading text-base capitalize truncate">
-              {section.replace("-", " ")}
+              {getSectionLabel()}
             </h2>
           </div>
+
+          {/* Language Toggle Button */}
+          <button
+            onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[10px] font-bold bg-muted/40 hover:bg-muted transition-colors cursor-pointer select-none"
+          >
+            <span className={lang === "vi" ? "text-primary" : "text-muted-foreground"}>VI</span>
+            <span className="text-border">|</span>
+            <span className={lang === "en" ? "text-primary" : "text-muted-foreground"}>EN</span>
+          </button>
         </header>
 
+        {/* Offline notification banner */}
+        {isOffline && (
+          <div className="bg-destructive/15 border-b border-destructive/20 text-destructive text-xs py-2 px-6 flex items-center justify-between gap-3 animate-in slide-in-from-top duration-200 shrink-0">
+            <span className="font-semibold">
+              {lang === "vi" ? "Không thể kết nối đến máy chủ. Đang thử kết nối lại..." : "Cannot connect to server. Retrying connection..."}
+            </span>
+            <button
+              onClick={() => loadData()}
+              className="underline hover:text-destructive/80 font-bold cursor-pointer"
+            >
+              {lang === "vi" ? "Thử lại ngay" : "Retry now"}
+            </button>
+          </div>
+        )}
+
         {/* Workspace Body */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto bg-muted/20">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center py-20 gap-2">
               <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
               <span className="text-xs text-muted-foreground">Syncing workspace...</span>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
+              {/* Horizontal Sub-Tabs Bar */}
+              <div className="flex border-b border-border gap-2 pb-px overflow-x-auto">
+                {SUB_TABS[activeGroup].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSection(tab.id as any)}
+                    className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                      section === tab.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-8">
               {/* SECTION A: DASHBOARD OVERVIEW */}
               {section === "dashboard" && (
                 <div className="space-y-8 animate-in fade-in duration-200">
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
-                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
-                      { label: "Total Customers", value: stats.totalCustomers, icon: faUsers },
-                      { label: "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
+                      { label: lang === "vi" ? "Tổng doanh thu (VND)" : "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
+                      { label: lang === "vi" ? "Gói hoạt động" : "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
+                      { label: lang === "vi" ? "Tổng khách hàng" : "Total Customers", value: stats.totalCustomers, icon: faUsers },
+                      { label: lang === "vi" ? "Tổng đơn món" : "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
@@ -1930,31 +2118,35 @@ export default function AdminDashboard() {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
                       {
-                        label: "Awaiting Acceptance",
+                        label: lang === "vi" ? "Chờ duyệt" : "Awaiting Acceptance",
                         value: stats.ordersAwaitingAcceptance || 0,
                         icon: faShoppingBag,
                         urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
+                        sectionId: "orders",
                       },
                       {
-                        label: "In Preparation",
+                        label: lang === "vi" ? "Đang chuẩn bị" : "In Preparation",
                         value: stats.ordersInPreparation || 0,
                         icon: faUtensils,
+                        sectionId: "orders",
                       },
                       {
-                        label: "Out of Stock Dishes",
+                        label: lang === "vi" ? "Món hết hàng" : "Out of Stock Dishes",
                         value: (stats.outOfStockItems || []).length,
                         icon: faBox,
                         urgent: (stats.outOfStockItems || []).length > 0,
+                        sectionId: "inventory",
                       },
                       {
-                        label: "Low Stock Dishes",
+                        label: lang === "vi" ? "Món sắp hết" : "Low Stock Dishes",
                         value: (stats.lowStockItems || []).length,
                         icon: faBox,
+                        sectionId: "inventory",
                       },
                     ].map((item, idx) => (
                       <button
                         key={idx}
-                        onClick={() => setSection(item.label.includes("Stock") ? "inventory" : "orders")}
+                        onClick={() => setSection(item.sectionId as any)}
                         className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
                           item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
                         }`}
@@ -1980,27 +2172,27 @@ export default function AdminDashboard() {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
                       {
-                        label: "Outstanding Volume (kg)",
+                        label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding Volume (kg)",
                         value: formatGrams(stats.outstandingVolumeGrams || 0),
                         icon: faTruck,
                       },
                       {
-                        label: "Nearing Depletion",
+                        label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing Depletion",
                         value: stats.subscriptionsNearingDepletion || 0,
                         icon: faUtensils,
                       },
                       {
-                        label: "Delivered This Month",
+                        label: lang === "vi" ? "Đã giao tháng này" : "Delivered This Month",
                         value: formatGrams(stats.gramsDeliveredThisMonth || 0),
                         icon: faCalendarAlt,
                       },
                       {
-                        label: "Deliveries This Week",
+                        label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries This Week",
                         value: stats.deliveriesThisWeek || 0,
                         icon: faShoppingBag,
                       },
                       {
-                        label: "Dishes Ready Now",
+                        label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes Ready Now",
                         value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
                         icon: faUtensils,
                       },
@@ -2022,7 +2214,7 @@ export default function AdminDashboard() {
                     <div className="grid gap-6 sm:grid-cols-2">
                       {(stats.outOfStockItems || []).length > 0 && (
                         <div className="border border-red-200 bg-red-50 rounded-2xl p-6">
-                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">Out of Stock</h3>
+                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">{lang === "vi" ? "Hết hàng" : "Out of Stock"}</h3>
                           <ul className="space-y-1.5 text-xs">
                             {stats.outOfStockItems.map((m: any) => (
                               <li key={m.id} className="flex justify-between text-red-700">
@@ -2035,7 +2227,7 @@ export default function AdminDashboard() {
                       )}
                       {(stats.lowStockItems || []).length > 0 && (
                         <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
-                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Low Stock (≤5)</h3>
+                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">{lang === "vi" ? "Sắp hết hàng (≤5)" : "Low Stock (≤5)"}</h3>
                           <ul className="space-y-1.5 text-xs">
                             {stats.lowStockItems.map((m: any) => (
                               <li key={m.id} className="flex justify-between text-amber-700">
@@ -2065,14 +2257,14 @@ export default function AdminDashboard() {
                             <FontAwesomeIcon icon={faWallet} className="h-4 w-4" />
                           </div>
                           <span className="text-xs font-bold text-amber-800">
-                            {lowBalance.totalCount} cảnh báo số dư thấp cần chú ý
+                            {lang === "vi" ? `${lowBalance.totalCount} cảnh báo số dư thấp cần chú ý` : `${lowBalance.totalCount} low balance warnings require attention`}
                           </span>
                         </div>
                       </button>
                       <div className="grid gap-6 sm:grid-cols-2">
                         {(lowBalance.walletsLow || []).length > 0 && (
                           <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Ví khách hàng sắp cạn</h3>
+                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">{lang === "vi" ? "Ví khách hàng sắp cạn" : "Wallets running low"}</h3>
                             <ul className="space-y-1.5 text-xs">
                               {lowBalance.walletsLow.map((w: any) => (
                                 <li key={w.customerId} className="flex justify-between text-amber-700">
@@ -2085,7 +2277,7 @@ export default function AdminDashboard() {
                         )}
                         {(lowBalance.poolsLow || []).length > 0 && (
                           <div className="border border-rose-200 bg-rose-50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">Gói ăn sắp hết lượng</h3>
+                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">{lang === "vi" ? "Gói ăn sắp hết lượng" : "Subscription pools low"}</h3>
                             <ul className="space-y-1.5 text-xs">
                               {lowBalance.poolsLow.map((p: any) => (
                                 <li key={p.subscriptionId} className="flex justify-between text-rose-700 gap-2">
@@ -2104,7 +2296,7 @@ export default function AdminDashboard() {
 
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
+                    <h3 className="text-sm font-bold font-heading mb-4">{lang === "vi" ? "Đơn hàng gần đây" : "Recent Incoming Orders"}</h3>
                     {/* Mobile cards view */}
                     <div className="md:hidden space-y-3">
                       {stats.recentOrders?.map((o: any) => (
@@ -2126,7 +2318,7 @@ export default function AdminDashboard() {
                                   : "bg-amber-50 text-amber-700 border-amber-200"
                               }`}
                             >
-                              {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                              {o.fulfillmentType === "IMMEDIATE" ? (lang === "vi" ? "Giao ngay" : "Ready Now") : (lang === "vi" ? "Cần chuẩn bị" : "Needs Prep")}
                             </span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
                               {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
@@ -2141,11 +2333,11 @@ export default function AdminDashboard() {
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
-                            <th className="pb-3 font-semibold">Customer</th>
-                            <th className="pb-3 font-semibold">Amount</th>
-                            <th className="pb-3 font-semibold">Fulfillment</th>
-                            <th className="pb-3 font-semibold">Status</th>
-                            <th className="pb-3 font-semibold">Date</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Khách hàng" : "Customer"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Số tiền" : "Amount"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Điều phối" : "Fulfillment"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Trạng thái" : "Status"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Ngày đặt" : "Date"}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2161,12 +2353,12 @@ export default function AdminDashboard() {
                                       : "bg-amber-50 text-amber-700 border-amber-200"
                                   }`}
                                 >
-                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                  {o.fulfillmentType === "IMMEDIATE" ? (lang === "vi" ? "Giao ngay" : "Ready Now") : (lang === "vi" ? "Cần chuẩn bị" : "Needs Prep")}
                                 </span>
                               </td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                  {o.status}
+                                  {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
                                 </span>
                               </td>
                               <td className="py-3.5 text-muted-foreground">
@@ -3925,7 +4117,8 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-          )}
+          </div>
+        )}
         </main>
       </div>
 
