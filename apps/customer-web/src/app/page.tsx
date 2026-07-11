@@ -947,7 +947,7 @@ export default function CustomerPortal() {
       // z-index as this drawer's own backdrop and can be easy to miss
       // while the drawer is open - show it inline too so a rejected
       // discount code (or any other failure) is impossible to miss.
-      setCheckoutError(result.message || (lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Failed to process order"));
+      setCheckoutError(result.message || (lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Couldn't process your order. Please try again."));
       return;
     }
     if (result) {
@@ -1167,7 +1167,7 @@ export default function CustomerPortal() {
           title: translateApiError(
             result?.message,
             lang,
-            lang === "vi" ? "Không thể thanh toán bằng Ví lúc này" : "Could not pay from wallet right now",
+            lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
           ),
           type: "error",
         });
@@ -1348,7 +1348,7 @@ export default function CustomerPortal() {
         setOrderNowDiscountCode("");
       } else {
         setOrderNowError(
-          translateApiError(result?.message, lang, lang === "vi" ? "Không thể đặt hàng lúc này" : "Could not place this order right now"),
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể đặt hàng. Vui lòng kiểm tra kết nối và thử lại." : "Couldn't place your order. Check your connection and try again."),
         );
       }
     } catch (err) {
@@ -2338,7 +2338,7 @@ export default function CustomerPortal() {
               <div className="text-center py-20 border border-dashed border-border rounded-xl">
                 <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground font-medium">
-                  {lang === "vi" ? "Không tìm thấy món ăn nào trong danh mục này." : "No menu items found in this category."}
+                  {lang === "vi" ? "Chưa có món trong danh mục này. Hãy xem danh mục khác hoặc món nổi bật hôm nay." : "Nothing in this category yet. Try another category or see today's signature bowls."}
                 </p>
               </div>
             ) : (
@@ -2486,7 +2486,7 @@ export default function CustomerPortal() {
                 {/* Shared Order Lifecycle Progress Log */}
                 <div className="border border-border/60 bg-muted/15 rounded-xl p-4 text-left space-y-3">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/40 pb-1">
-                    {lang === "vi" ? "Tiến trình đơn hàng (SMS & Zalo Log)" : "Order Progress & Notifications"}
+                    {lang === "vi" ? "Cập nhật đơn hàng" : "Order updates"}
                   </span>
                   
                   <div className="space-y-4 pt-1">
@@ -2498,7 +2498,7 @@ export default function CustomerPortal() {
                       <div>
                         <p className="text-xs font-bold text-foreground">{lang === "vi" ? "Đã gửi đơn hàng" : "Submitted"}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {lang === "vi" ? "Hệ thống đã nhận đơn. SMS/Zalo đã gửi báo đơn thành công." : "Order received. Sent notification to customer."}
+                          {lang === "vi" ? "Đã nhận đơn — chúng tôi đã gửi xác nhận cho bạn qua SMS/Zalo." : "Order received — we've sent your confirmation by SMS/Zalo."}
                         </p>
                       </div>
                     </div>
@@ -2621,7 +2621,7 @@ export default function CustomerPortal() {
                         <div className="text-center py-16 border border-dashed border-border rounded-xl">
                           <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                           <p className="text-xs text-muted-foreground font-semibold">
-                            {lang === "vi" ? "Hiện chưa có món nào sẵn sàng giao ngay." : "No dishes available right now."}
+                            {lang === "vi" ? "Bếp đang chuẩn bị mẻ mới — chưa có món giao ngay. Quay lại sau ít phút nhé." : "Kitchen's between batches — nothing ready to deliver now. Check back in a few minutes."}
                           </p>
                         </div>
                       ) : (
@@ -3259,7 +3259,7 @@ export default function CustomerPortal() {
 
               {hasTracked && !isTrackingLoading && !trackingError && trackedOrders.length === 0 && (
                 <p className="text-center text-xs text-muted-foreground">
-                  {lang === "vi" ? "Không tìm thấy đơn hàng nào với số điện thoại này." : "No orders found with this phone number."}
+                  {lang === "vi" ? "Không có đơn nào với số này. Kiểm tra lại số, hoặc đặt đơn đầu tiên của bạn." : "No orders under this number. Double-check it, or place your first order."}
                 </p>
               )}
 
@@ -3429,7 +3429,7 @@ export default function CustomerPortal() {
               ) : subscriptionPlans.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-xl">
                   <p className="text-xs text-muted-foreground">
-                    {lang === "vi" ? "Hiện chưa có gói trả trước nào." : "No prepaid plans available right now."}
+                    {lang === "vi" ? "Hiện chưa có gói nào. Trong lúc chờ, bạn có thể đặt món lẻ từ thực đơn." : "No plans on sale yet. Meanwhile, you can order individual meals from the menu."}
                   </p>
                 </div>
               ) : (
