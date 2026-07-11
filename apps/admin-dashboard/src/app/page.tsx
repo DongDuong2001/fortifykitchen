@@ -297,41 +297,42 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
   // Grouped Navigation Tabs State
+  const [lang, setLang] = React.useState<"vi" | "en">("vi");
   const [activeGroup, setActiveGroup] = React.useState<
     "operations" | "sales" | "products" | "subscriptions" | "marketing"
   >("operations");
 
   const NAVIGATION_GROUPS = React.useMemo(() => [
-    { id: "operations", label: "Operations", icon: faThLarge, defaultSection: "dashboard" },
-    { id: "sales", label: "Sales & Customers", icon: faShoppingBag, defaultSection: "orders" },
-    { id: "products", label: "Catalog & Stock", icon: faUtensils, defaultSection: "menu" },
-    { id: "subscriptions", label: "Membership Subs", icon: faCalendarAlt, defaultSection: "subscriptions" },
-    { id: "marketing", label: "Marketing & Ads", icon: faTag, defaultSection: "discounts" },
-  ], []);
+    { id: "operations", label: lang === "vi" ? "Vận hành" : "Operations", icon: faThLarge, defaultSection: "dashboard" },
+    { id: "sales", label: lang === "vi" ? "Doanh thu & Khách" : "Sales & Customers", icon: faShoppingBag, defaultSection: "orders" },
+    { id: "products", label: lang === "vi" ? "Thực đơn & Kho" : "Catalog & Stock", icon: faUtensils, defaultSection: "menu" },
+    { id: "subscriptions", label: lang === "vi" ? "Gói hội viên" : "Membership Subs", icon: faCalendarAlt, defaultSection: "subscriptions" },
+    { id: "marketing", label: lang === "vi" ? "Tiếp thị & Banner" : "Marketing & Ads", icon: faTag, defaultSection: "discounts" },
+  ], [lang]);
 
   const SUB_TABS = React.useMemo(() => ({
     operations: [
-      { id: "dashboard", label: "Dashboard Overview" },
-      { id: "prep-list", label: "Prep List" },
+      { id: "dashboard", label: lang === "vi" ? "Tổng quan" : "Dashboard Overview" },
+      { id: "prep-list", label: lang === "vi" ? "Danh sách chuẩn bị" : "Prep List" },
     ],
     sales: [
-      { id: "orders", label: "Orders dispatcher" },
-      { id: "customers", label: "Customers" },
+      { id: "orders", label: lang === "vi" ? "Điều phối đơn hàng" : "Orders dispatcher" },
+      { id: "customers", label: lang === "vi" ? "Khách hàng" : "Customers" },
     ],
     products: [
-      { id: "menu", label: "Menu Catalog Manager" },
-      { id: "inventory", label: "Inventory" },
+      { id: "menu", label: lang === "vi" ? "Quản lý thực đơn" : "Menu Catalog Manager" },
+      { id: "inventory", label: lang === "vi" ? "Kho hàng" : "Inventory" },
     ],
     subscriptions: [
-      { id: "subscriptions", label: "Subscriptions" },
-      { id: "custom-plan-requests", label: "Custom Plan Requests" },
-      { id: "subscription-plans", label: "Subscription Plans" },
+      { id: "subscriptions", label: lang === "vi" ? "Gói đăng ký" : "Subscriptions" },
+      { id: "custom-plan-requests", label: lang === "vi" ? "Yêu cầu gói tùy chỉnh" : "Custom Plan Requests" },
+      { id: "subscription-plans", label: lang === "vi" ? "Cấu hình gói dịch vụ" : "Subscription Plans" },
     ],
     marketing: [
-      { id: "discounts", label: "Promotional Codes" },
-      { id: "home-frames", label: "Home Banners" },
+      { id: "discounts", label: lang === "vi" ? "Mã khuyến mãi" : "Promotional Codes" },
+      { id: "home-frames", label: lang === "vi" ? "Banner trang chủ" : "Home Banners" },
     ],
-  }), []);
+  }), [lang]);
 
   React.useEffect(() => {
     // Automatically switch activeGroup if section is changed via internal redirection
@@ -343,6 +344,14 @@ export default function AdminDashboard() {
       }
     }
   }, [section, NAVIGATION_GROUPS, SUB_TABS]);
+
+  const getSectionLabel = React.useCallback(() => {
+    for (const group of Object.values(SUB_TABS)) {
+      const match = group.find((tab) => tab.id === section);
+      if (match) return match.label;
+    }
+    return section.replace("-", " ");
+  }, [section, SUB_TABS]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -1930,9 +1939,17 @@ export default function AdminDashboard() {
               {sidebarOpen ? <FontAwesomeIcon icon={faChevronLeft} className="h-4 w-4" /> : <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4" />}
             </button>
             <h2 className="font-extrabold tracking-tight font-heading text-base capitalize truncate">
-              {section.replace("-", " ")}
+              {getSectionLabel()}
             </h2>
           </div>
+
+          {/* Language Toggle Button */}
+          <button
+            onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
+            className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold bg-muted/40 hover:bg-muted transition-colors cursor-pointer select-none"
+          >
+            {lang === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
+          </button>
         </header>
 
         {/* Workspace Body */}

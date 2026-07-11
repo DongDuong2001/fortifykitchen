@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { DM_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Providers } from "../providers/providers";
 import "./globals.css";
 
-// Soumaki Sans (DM Sans) for all text levels
-const dmSans = DM_Sans({
-  subsets: ["latin"],
+// Inter font with native latin & vietnamese diacritics support
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -33,7 +33,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
