@@ -1986,10 +1986,10 @@ export default function AdminDashboard() {
                 <div className="space-y-8 animate-in fade-in duration-200">
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
-                      { label: "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
-                      { label: "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
-                      { label: "Total Customers", value: stats.totalCustomers, icon: faUsers },
-                      { label: "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
+                      { label: lang === "vi" ? "Tổng doanh thu (VND)" : "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
+                      { label: lang === "vi" ? "Gói hoạt động" : "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
+                      { label: lang === "vi" ? "Tổng khách hàng" : "Total Customers", value: stats.totalCustomers, icon: faUsers },
+                      { label: lang === "vi" ? "Tổng đơn món" : "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
                     ].map((item, idx) => (
                       <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
                         <div className="space-y-1.5">
@@ -2007,31 +2007,35 @@ export default function AdminDashboard() {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
                       {
-                        label: "Awaiting Acceptance",
+                        label: lang === "vi" ? "Chờ duyệt" : "Awaiting Acceptance",
                         value: stats.ordersAwaitingAcceptance || 0,
                         icon: faShoppingBag,
                         urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
+                        sectionId: "orders",
                       },
                       {
-                        label: "In Preparation",
+                        label: lang === "vi" ? "Đang chuẩn bị" : "In Preparation",
                         value: stats.ordersInPreparation || 0,
                         icon: faUtensils,
+                        sectionId: "orders",
                       },
                       {
-                        label: "Out of Stock Dishes",
+                        label: lang === "vi" ? "Món hết hàng" : "Out of Stock Dishes",
                         value: (stats.outOfStockItems || []).length,
                         icon: faBox,
                         urgent: (stats.outOfStockItems || []).length > 0,
+                        sectionId: "inventory",
                       },
                       {
-                        label: "Low Stock Dishes",
+                        label: lang === "vi" ? "Món sắp hết" : "Low Stock Dishes",
                         value: (stats.lowStockItems || []).length,
                         icon: faBox,
+                        sectionId: "inventory",
                       },
                     ].map((item, idx) => (
                       <button
                         key={idx}
-                        onClick={() => setSection(item.label.includes("Stock") ? "inventory" : "orders")}
+                        onClick={() => setSection(item.sectionId as any)}
                         className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
                           item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
                         }`}
@@ -2057,27 +2061,27 @@ export default function AdminDashboard() {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {[
                       {
-                        label: "Outstanding Volume (kg)",
+                        label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding Volume (kg)",
                         value: formatGrams(stats.outstandingVolumeGrams || 0),
                         icon: faTruck,
                       },
                       {
-                        label: "Nearing Depletion",
+                        label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing Depletion",
                         value: stats.subscriptionsNearingDepletion || 0,
                         icon: faUtensils,
                       },
                       {
-                        label: "Delivered This Month",
+                        label: lang === "vi" ? "Đã giao tháng này" : "Delivered This Month",
                         value: formatGrams(stats.gramsDeliveredThisMonth || 0),
                         icon: faCalendarAlt,
                       },
                       {
-                        label: "Deliveries This Week",
+                        label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries This Week",
                         value: stats.deliveriesThisWeek || 0,
                         icon: faShoppingBag,
                       },
                       {
-                        label: "Dishes Ready Now",
+                        label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes Ready Now",
                         value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
                         icon: faUtensils,
                       },
@@ -2099,7 +2103,7 @@ export default function AdminDashboard() {
                     <div className="grid gap-6 sm:grid-cols-2">
                       {(stats.outOfStockItems || []).length > 0 && (
                         <div className="border border-red-200 bg-red-50 rounded-2xl p-6">
-                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">Out of Stock</h3>
+                          <h3 className="text-sm font-bold font-heading mb-3 text-red-800">{lang === "vi" ? "Hết hàng" : "Out of Stock"}</h3>
                           <ul className="space-y-1.5 text-xs">
                             {stats.outOfStockItems.map((m: any) => (
                               <li key={m.id} className="flex justify-between text-red-700">
@@ -2112,7 +2116,7 @@ export default function AdminDashboard() {
                       )}
                       {(stats.lowStockItems || []).length > 0 && (
                         <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
-                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Low Stock (≤5)</h3>
+                          <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">{lang === "vi" ? "Sắp hết hàng (≤5)" : "Low Stock (≤5)"}</h3>
                           <ul className="space-y-1.5 text-xs">
                             {stats.lowStockItems.map((m: any) => (
                               <li key={m.id} className="flex justify-between text-amber-700">
@@ -2142,14 +2146,14 @@ export default function AdminDashboard() {
                             <FontAwesomeIcon icon={faWallet} className="h-4 w-4" />
                           </div>
                           <span className="text-xs font-bold text-amber-800">
-                            {lowBalance.totalCount} cảnh báo số dư thấp cần chú ý
+                            {lang === "vi" ? `${lowBalance.totalCount} cảnh báo số dư thấp cần chú ý` : `${lowBalance.totalCount} low balance warnings require attention`}
                           </span>
                         </div>
                       </button>
                       <div className="grid gap-6 sm:grid-cols-2">
                         {(lowBalance.walletsLow || []).length > 0 && (
                           <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">Ví khách hàng sắp cạn</h3>
+                            <h3 className="text-sm font-bold font-heading mb-3 text-amber-800">{lang === "vi" ? "Ví khách hàng sắp cạn" : "Wallets running low"}</h3>
                             <ul className="space-y-1.5 text-xs">
                               {lowBalance.walletsLow.map((w: any) => (
                                 <li key={w.customerId} className="flex justify-between text-amber-700">
@@ -2162,7 +2166,7 @@ export default function AdminDashboard() {
                         )}
                         {(lowBalance.poolsLow || []).length > 0 && (
                           <div className="border border-rose-200 bg-rose-50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">Gói ăn sắp hết lượng</h3>
+                            <h3 className="text-sm font-bold font-heading mb-3 text-rose-800">{lang === "vi" ? "Gói ăn sắp hết lượng" : "Subscription pools low"}</h3>
                             <ul className="space-y-1.5 text-xs">
                               {lowBalance.poolsLow.map((p: any) => (
                                 <li key={p.subscriptionId} className="flex justify-between text-rose-700 gap-2">
@@ -2181,7 +2185,7 @@ export default function AdminDashboard() {
 
                   {/* Recent Orders List */}
                   <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-sm font-bold font-heading mb-4">Recent Incoming Orders</h3>
+                    <h3 className="text-sm font-bold font-heading mb-4">{lang === "vi" ? "Đơn hàng gần đây" : "Recent Incoming Orders"}</h3>
                     {/* Mobile cards view */}
                     <div className="md:hidden space-y-3">
                       {stats.recentOrders?.map((o: any) => (
@@ -2203,7 +2207,7 @@ export default function AdminDashboard() {
                                   : "bg-amber-50 text-amber-700 border-amber-200"
                               }`}
                             >
-                              {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                              {o.fulfillmentType === "IMMEDIATE" ? (lang === "vi" ? "Giao ngay" : "Ready Now") : (lang === "vi" ? "Cần chuẩn bị" : "Needs Prep")}
                             </span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
                               {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
@@ -2218,11 +2222,11 @@ export default function AdminDashboard() {
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
-                            <th className="pb-3 font-semibold">Customer</th>
-                            <th className="pb-3 font-semibold">Amount</th>
-                            <th className="pb-3 font-semibold">Fulfillment</th>
-                            <th className="pb-3 font-semibold">Status</th>
-                            <th className="pb-3 font-semibold">Date</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Khách hàng" : "Customer"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Số tiền" : "Amount"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Điều phối" : "Fulfillment"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Trạng thái" : "Status"}</th>
+                            <th className="pb-3 font-semibold">{lang === "vi" ? "Ngày đặt" : "Date"}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2238,12 +2242,12 @@ export default function AdminDashboard() {
                                       : "bg-amber-50 text-amber-700 border-amber-200"
                                   }`}
                                 >
-                                  {o.fulfillmentType === "IMMEDIATE" ? "Ready Now" : "Needs Prep"}
+                                  {o.fulfillmentType === "IMMEDIATE" ? (lang === "vi" ? "Giao ngay" : "Ready Now") : (lang === "vi" ? "Cần chuẩn bị" : "Needs Prep")}
                                 </span>
                               </td>
                               <td className="py-3.5">
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                  {o.status}
+                                  {ORDER_STATUS_LABELS[o.status as OrderStatus] || o.status}
                                 </span>
                               </td>
                               <td className="py-3.5 text-muted-foreground">
