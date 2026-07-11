@@ -1946,9 +1946,11 @@ export default function AdminDashboard() {
           {/* Language Toggle Button */}
           <button
             onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
-            className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold bg-muted/40 hover:bg-muted transition-colors cursor-pointer select-none"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[10px] font-bold bg-muted/40 hover:bg-muted transition-colors cursor-pointer select-none"
           >
-            {lang === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
+            <span className={lang === "vi" ? "text-primary" : "text-muted-foreground"}>VI</span>
+            <span className="text-border">|</span>
+            <span className={lang === "en" ? "text-primary" : "text-muted-foreground"}>EN</span>
           </button>
         </header>
 
