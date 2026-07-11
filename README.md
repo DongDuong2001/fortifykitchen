@@ -1,32 +1,32 @@
 # FortifyKitchen Enterprise Monorepo
 
-Welcome to the enterprise-grade monorepo for **FortifyKitchen**, a modern gourmet subscription-based meal prep and food delivery web application.
+Welcome to the enterprise-grade monorepo for FortifyKitchen, a modern gourmet subscription-based meal prep and food delivery web application.
 
 This repository is strictly modularized using Turborepo, pnpm workspaces, and TypeScript. It implements Feature-First organization on the frontend clients and Domain-Driven Design (DDD Lite) on the backend API server.
 
 ---
 
-## 🚀 Product & Business Goals
+## Product and Business Goals
 
 FortifyKitchen is designed for high-performance healthy food delivery services, offering:
-1. **Gourmet Meal Customization**: High-protein dishes designed by professional nutritionists and chefs, categorized by proteins (beef, chicken, shrimp, pork, fish, and vegan).
-2. **Flexible Subscription Plans**: Credit-based subscriptions (e.g., restricted by weekly protein gram limits) with variable pricing based on pooled portion consumption.
-3. **Automated Order Dispatching**: Real-time admin control panel to accept, prepare, schedule, and complete orders.
-4. **In-Stock Inventory Management**: Accurate real-time stock deductions of kitchen-prepared protein portions.
+1. Gourmet Meal Customization: High-protein dishes designed by professional nutritionists and chefs, categorized by proteins (beef, chicken, shrimp, pork, fish, and vegan).
+2. Flexible Subscription Plans: Credit-based subscriptions (restricted by weekly protein gram limits) with variable pricing based on pooled portion consumption.
+3. Automated Order Dispatching: Real-time admin control panel to accept, prepare, schedule, and complete orders.
+4. In-Stock Inventory Management: Accurate real-time stock deductions of kitchen-prepared protein portions.
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
-- **Monorepo Management**: [Turborepo](https://turbo.build/) with [pnpm](https://pnpm.io/) workspaces
-- **Backend API**: [NestJS](https://nestjs.com/) (TypeScript), [Prisma ORM](https://www.prisma.io/), [Swagger/OpenAPI](https://swagger.io/), [Winston Logger](https://github.com/winstonjs/winston)
-- **Frontend Clients**: [Next.js](https://nextjs.org/) (App Router), React 19, [Tailwind CSS v4](https://tailwindcss.com/), [TanStack Query v5](https://tanstack.com/query), [React Hook Form](https://react-hook-form.com/), [Zod](https://zod.dev/)
-- **Database**: [PostgreSQL](https://www.postgresql.org/) (Neon Serverless PgBouncer connection)
-- **Styling & Assets**: Google Fonts (Be Vietnam Pro), FontAwesome Icons, Tailwind CSS v4 variables configuration
+- Monorepo Management: Turborepo with pnpm workspaces
+- Backend API: NestJS (TypeScript), Prisma ORM, Swagger/OpenAPI, Winston Logger
+- Frontend Clients: Next.js (App Router), React 19, Vanilla CSS variables, TanStack Query v5, React Hook Form, Zod
+- Database: PostgreSQL (Neon Serverless PgBouncer connection)
+- Styling and Assets: Google Fonts (Inter, Be Vietnam Pro), FontAwesome Icons
 
 ---
 
-## 📦 Directory Structure
+## Directory Structure
 
 ```text
 apps/
@@ -47,21 +47,41 @@ packages/
 
 ---
 
-## 🛡️ Database Connection Resilience (Neon Serverless)
+## Database Connection Resilience and Synchronization
 
-The application communicates with a Neon Postgres serverless instance using PgBouncer transaction pooling. Neon's free-tier compute auto-suspends after a brief period of inactivity, causing the connection socket to go stale. The very next query following a wakeup would typically fail with a socket error (`kind: Closed` or `Connection terminated`).
+### Neon Serverless Connection Handling
+The application communicates with a Neon Postgres instance using PgBouncer transaction pooling. Neon's free-tier compute auto-suspends after a brief period of inactivity, causing the connection socket to go stale. The very next query following a wakeup would typically fail with a socket error (`kind: Closed` or `Connection terminated`).
 
-To prevent this from returning `500 Internal Server Error` API responses to users:
-- We implemented a Prisma client extension in [@fortifykitchen/database](file:///d:/fortifykitchen/packages/database/src/index.ts) that intercepts these transient socket errors.
-- It automatically handles retrying the operation once on a freshly established socket connection, shielding users from database sleep state blips.
+To prevent this from returning 500 Internal Server Error API responses to users, we implemented a Prisma client extension in @fortifykitchen/database (packages/database/src/index.ts) that intercepts these transient socket errors and automatically retries the operation once on a freshly established socket connection.
+
+### Synchronization and Troubleshooting (Windows EPERM error)
+When applying database schema updates, Prisma regenerates client assets. On Windows, if the NestJS API server (`api`) or Next.js dev servers are running, they hold an exclusive lock on the Prisma query engine file (`query_engine-windows.dll.node`), which results in an `EPERM` file operation error.
+
+To safely push database changes and avoid this:
+1. Stop all running dev servers (Press Ctrl+C in all active terminals).
+2. Push database schema modifications:
+   ```bash
+   pnpm --filter @fortifykitchen/database exec prisma db push
+   # Or with data loss approval if changing core tables:
+   pnpm --filter @fortifykitchen/database exec prisma db push --accept-data-loss
+   ```
+3. Regenerate and compile client packages:
+   ```bash
+   pnpm --filter @fortifykitchen/database db:generate
+   pnpm --filter @fortifykitchen/database build
+   ```
+4. Restart development servers:
+   ```bash
+   pnpm run dev
+   ```
 
 ---
 
-## 🏁 Quick Start
+## Quick Start
 
 ### Prerequisites
-- **Node.js**: `>= 24.0.0` (LTS recommended)
-- **Package Manager**: `pnpm >= 9`
+- Node.js: >= 24.0.0 (LTS recommended)
+- Package Manager: pnpm >= 9
 
 ### 1. Installation
 Clone the repository and install all dependencies from the root:
@@ -97,12 +117,12 @@ pnpm run dev
 
 ---
 
-## 💡 Monorepo Script Directory
+## Monorepo Script Directory
 
-- `pnpm run build`: Incremental compilation and bundling of all applications and internal packages.
-- `pnpm run dev`: Boots Turborepo dev servers with watch modes.
-- `pnpm run lint`: Runs ESLint validation across all directories.
-- `pnpm run type-check`: Performs strict compiler typechecking via `tsc --noEmit`.
-- `pnpm run format`: Auto-formats code blocks with Prettier.
-- `pnpm run db:generate`: Regenerate Prisma Client wrappers.
-- `pnpm --filter api test`: Runs Vitest spec tests for API endpoints.
+- pnpm run build: Incremental compilation and bundling of all applications and internal packages.
+- pnpm run dev: Boots Turborepo dev servers with watch modes.
+- pnpm run lint: Runs ESLint validation across all directories.
+- pnpm run type-check: Performs strict compiler typechecking via tsc --noEmit.
+- pnpm run format: Auto-formats code blocks with Prettier.
+- pnpm run db:generate: Regenerate Prisma Client wrappers.
+- pnpm --filter api test: Runs Vitest spec tests for API endpoints.
