@@ -51,7 +51,7 @@ const DICTIONARY = {
     nav_home: "Trang chủ",
     nav_menu: "Thực đơn",
     nav_order: "Giao ngay",
-    nav_sub: "Gói Hội viên",
+    nav_sub: "Tài khoản",
     nav_calculator: "Tính calo",
     nav_about: "Về chúng tôi",
     nav_dashboard: "Cá nhân",
@@ -122,7 +122,7 @@ const DICTIONARY = {
     // Auth & Modals
     auth_login_title: "Đăng nhập tài khoản",
     auth_register_title: "Đăng ký thành viên mới",
-    auth_desc: "Tham gia Fortify Kitchen để đặt món và theo dõi gói hội viên dễ dàng.",
+    auth_desc: "Tham gia Fortify Kitchen để đặt món và theo dõi đơn hàng dễ dàng.",
     auth_coupon_hint: "🎁 Đăng ký tài khoản ngay hôm nay để nhận mã giảm giá WELCOME10 giảm 10% cho đơn hàng đầu tiên!",
     auth_email: "Địa chỉ Email",
     auth_password: "Mật khẩu",
@@ -137,11 +137,11 @@ const DICTIONARY = {
 
     // Dashboard
     dash_title: "Bảng điều khiển cá nhân",
-    dash_subtitle: "Quản lý đơn hàng, theo dõi giao hàng và số dư gói hội viên của bạn.",
+    dash_subtitle: "Quản lý đơn hàng, theo dõi giao hàng và số dư ví, gói định kỳ của bạn.",
     dash_orders_title: "Lịch sử đơn hàng",
     dash_orders_empty: "Bạn chưa có đơn hàng nào.",
-    dash_subs_title: "Gói hội viên đang hoạt động",
-    dash_subs_empty: "Bạn chưa đăng ký gói hội viên nào.",
+    dash_subs_title: "Gói định kỳ đang hoạt động",
+    dash_subs_empty: "Bạn chưa có gói giao định kỳ nào.",
     dash_balance: "Số dư Protein",
     dash_status: "Trạng thái",
     dash_delivery_date: "Ngày giao",
@@ -167,7 +167,7 @@ const DICTIONARY = {
     nav_home: "Home",
     nav_menu: "Menu",
     nav_order: "Order Now",
-    nav_sub: "Memberships",
+    nav_sub: "Account",
     nav_calculator: "Calculator",
     nav_about: "About Us",
     nav_dashboard: "Dashboard",
@@ -253,11 +253,11 @@ const DICTIONARY = {
 
     // Dashboard
     dash_title: "My Dashboard",
-    dash_subtitle: "Manage your orders, track active deliveries, and review package balances.",
+    dash_subtitle: "Manage your orders, track deliveries, and check your wallet and subscription balances.",
     dash_orders_title: "Order History",
     dash_orders_empty: "You have no order history yet.",
-    dash_subs_title: "Active Memberships",
-    dash_subs_empty: "You have no active memberships.",
+    dash_subs_title: "Active subscriptions",
+    dash_subs_empty: "You have no active subscriptions yet.",
     dash_balance: "Protein Balance",
     dash_status: "Status",
     dash_delivery_date: "Delivery Date",
@@ -1799,7 +1799,7 @@ export default function CustomerPortal() {
                   onClick={() => setActiveTab("subscriptions")}
                   className="border border-border/80 hover:border-foreground text-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase bg-transparent transition-all duration-300 cursor-pointer hover:bg-card/30 active:scale-98"
                 >
-                  {lang === "vi" ? "Xem Gói hội viên" : "Subscription plans"}
+                  {lang === "vi" ? "Xem gói định kỳ" : "View subscriptions"}
                 </button>
               </div>
 
@@ -3374,20 +3374,38 @@ export default function CustomerPortal() {
             <div className="max-w-3xl mx-auto mb-16 pb-14 border-b border-border/60">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                  {lang === "vi" ? "Ví & Gói trả trước" : "Wallet & Prepaid Plans"}
+                  {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-xl mx-auto">
                   {lang === "vi"
-                    ? "Mua một gói trả trước để nạp vào Ví Fortify Kitchen và nhận voucher giảm giá. Số dư Ví có thể dùng để thanh toán đơn lẻ hoặc thanh toán trọn gói cho một gói hội viên do đội ngũ chúng tôi thiết lập."
-                    : "Buy a prepaid tier to top up your Fortify Kitchen wallet and get a discount voucher. Wallet balance can pay for one-off orders, or fund a staff-built membership in full."}
+                    ? "Nạp tiền vào Ví Fortify Kitchen để nhận thêm ưu đãi thành viên. Dùng số dư ví để thanh toán đơn lẻ, hoặc cho gói giao định kỳ do đội ngũ chúng tôi thiết lập."
+                    : "Top up your Fortify Kitchen wallet to unlock a member discount. Use the balance to pay for one-off meals, or for a recurring meal subscription we set up for you."}
                 </p>
+              </div>
+
+              <div className="max-w-2xl mx-auto mb-8 grid sm:grid-cols-3 gap-3">
+                {[
+                  { n: "1", vi: ["Nạp ví", "Mua gói nạp — nhận số dư cùng ưu đãi thành viên."], en: ["Top up your wallet", "Buy a pack — get credit plus a member discount."] },
+                  { n: "2", vi: ["Đặt món", "Thanh toán bằng ví hoặc khi nhận hàng."], en: ["Order meals", "Pay with wallet or cash on delivery."] },
+                  { n: "3", vi: ["Giao định kỳ", "Tuỳ chọn giao hàng tuần, trừ vào ví của bạn."], en: ["Go recurring", "Optional weekly deliveries, paid from your wallet."] },
+                ].map((step) => (
+                  <div key={step.n} className="border border-border bg-card rounded-xl p-4 text-left">
+                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                      {step.n}
+                    </span>
+                    <p className="text-sm font-bold mt-2">{lang === "vi" ? step.vi[0] : step.en[0]}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {lang === "vi" ? step.vi[1] : step.en[1]}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               {user ? (
                 <div className="max-w-sm mx-auto mb-8 border border-border bg-card rounded-2xl p-5 text-center shadow-sm">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center justify-center gap-1.5">
                     <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
-                    {lang === "vi" ? "Số dư Ví hiện tại" : "Current Wallet Balance"}
+                    {lang === "vi" ? "Số dư ví" : "Wallet balance"}
                   </span>
                   <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
                   {hasActivePlanDiscount && (
@@ -3401,7 +3419,7 @@ export default function CustomerPortal() {
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
                   <p className="text-xs text-muted-foreground">
-                    {lang === "vi" ? "Đăng nhập để xem số dư Ví và mua gói hội viên." : "Log in to see your wallet balance and buy a membership."}
+                    {lang === "vi" ? "Đăng nhập để xem số dư ví và nạp ví." : "Log in to see your wallet balance and top up."}
                   </p>
                   <button
                     onClick={() => setAuthModal("login")}
@@ -3429,7 +3447,7 @@ export default function CustomerPortal() {
               ) : subscriptionPlans.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-xl">
                   <p className="text-xs text-muted-foreground">
-                    {lang === "vi" ? "Hiện chưa có gói nào. Trong lúc chờ, bạn có thể đặt món lẻ từ thực đơn." : "No plans on sale yet. Meanwhile, you can order individual meals from the menu."}
+                    {lang === "vi" ? "Chưa có gói nạp nào. Trong lúc chờ, bạn có thể đặt món lẻ từ thực đơn." : "No top-up packs available yet. Meanwhile, you can order individual meals from the menu."}
                   </p>
                 </div>
               ) : (
@@ -3440,7 +3458,7 @@ export default function CustomerPortal() {
                         <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
                         {plan.voucherPercent > 0 && (
                           <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                            {lang === "vi" ? `${plan.voucherPercent}% mọi đơn` : `${plan.voucherPercent}% every order`}
+                            {lang === "vi" ? `+${plan.voucherPercent}% · 60 ngày` : `+${plan.voucherPercent}% off · 60 days`}
                           </span>
                         )}
                       </div>
@@ -3456,7 +3474,7 @@ export default function CustomerPortal() {
                         ) : (
                           <>
                             <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
-                            {lang === "vi" ? "Mua gói hội viên" : "Buy Membership"}
+                            {lang === "vi" ? `Nạp ${formatVND(plan.price)}` : `Top up ${formatVND(plan.price)}`}
                           </>
                         )}
                       </button>
@@ -3468,12 +3486,12 @@ export default function CustomerPortal() {
 
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Gói hội viên của bạn" : "Your Memberships"}
+                {lang === "vi" ? "Gói giao định kỳ của bạn" : "Your meal subscriptions"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {lang === "vi"
-                  ? "Nhập số điện thoại đã đăng ký với Fortify Kitchen để xem số dư Protein còn lại và lịch giao sắp tới."
-                  : "Enter your registered phone number to check remaining Protein balance and upcoming delivery schedules."}
+                  ? "Giao hàng định kỳ do đội ngũ chúng tôi thiết lập, trừ vào số dư ví của bạn. Nhập số điện thoại đã đăng ký để xem hạn mức protein còn lại và lịch giao sắp tới."
+                  : "Recurring deliveries we set up for you, paid from your wallet. Enter your registered phone number to see your remaining protein balance and upcoming deliveries."}
               </p>
             </div>
 
@@ -3626,7 +3644,7 @@ export default function CustomerPortal() {
             <div className="max-w-2xl mx-auto mt-16 pt-12 border-t border-border/60">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl font-extrabold tracking-tight font-heading">
-                  {lang === "vi" ? "Muốn một gói riêng cho bạn?" : "Want a membership tailored to you?"}
+                  {lang === "vi" ? "Cần gói theo macro của bạn?" : "Want a plan built around your macros?"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   {lang === "vi"
