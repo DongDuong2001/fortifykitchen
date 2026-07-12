@@ -51,7 +51,8 @@ const DICTIONARY = {
     nav_home: "Trang chủ",
     nav_menu: "Thực đơn",
     nav_order: "Giao ngay",
-    nav_sub: "Tài khoản",
+    nav_wallet: "Ví",
+    nav_sub: "Giao định kỳ",
     nav_calculator: "Tính calo",
     nav_about: "Về chúng tôi",
     nav_dashboard: "Cá nhân",
@@ -167,7 +168,8 @@ const DICTIONARY = {
     nav_home: "Home",
     nav_menu: "Menu",
     nav_order: "Order Now",
-    nav_sub: "Account",
+    nav_wallet: "Wallet",
+    nav_sub: "Meal subscriptions",
     nav_calculator: "Calculator",
     nav_about: "About Us",
     nav_dashboard: "Dashboard",
@@ -345,7 +347,7 @@ export default function CustomerPortal() {
   );
 
   // Tab State: "home" | "menu" | "order-now" | "calculator" | "about" | "subscriptions" | "dashboard"
-  const [activeTab, setActiveTab] = React.useState<"home" | "menu" | "order-now" | "calculator" | "about" | "subscriptions" | "dashboard">("home");
+  const [activeTab, setActiveTab] = React.useState<"home" | "menu" | "order-now" | "calculator" | "about" | "wallet" | "subscriptions" | "dashboard">("home");
 
   // "Order Now" — in-stock items only, ready today with no login required.
   // This is a separate, self-contained flow from the regular cart/checkout
@@ -485,7 +487,6 @@ export default function CustomerPortal() {
   // now also reads walletBalance). Drives the WALLET checkout option, the
   // "Buy a Plan" balance display, and the low-balance banner.
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
-  const [accountView, setAccountView] = React.useState<"wallet" | "subscriptions">("wallet");
   // Recurring membership discount from the customer's current
   // SubscriptionPlan (also populated from /customers/me) - applies
   // automatically to every order until planDiscountEndsAt, no code to type.
@@ -1566,7 +1567,7 @@ export default function CustomerPortal() {
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-7 text-[10px] font-medium tracking-[0.15em] uppercase text-secondary">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-secondary">
             <button
               onClick={() => setActiveTab("home")}
               className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
@@ -1623,9 +1624,20 @@ export default function CustomerPortal() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab("wallet")}
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "wallet" ? "text-foreground font-bold" : "text-secondary"
+              }`}
+            >
+              {t("nav_wallet")}
+              {activeTab === "wallet" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab("subscriptions")}
               className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "subscriptions" ? "text-foreground font-semibold" : "text-secondary"
+                activeTab === "subscriptions" ? "text-foreground font-bold" : "text-secondary"
               }`}
             >
               {t("nav_sub")}
@@ -2376,6 +2388,21 @@ export default function CustomerPortal() {
                                 )}
                                 <span className="absolute top-4 right-4 bg-background/90 text-primary text-xs font-extrabold px-3 py-1.5 rounded-md border border-border font-mono">
                                   {formatVND(selected.price)}
+                                </span>
+                                <span
+                                  className={`absolute top-4 left-4 text-[10px] font-bold px-2.5 py-1 rounded-md border ${
+                                    (selected.stockQuantity ?? 0) > 0
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {(selected.stockQuantity ?? 0) > 0
+                                    ? lang === "vi"
+                                      ? `Còn ${selected.stockQuantity} phần · giao ngay`
+                                      : `${selected.stockQuantity} ready now`
+                                    : lang === "vi"
+                                      ? "Đặt trước · 24h"
+                                      : "Made to order · 24h"}
                                 </span>
                               </div>
 
@@ -3364,31 +3391,8 @@ export default function CustomerPortal() {
         {/* TAB 2: MY VOLUME SUBSCRIPTION (staff set these up — this is a
             phone-number lookup so a customer can check their remaining
             balance per protein and postpone today's delivery themselves) */}
-        {activeTab === "subscriptions" && (
-          <div>
-            {/* WALLET & PLAN PURCHASE — buying a SubscriptionPlan tier tops
-                up Customer.walletBalance (once staff confirm the bank
-                transfer) and issues a percentage-off voucher. Wallet
-                balance itself never grants autonomous delivery — that's
-                still always the Custom Plan Request flow below. See
-                docs/plan-and-credit-design.md. */}
-            <div className="max-w-md mx-auto mb-10 flex bg-card/40 border border-border rounded-full p-1">
-              <button
-                onClick={() => setAccountView("wallet")}
-                className={`flex-1 text-xs font-bold py-2.5 rounded-full transition-all cursor-pointer ${accountView === "wallet" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {lang === "vi" ? "Ví" : "Wallet"}
-              </button>
-              <button
-                onClick={() => setAccountView("subscriptions")}
-                className={`flex-1 text-xs font-bold py-2.5 rounded-full transition-all cursor-pointer ${accountView === "subscriptions" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {lang === "vi" ? "Gói định kỳ" : "Meal subscriptions"}
-              </button>
-            </div>
-
-            {accountView === "wallet" && (
-            <div className="max-w-3xl mx-auto mb-16">
+        {activeTab === "wallet" && (
+          <div className="max-w-3xl mx-auto mb-16">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                   {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
@@ -3509,10 +3513,10 @@ export default function CustomerPortal() {
                 </div>
               )}
             </div>
-            )}
+        )}
 
-            {accountView === "subscriptions" && (
-              <>
+        {activeTab === "subscriptions" && (
+          <div>
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? "Gói giao định kỳ của bạn" : "Your meal subscriptions"}
@@ -3812,8 +3816,6 @@ export default function CustomerPortal() {
                 </form>
               )}
             </div>
-              </>
-            )}
           </div>
         )}
 
@@ -4296,6 +4298,17 @@ export default function CustomerPortal() {
                     <span className="text-primary">{formatVND(checkoutFinalTotal)}</span>
                   </div>
                 </div>
+
+                {cart.some((item) => (item.menuItem.stockQuantity ?? 0) <= 0) && (
+                  <div className="flex items-start gap-2 text-[11px] bg-amber-50 border border-amber-200 text-amber-700 rounded-lg px-3 py-2.5 leading-relaxed">
+                    <FontAwesomeIcon icon={faClock} className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      {lang === "vi"
+                        ? "Đơn có món cần chuẩn bị (đặt trước). Chúng tôi cần khoảng 24 giờ để chuẩn bị và sẽ giao vào ngày hôm sau."
+                        : "Your order includes a made-to-order item. We need about 24 hours to prepare it, so this order will be delivered the next day."}
+                    </span>
+                  </div>
+                )}
 
                 {/* Checkout Form */}
                 <form
@@ -5091,6 +5104,15 @@ export default function CustomerPortal() {
         >
           <FontAwesomeIcon icon={faShoppingBag} className="h-4.5 w-4.5" />
           <span className="text-[9px] font-bold">{t("nav_order")}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("wallet")}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+            activeTab === "wallet" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <FontAwesomeIcon icon={faWallet} className="h-4.5 w-4.5" />
+          <span className="text-[9px] font-bold">{t("nav_wallet")}</span>
         </button>
         <button
           onClick={() => setActiveTab("subscriptions")}
