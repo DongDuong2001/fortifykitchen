@@ -125,6 +125,8 @@ export interface Order {
   paymentStatus: PaymentState;
   status: OrderStatus;
   fulfillmentType: OrderFulfillmentType;
+  type?: "IMMEDIATE_DELIVERY" | "PRE_ORDER";
+  systemNotes?: string;
   paymentMethod: PaymentMethod;
   deliveryAddress?: string;
   subtotal: number;

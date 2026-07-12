@@ -72,6 +72,11 @@ enum OrderFulfillmentType {
   SCHEDULED // at least one line item needed prep; no stock was touched
 }
 
+enum OrderType {
+  IMMEDIATE_DELIVERY
+  PRE_ORDER
+}
+
 enum Protein {
   CHICKEN
   BEEF
@@ -250,6 +255,8 @@ model Order {
   paymentStatus   PaymentState  @default(UNPAID)
   status          OrderStatus   @default(PENDING_CONFIRMATION)
   fulfillmentType OrderFulfillmentType @default(SCHEDULED)
+  type            OrderType     @default(IMMEDIATE_DELIVERY)
+  systemNotes     String?
   paymentMethod   PaymentMethod @default(CASH_ON_DELIVERY)
   deliveryAddress String?
   subtotal        Int

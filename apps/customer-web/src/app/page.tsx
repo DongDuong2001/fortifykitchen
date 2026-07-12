@@ -2561,6 +2561,13 @@ export default function CustomerPortal() {
                       )}
                 </p>
 
+                {orderNowResult.systemNotes && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 text-left leading-relaxed animate-in fade-in duration-200">
+                    <p className="font-semibold mb-0.5">{lang === "vi" ? "Thông báo hệ thống:" : "System notification:"}</p>
+                    <p>{orderNowResult.systemNotes}</p>
+                  </div>
+                )}
+
                 {/* Shared Order Lifecycle Progress Log */}
                 <div className="border border-border/60 bg-muted/15 rounded-xl p-4 text-left space-y-3">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/40 pb-1">
@@ -3352,6 +3359,11 @@ export default function CustomerPortal() {
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {new Date(o.deliveryDate).toLocaleDateString("vi-VN")} · {formatVND(o.total)}
                         </p>
+                        {o.systemNotes && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100 mt-1.5 leading-relaxed">
+                            {o.systemNotes}
+                          </p>
+                        )}
                       </div>
                       <span
                         className={`text-[9px] font-extrabold px-2 py-0.5 rounded border shrink-0 whitespace-nowrap uppercase tracking-wider ${

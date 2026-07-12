@@ -4460,6 +4460,11 @@ export default function AdminDashboard() {
               <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
                 {orderDetailView.paymentStatus}
               </span>
+              {orderDetailView.type && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+                  {orderDetailView.type === "IMMEDIATE_DELIVERY" ? "Giao ngay" : "Pre-order"}
+                </span>
+              )}
             </div>
 
             <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-2 text-xs">
@@ -4506,6 +4511,13 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
                 &quot;{orderDetailView.notes}&quot;
               </p>
+            )}
+
+            {orderDetailView.systemNotes && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 leading-relaxed">
+                <p className="font-semibold mb-0.5">Lưu ý hệ thống:</p>
+                <p>{orderDetailView.systemNotes}</p>
+              </div>
             )}
 
             <div className="flex gap-3 pt-2">

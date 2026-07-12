@@ -12,6 +12,7 @@ import {
   OrderSource,
   PaymentState,
   OrderFulfillmentType,
+  OrderType,
   PaymentMethod,
   PaymentStatus,
   Decimal,
@@ -230,6 +231,7 @@ export class OrdersService {
       dto.paymentMethod,
       dto.deliveryAddress ?? customer.address ?? undefined,
       dto.discountCode,
+      dto.type,
     );
   }
 
@@ -264,6 +266,7 @@ export class OrdersService {
       dto.paymentMethod,
       dto.address,
       dto.discountCode,
+      dto.type,
     );
   }
 
@@ -289,12 +292,24 @@ export class OrdersService {
     paymentMethod?: PaymentMethod,
     deliveryAddress?: string,
     discountCodeInput?: string,
+    orderTypeInput?: OrderType,
   ): Promise<Order> {
     const lineItems = await this.buildLineItems(items);
     const pricing = calculateOrderTotal(lineItems);
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
-    const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
+    const orderType = orderTypeInput ?? (deliveryDateInput ? OrderType.PRE_ORDER : OrderType.IMMEDIATE_DELIVERY);
+    const baseDate = orderType === OrderType.IMMEDIATE_DELIVERY ? new Date() : new Date(deliveryDateInput);
+    let calculatedDeliveryDate = this.getNearestDeliveryDate(baseDate);
+    let systemNotes: string | null = null;
+
+    if (fulfillmentType === OrderFulfillmentType.SCHEDULED) {
+      calculatedDeliveryDate = this.getNextDeliveryDate(calculatedDeliveryDate);
+      systemNotes = "Sản phẩm hết hàng, đơn tự động dời sang ngày giao kế tiếp / Product out of stock, order automatically rescheduled to the next delivery day.";
+      console.log(`[Notification Alert] Sent out-of-stock preorder notification to customer ${customer.name} for rescheduled date: ${calculatedDeliveryDate.toISOString().split("T")[0]}`);
+    }
+
+    const deliveryDate = calculatedDeliveryDate;
 
     // Resolved here (read-only) so validation errors surface before we open
     // a transaction; the actual one-redemption-per-customer CLAIM still
@@ -349,6 +364,8 @@ export class OrdersService {
           paymentStatus: resolvedPaymentStatus,
           status: OrderStatus.PENDING_CONFIRMATION,
           fulfillmentType,
+          type: orderType,
+          systemNotes,
           paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
           deliveryAddress,
           subtotal: Math.round(pricing.lineSubtotal),
@@ -845,6 +862,29 @@ export class OrdersService {
     });
   }
 
+  private getNearestDeliveryDate(baseDate: Date): Date {
+    const date = new Date(baseDate.getTime());
+    // Reset time to 00:00:00.000 for date-only consistency
+    date.setHours(0, 0, 0, 0);
+
+    // Valid days of the week: Monday (1), Wednesday (3), Friday (5), Saturday (6)
+    const validDays = [1, 3, 5, 6];
+    for (let i = 0; i < 7; i++) {
+      const currentDay = date.getDay();
+      if (validDays.includes(currentDay)) {
+        return date;
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return date;
+  }
+
+  private getNextDeliveryDate(baseDate: Date): Date {
+    const date = new Date(baseDate.getTime());
+    date.setDate(date.getDate() + 1); // skip current valid day
+    return this.getNearestDeliveryDate(date);
+  }
+
   private mapOrder(order: OrderWithItemsAndSub): Order {
     return {
       id: order.id,
@@ -854,6 +894,8 @@ export class OrdersService {
       paymentStatus: order.paymentStatus as Order["paymentStatus"],
       status: order.status as Order["status"],
       fulfillmentType: order.fulfillmentType as Order["fulfillmentType"],
+      type: order.type as Order["type"],
+      systemNotes: order.systemNotes ?? undefined,
       paymentMethod: order.paymentMethod as Order["paymentMethod"],
       deliveryAddress: order.deliveryAddress ?? undefined,
       subtotal: order.subtotal,
