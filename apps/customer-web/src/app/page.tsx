@@ -485,6 +485,7 @@ export default function CustomerPortal() {
   // now also reads walletBalance). Drives the WALLET checkout option, the
   // "Buy a Plan" balance display, and the low-balance banner.
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
+  const [accountView, setAccountView] = React.useState<"wallet" | "subscriptions">("wallet");
   // Recurring membership discount from the customer's current
   // SubscriptionPlan (also populated from /customers/me) - applies
   // automatically to every order until planDiscountEndsAt, no code to type.
@@ -3371,7 +3372,23 @@ export default function CustomerPortal() {
                 balance itself never grants autonomous delivery — that's
                 still always the Custom Plan Request flow below. See
                 docs/plan-and-credit-design.md. */}
-            <div className="max-w-3xl mx-auto mb-16 pb-14 border-b border-border/60">
+            <div className="max-w-md mx-auto mb-10 flex bg-card/40 border border-border rounded-full p-1">
+              <button
+                onClick={() => setAccountView("wallet")}
+                className={`flex-1 text-xs font-bold py-2.5 rounded-full transition-all cursor-pointer ${accountView === "wallet" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {lang === "vi" ? "Ví" : "Wallet"}
+              </button>
+              <button
+                onClick={() => setAccountView("subscriptions")}
+                className={`flex-1 text-xs font-bold py-2.5 rounded-full transition-all cursor-pointer ${accountView === "subscriptions" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {lang === "vi" ? "Gói định kỳ" : "Meal subscriptions"}
+              </button>
+            </div>
+
+            {accountView === "wallet" && (
+            <div className="max-w-3xl mx-auto mb-16">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                   {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
@@ -3402,17 +3419,26 @@ export default function CustomerPortal() {
               </div>
 
               {user ? (
-                <div className="max-w-sm mx-auto mb-8 border border-border bg-card rounded-2xl p-5 text-center shadow-sm">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center justify-center gap-1.5">
-                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
-                    {lang === "vi" ? "Số dư ví" : "Wallet balance"}
-                  </span>
-                  <p className="text-2xl font-bold text-primary mt-1.5">{formatVND(walletBalance)}</p>
+                <div className="max-w-md mx-auto mb-8 border border-primary/20 bg-primary/5 rounded-2xl p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-[11px] uppercase font-bold text-primary/70 tracking-wider flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                        {lang === "vi" ? "Số dư ví" : "Wallet balance"}
+                      </span>
+                      <p className="text-3xl font-extrabold text-primary mt-1">{formatVND(walletBalance)}</p>
+                    </div>
+                    {hasActivePlanDiscount && (
+                      <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full whitespace-nowrap">
+                        {lang === "vi" ? `Ưu đãi ${planDiscountPercent}%` : `Member ${planDiscountPercent}% off`}
+                      </span>
+                    )}
+                  </div>
                   {hasActivePlanDiscount && (
-                    <p className="text-[10px] text-primary font-semibold mt-2">
+                    <p className="text-[11px] text-primary/70 mt-3 leading-relaxed">
                       {lang === "vi"
-                        ? `🎁 Đang được giảm ${planDiscountPercent}% mọi đơn hàng đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}.`
-                        : `🎁 You're getting ${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}.`}
+                        ? `Đang giảm ${planDiscountPercent}% mọi đơn đến hết ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")} · dùng cho món lẻ hoặc gói định kỳ.`
+                        : `${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")} · spend on meals or a subscription.`}
                     </p>
                   )}
                 </div>
@@ -3483,7 +3509,10 @@ export default function CustomerPortal() {
                 </div>
               )}
             </div>
+            )}
 
+            {accountView === "subscriptions" && (
+              <>
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
                 {lang === "vi" ? "Gói giao định kỳ của bạn" : "Your meal subscriptions"}
@@ -3783,6 +3812,8 @@ export default function CustomerPortal() {
                 </form>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
 
