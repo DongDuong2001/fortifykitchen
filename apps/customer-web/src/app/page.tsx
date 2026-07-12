@@ -4382,6 +4382,9 @@ export default function CustomerPortal() {
                   }}
                   className="space-y-3 pt-1"
                 >
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    {lang === "vi" ? "Thông tin giao hàng" : "Delivery details"}
+                  </p>
                   {!user && (
                     <div className="grid grid-cols-2 gap-2">
                       <input
@@ -4517,6 +4520,8 @@ export default function CustomerPortal() {
                       </p>
                     )}
                   </div>
+
+                  <div className="border-t border-border/50" />
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
