@@ -569,6 +569,12 @@ export default function CustomerPortal() {
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
+  // Two-step cart drawer: review cart -> checkout details. Reset to "cart"
+  // whenever the drawer closes so it always reopens on the review step.
+  const [checkoutStep, setCheckoutStep] = React.useState<"cart" | "details">("cart");
+  React.useEffect(() => {
+    if (!isCartOpen) setCheckoutStep("cart");
+  }, [isCartOpen]);
   // Checkout failures (e.g. "this discount code has already been used") were
   // previously only surfaced via a global toast, which sits at the same
   // z-index as this cart drawer's own backdrop and could be easy to miss
@@ -4361,9 +4367,9 @@ export default function CustomerPortal() {
                     <span>{t("cart_shipping")}</span>
                     <span>{formatVND(30000)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold border-t border-border/50 pt-2.5">
+                  <div className="flex justify-between items-baseline text-base font-bold border-t border-border/50 pt-2.5">
                     <span>{t("cart_total")}</span>
-                    <span className="text-primary">{formatVND(checkoutFinalTotal)}</span>
+                    <span className="text-primary text-lg">{formatVND(checkoutFinalTotal)}</span>
                   </div>
                 </div>
 
@@ -4378,6 +4384,25 @@ export default function CustomerPortal() {
                   </div>
                 )}
 
+                {checkoutStep === "cart" && (
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutStep("details")}
+                    className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-sm flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 cursor-pointer"
+                  >
+                    {lang === "vi" ? "Tiến hành thanh toán →" : "Checkout →"}
+                  </button>
+                )}
+
+                {checkoutStep === "details" && (
+                  <>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep("cart")}
+                  className="text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+                >
+                  ← {lang === "vi" ? "Quay lại giỏ hàng" : "Back to cart"}
+                </button>
                 {/* Checkout Form */}
                 <form
                   onSubmit={handleCheckout}
@@ -4618,6 +4643,10 @@ export default function CustomerPortal() {
 
                   {checkoutError && <p className="text-[10px] text-red-500 leading-normal font-medium">{checkoutError}</p>}
 
+                  <div className="flex justify-between items-baseline text-sm font-bold pt-1">
+                    <span>{t("cart_total")}</span>
+                    <span className="text-primary text-base">{formatVND(checkoutFinalTotal)}</span>
+                  </div>
                   <button
                     type="submit"
                     disabled={
@@ -4642,6 +4671,8 @@ export default function CustomerPortal() {
                     )}
                   </button>
                 </form>
+                  </>
+                )}
               </div>
             )}
           </div>
