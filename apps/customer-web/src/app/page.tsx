@@ -4,7 +4,7 @@ import * as React from "react";
 import { useApp } from "../providers/app-context";
 import { useToast } from "@fortifykitchen/ui";
 import { MenuItem, Protein } from "@fortifykitchen/types";
-import { getMenuItemLabel, PROTEIN_LABELS, translateApiError } from "@fortifykitchen/shared";
+import { getMenuItemLabel, PROTEIN_LABELS, translateApiError, calculateOrderTotal } from "@fortifykitchen/shared";
 // @ts-expect-error - sub-vn lacks typings
 import { getProvinces, getDistrictsByProvinceCode, getWardsByDistrictCode } from "sub-vn";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -326,6 +326,7 @@ export default function CustomerPortal() {
     removeFromCart,
     updateCartQuantity,
     placeOrder,
+    clearCart,
   } = useApp();
   const { toast } = useToast();
 
@@ -387,7 +388,7 @@ export default function CustomerPortal() {
   const [customOrderQty, setCustomOrderQty] = React.useState<number>(1);
   const [showCheckoutReview, setShowCheckoutReview] = React.useState(false);
 
-  const [checkoutProvince, setCheckoutProvince] = React.useState("");
+  const [checkoutProvince, setCheckoutProvince] = React.useState("79"); // Ho Chi Minh City only
   const [checkoutWard, setCheckoutWard] = React.useState("");
   const [checkoutStreet, setCheckoutStreet] = React.useState("");
   const [checkoutAgreeTerms, setCheckoutAgreeTerms] = React.useState(false);
@@ -562,6 +563,9 @@ export default function CustomerPortal() {
   // Checkout Form State
   const [checkoutAddress, setCheckoutAddress] = React.useState("");
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
+  // Guest checkout (no login) — name + phone collected in the cart drawer.
+  const [checkoutGuestName, setCheckoutGuestName] = React.useState("");
+  const [checkoutGuestPhone, setCheckoutGuestPhone] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
@@ -880,16 +884,29 @@ export default function CustomerPortal() {
   }, [orderNowDiscountCode, API_URL, token, lang]);
 
   const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
-  const planDiscountAmountCart = hasActivePlanDiscount ? (cartTotal * planDiscountPercent) / 100 : 0;
+  // Mirror the server pricing engine so the cart shows the same automatic
+  // discounts it will charge: 10% per-protein for >=1kg, plus order spend
+  // tiers. Without this the cart total wouldn't match the amount charged.
+  const cartPricing = calculateOrderTotal(
+    cart.map((i) => ({
+      menuItemId: i.menuItem.id,
+      protein: i.menuItem.protein as any,
+      flavor: i.menuItem.flavor,
+      sizeGrams: i.menuItem.sizeGrams,
+      unitPrice: i.menuItem.price,
+      qty: i.quantity,
+    })),
+  );
+  const bulkDiscountAmount = Math.max(cartTotal - cartPricing.finalTotal, 0);
+  // Member + typed-code discounts stack on the post-bulk subtotal, matching
+  // OrdersService.createForCustomer.
+  const planDiscountAmountCart = hasActivePlanDiscount ? (cartPricing.lineSubtotal * planDiscountPercent) / 100 : 0;
   const discountCodeAmountRaw = verifiedDiscount
-    ? Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartTotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0)
+    ? Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartPricing.lineSubtotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0)
     : 0;
-  // Both the member discount and a manually-typed code stack additively
-  // (matching the server's OrdersService.createForCustomer), clamped
-  // together so the combined discount can never exceed the subtotal.
-  const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartTotal);
-  const discountCodeAmount = Math.min(discountCodeAmountRaw, cartTotal);
-  const checkoutFinalTotal = cartTotal - combinedDiscountAmount + 30000;
+  const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartPricing.finalTotal);
+  const discountCodeAmount = Math.min(discountCodeAmountRaw, cartPricing.finalTotal);
+  const checkoutFinalTotal = Math.max(cartPricing.finalTotal - combinedDiscountAmount, 0) + 30000;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -936,11 +953,55 @@ export default function CustomerPortal() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCheckoutError(null);
+
+    // Guest checkout — no login required. Posts to the same public endpoint
+    // the storefront uses; the server derives IMMEDIATE vs SCHEDULED
+    // fulfillment from live stock, so a made-to-order item schedules the
+    // whole order ~24h out (the prep notice above sets that expectation).
     if (!user) {
-      setAuthModal("login");
+      if (!checkoutGuestName.trim() || !checkoutGuestPhone.trim()) {
+        setCheckoutError(lang === "vi" ? "Vui lòng nhập tên và số điện thoại." : "Please enter your name and phone number.");
+        return;
+      }
+      setIsSubmittingOrder(true);
+      const guestPayload: any = {
+        name: checkoutGuestName.trim(),
+        phone: checkoutGuestPhone.trim(),
+        address: checkoutAddress.trim() || undefined,
+        notes: checkoutNotes.trim() || undefined,
+        paymentMethod,
+        items: cart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.quantity })),
+      };
+      if (discountCode.trim()) guestPayload.discountCode = discountCode.trim();
+      const guestRes = await fetch(`${API_URL}/orders/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(guestPayload),
+      }).catch(() => null);
+      setIsSubmittingOrder(false);
+      if (!guestRes) {
+        setCheckoutError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+        return;
+      }
+      const guestResult = await guestRes.json().catch(() => null);
+      if (!guestRes.ok) {
+        setCheckoutError(
+          translateApiError(guestResult?.message, lang, lang === "vi" ? "Không thể đặt hàng. Vui lòng thử lại." : "Couldn't place your order. Please try again."),
+        );
+        return;
+      }
+      clearCart();
+      setDiscountCode("");
+      setCheckoutGuestName("");
+      setCheckoutGuestPhone("");
+      setCartOpen(false);
+      // Confirmation screen for both COD and bank transfer; the modal shows
+      // VietQR details only when the order is a bank transfer.
+      setCheckoutResult(guestResult.data ?? guestResult);
       return;
     }
-    setCheckoutError(null);
+
     setIsSubmittingOrder(true);
     const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
@@ -1587,17 +1648,6 @@ export default function CustomerPortal() {
             >
               {t("nav_menu")}
               {activeTab === "menu" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("order-now")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "order-now" ? "text-foreground font-semibold" : "text-secondary"
-              }`}
-            >
-              {t("nav_order")}
-              {activeTab === "order-now" && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
@@ -4217,7 +4267,7 @@ export default function CustomerPortal() {
                   {cart.map((item) => (
                     <div
                       key={item.menuItem.id}
-                      className="flex items-center gap-4 p-3 border border-border bg-card/50 rounded-xl relative"
+                      className="flex items-center gap-4 p-3 border border-border bg-card rounded-xl relative"
                     >
                       <div className="h-16 w-16 bg-muted/40 rounded-lg shrink-0 flex items-center justify-center overflow-hidden border border-border">
                         {item.menuItem.imageUrl ? (
@@ -4227,12 +4277,12 @@ export default function CustomerPortal() {
                             className="object-cover h-full w-full"
                           />
                         ) : (
-                          <FontAwesomeIcon icon={faUtensils} className="h-6 w-6 text-muted-foreground/30" />
+                          <FontAwesomeIcon icon={faUtensils} className="h-6 w-6 text-muted-foreground/60" />
                         )}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-bold text-foreground truncate">{getMenuItemLabel(item.menuItem)}</h4>
+                        <h4 className="text-sm font-bold text-foreground truncate">{getMenuItemLabel(item.menuItem)}</h4>
                         <div className="text-xs text-primary font-bold mt-1">
                           {formatVND(item.menuItem.price)}
                         </div>
@@ -4269,12 +4319,18 @@ export default function CustomerPortal() {
 
             {/* Cart Footer / Checkout Form */}
             {cart.length > 0 && (
-              <div className="p-6 border-t border-border bg-muted/15 space-y-4">
+              <div className="p-5 border-t border-border bg-muted/15 space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{t("cart_subtotal")}</span>
                     <span>{formatVND(cartTotal)}</span>
                   </div>
+                  {bulkDiscountAmount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>{lang === "vi" ? "Ưu đãi mua nhiều" : "Bulk discount"}</span>
+                      <span>-{formatVND(bulkDiscountAmount)}</span>
+                    </div>
+                  )}
                   {hasActivePlanDiscount && (
                     <div className="flex justify-between text-xs font-semibold text-emerald-600">
                       <span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span>
@@ -4324,8 +4380,28 @@ export default function CustomerPortal() {
                       e.preventDefault();
                     }
                   }}
-                  className="space-y-3.5 pt-2"
+                  className="space-y-3 pt-1"
                 >
+                  {!user && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder={lang === "vi" ? "Tên của bạn" : "Your name"}
+                        value={checkoutGuestName}
+                        onChange={(e) => setCheckoutGuestName(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none text-foreground"
+                      />
+                      <input
+                        type="tel"
+                        required
+                        placeholder={lang === "vi" ? "Số điện thoại" : "Phone number"}
+                        value={checkoutGuestPhone}
+                        onChange={(e) => setCheckoutGuestPhone(e.target.value)}
+                        className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none text-foreground"
+                      />
+                    </div>
+                  )}
                   {checkoutAddress && !isEditingAddress ? (
                     <div className="space-y-1 bg-muted/40 p-3 rounded-xl border border-border">
                       <div className="flex justify-between items-start gap-1">
@@ -4351,7 +4427,7 @@ export default function CustomerPortal() {
                   ) : (
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3 w-3" /> {t("cart_address")} (Vietnam)
+                        <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3 w-3" /> {t("cart_address")} · {lang === "vi" ? "TP. Hồ Chí Minh" : "Ho Chi Minh City"}
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <select
@@ -4364,11 +4440,13 @@ export default function CustomerPortal() {
                           className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-2.5 rounded-lg outline-none cursor-pointer text-foreground"
                         >
                           <option value="">{t("cart_province")}</option>
-                          {getProvinces().map((p: any) => (
-                            <option key={p.code} value={p.code}>
-                              {p.name}
-                            </option>
-                          ))}
+                          {getProvinces()
+                            .filter((p: any) => p.code === "79")
+                            .map((p: any) => (
+                              <option key={p.code} value={p.code}>
+                                {p.name}
+                              </option>
+                            ))}
                         </select>
 
                         <select
@@ -4925,7 +5003,7 @@ export default function CustomerPortal() {
           <div className="absolute inset-0 cursor-pointer" onClick={() => {
             setCheckoutResult(null);
             setCartOpen(false);
-            setActiveTab("dashboard");
+            setActiveTab(user ? "dashboard" : "menu");
           }} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
             <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
@@ -4933,11 +5011,16 @@ export default function CustomerPortal() {
               {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {lang === "vi"
-                ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
-                : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
+              {checkoutResult.paymentMethod === "CASH_ON_DELIVERY"
+                ? lang === "vi"
+                  ? `Đơn của bạn đang được chuẩn bị. Chúng tôi sẽ liên hệ xác nhận và giao vào ${new Date(checkoutResult.deliveryDate).toLocaleDateString("vi-VN")}. Thanh toán khi nhận hàng.`
+                  : `Your order is being prepared. We'll contact you to confirm and deliver on ${new Date(checkoutResult.deliveryDate).toLocaleDateString("en-US")}. Pay on delivery.`
+                : lang === "vi"
+                  ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
+                  : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
             </p>
 
+            {checkoutResult.paymentMethod === "BANK_TRANSFER" && (
             <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
               <p className="text-xs font-bold text-foreground text-center">
                 {lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR to Complete Payment"}
@@ -4972,16 +5055,19 @@ export default function CustomerPortal() {
                 </div>
               </div>
             </div>
+            )}
 
             <button
               onClick={() => {
                 setCheckoutResult(null);
                 setCartOpen(false);
-                setActiveTab("dashboard");
+                setActiveTab(user ? "dashboard" : "menu");
               }}
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
             >
-              {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+              {checkoutResult.paymentMethod === "CASH_ON_DELIVERY"
+                ? lang === "vi" ? "Xong" : "Done"
+                : lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
             </button>
           </div>
         </div>
@@ -5095,15 +5181,6 @@ export default function CustomerPortal() {
         >
           <FontAwesomeIcon icon={faUtensils} className="h-4.5 w-4.5" />
           <span className="text-[9px] font-bold">{t("nav_menu")}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("order-now")}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative ${
-            activeTab === "order-now" ? "text-primary" : "text-muted-foreground"
-          }`}
-        >
-          <FontAwesomeIcon icon={faShoppingBag} className="h-4.5 w-4.5" />
-          <span className="text-[9px] font-bold">{t("nav_order")}</span>
         </button>
         <button
           onClick={() => setActiveTab("wallet")}
