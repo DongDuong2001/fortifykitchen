@@ -4249,7 +4249,7 @@ export default function CustomerPortal() {
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setCartOpen(false)} />
-          <div className="relative w-full max-w-md h-full bg-background border-l border-border shadow-2xl flex flex-col justify-between z-10">
+          <div className="relative w-full max-w-md h-full bg-background border-l border-border shadow-2xl flex flex-col z-10">
             {/* Cart Header */}
             <div className="p-6 border-b border-border flex justify-between items-center bg-muted/15">
               <h3 className="text-lg font-bold font-heading flex items-center gap-2">
@@ -4264,8 +4264,9 @@ export default function CustomerPortal() {
               </button>
             </div>
 
-            {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Scrollable content: items/summary + checkout form + action */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-6 space-y-4">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-3">
                   <FontAwesomeIcon icon={faShoppingBag} className="h-12 w-12 text-muted-foreground/30" />
@@ -4679,6 +4680,7 @@ export default function CustomerPortal() {
                 )}
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
