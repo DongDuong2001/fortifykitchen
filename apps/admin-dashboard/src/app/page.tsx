@@ -2098,118 +2098,88 @@ export default function AdminDashboard() {
               {/* SECTION A: DASHBOARD OVERVIEW */}
               {section === "dashboard" && (
                 <div className="space-y-8 animate-in fade-in duration-200">
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: lang === "vi" ? "Tổng doanh thu (VND)" : "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
-                      { label: lang === "vi" ? "Gói hoạt động" : "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
-                      { label: lang === "vi" ? "Tổng khách hàng" : "Total Customers", value: stats.totalCustomers, icon: faUsers },
-                      { label: lang === "vi" ? "Tổng đơn món" : "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
-                    ].map((item, idx) => (
-                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
-                        </div>
-                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </div>
-                    ))}
+                  {/* 1. NEEDS ATTENTION — urgent, actionable, dominant */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Cần xử lý ngay" : "Needs attention now"}
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      {[
+                        { label: lang === "vi" ? "Đơn chờ duyệt" : "Awaiting acceptance", value: stats.ordersAwaitingAcceptance || 0, icon: faShoppingBag, sectionId: "orders", cta: lang === "vi" ? "Duyệt đơn" : "Review orders" },
+                        { label: lang === "vi" ? "Món hết hàng" : "Out of stock", value: (stats.outOfStockItems || []).length, icon: faBox, sectionId: "inventory", cta: lang === "vi" ? "Kiểm kho" : "Check stock" },
+                        { label: lang === "vi" ? "Cảnh báo số dư thấp" : "Low balance alerts", value: lowBalance.totalCount || 0, icon: faCalendarAlt, sectionId: "subscriptions", cta: lang === "vi" ? "Xem gói" : "View plans" },
+                      ].map((item, idx) => {
+                        const urgent = item.value > 0;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setSection(item.sectionId as any)}
+                            className={`text-left rounded-xl p-5 border-2 transition-smooth hover:opacity-95 cursor-pointer flex flex-col justify-between min-h-[120px] ${
+                              urgent ? "border-red-300 bg-red-50" : "border-border bg-card"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <span className={`text-[11px] font-bold uppercase tracking-wider ${urgent ? "text-red-700" : "text-muted-foreground"}`}>{item.label}</span>
+                              <FontAwesomeIcon icon={item.icon} className={`h-4 w-4 ${urgent ? "text-red-500" : "text-muted-foreground/50"}`} />
+                            </div>
+                            <div className="mt-2">
+                              <div className={`text-3xl font-bold font-heading ${urgent ? "text-red-700" : "text-foreground"}`}>{item.value}</div>
+                              <span className={`text-[11px] font-bold ${urgent ? "text-red-600" : "text-primary"}`}>{item.cta} →</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Order-workflow KPIs — needs-attention counters, click through to Orders */}
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      {
-                        label: lang === "vi" ? "Chờ duyệt" : "Awaiting Acceptance",
-                        value: stats.ordersAwaitingAcceptance || 0,
-                        icon: faShoppingBag,
-                        urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
-                        sectionId: "orders",
-                      },
-                      {
-                        label: lang === "vi" ? "Đang chuẩn bị" : "In Preparation",
-                        value: stats.ordersInPreparation || 0,
-                        icon: faUtensils,
-                        sectionId: "orders",
-                      },
-                      {
-                        label: lang === "vi" ? "Món hết hàng" : "Out of Stock Dishes",
-                        value: (stats.outOfStockItems || []).length,
-                        icon: faBox,
-                        urgent: (stats.outOfStockItems || []).length > 0,
-                        sectionId: "inventory",
-                      },
-                      {
-                        label: lang === "vi" ? "Món sắp hết" : "Low Stock Dishes",
-                        value: (stats.lowStockItems || []).length,
-                        icon: faBox,
-                        sectionId: "inventory",
-                      },
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSection(item.sectionId as any)}
-                        className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
-                          item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
-                        }`}
-                      >
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
-                        </div>
-                        <div
-                          className={`p-3 rounded-md border ${
-                            item.urgent
-                              ? "border-amber-300 bg-amber-100 text-amber-700"
-                              : "border-primary/20 bg-primary/10 text-primary"
-                          }`}
+                  {/* 2. OPERATIONS — today & this week */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Vận hành hôm nay & tuần này" : "Operations — today & this week"}
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {[
+                        { label: lang === "vi" ? "Đang chuẩn bị" : "In preparation", value: stats.ordersInPreparation || 0, icon: faUtensils, sectionId: "orders" },
+                        { label: lang === "vi" ? "Món sắp hết" : "Low stock dishes", value: (stats.lowStockItems || []).length, icon: faBox, sectionId: "inventory" },
+                        { label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries this week", value: stats.deliveriesThisWeek || 0, icon: faTruck, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding volume (kg)", value: formatGrams(stats.outstandingVolumeGrams || 0), icon: faTruck, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing depletion", value: stats.subscriptionsNearingDepletion || 0, icon: faUtensils, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes ready now", value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length, icon: faUtensils, sectionId: "inventory" },
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSection(item.sectionId as any)}
+                          className="text-left border border-border bg-card rounded-lg p-4 flex items-center justify-between transition-smooth hover:bg-muted/20 cursor-pointer"
                         >
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</span>
+                            <div className="text-lg font-semibold font-heading">{item.value}</div>
+                          </div>
+                          <FontAwesomeIcon icon={item.icon} className="h-4 w-4 text-muted-foreground/40" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Volume-subscription specific KPIs */}
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      {
-                        label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding Volume (kg)",
-                        value: formatGrams(stats.outstandingVolumeGrams || 0),
-                        icon: faTruck,
-                      },
-                      {
-                        label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing Depletion",
-                        value: stats.subscriptionsNearingDepletion || 0,
-                        icon: faUtensils,
-                      },
-                      {
-                        label: lang === "vi" ? "Đã giao tháng này" : "Delivered This Month",
-                        value: formatGrams(stats.gramsDeliveredThisMonth || 0),
-                        icon: faCalendarAlt,
-                      },
-                      {
-                        label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries This Week",
-                        value: stats.deliveriesThisWeek || 0,
-                        icon: faShoppingBag,
-                      },
-                      {
-                        label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes Ready Now",
-                        value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
-                        icon: faUtensils,
-                      },
-                    ].map((item, idx) => (
-                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
+                  {/* 3. ALL-TIME — small context footer */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Tổng quan" : "All-time"}
+                    </h3>
+                    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { label: lang === "vi" ? "Tổng doanh thu" : "Total revenue", value: formatVND(stats.totalRevenue) },
+                        { label: lang === "vi" ? "Đã giao tháng này" : "Delivered this month", value: formatGrams(stats.gramsDeliveredThisMonth || 0) },
+                        { label: lang === "vi" ? "Gói hoạt động" : "Active subscriptions", value: stats.activeSubscriptions },
+                        { label: lang === "vi" ? "Tổng khách hàng" : "Total customers", value: stats.totalCustomers },
+                        { label: lang === "vi" ? "Tổng đơn món" : "Total food orders", value: stats.totalOrders },
+                      ].map((item, idx) => (
+                        <div key={idx} className="bg-muted/20 rounded-lg px-4 py-3">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{item.label}</span>
+                          <div className="text-sm font-bold font-heading mt-0.5">{item.value}</div>
                         </div>
-                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   {/* Inventory alerts — out-of-stock / low-stock dishes */}
