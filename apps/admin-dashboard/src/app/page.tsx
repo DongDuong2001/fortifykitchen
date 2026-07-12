@@ -481,7 +481,7 @@ export default function AdminDashboard() {
   // OUT_FOR_DELIVERY); moving an order to COMPLETED drops it out of Current
   // and into the Completed tab. Cancelled orders get their own tab too so
   // they don't linger in either working view.
-  const [orderViewTab, setOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
+  const [orderViewTab, setOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
   const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
@@ -489,7 +489,7 @@ export default function AdminDashboard() {
   // <input type="date">. Defaults to today so the Orders view opens showing
   // just what's due today; typing/picking any other date narrows to that
   // exact day; clearing it (via the "Tất cả" button) shows every date.
-  const [orderDateFilter, setOrderDateFilter] = React.useState(getLocalDateString());
+  const [orderDateFilter, setOrderDateFilter] = React.useState(""); // status tabs show all dates by default
   // Extra quick mode alongside the date input — "Sắp tới" (upcoming) shows
   // everything that isn't today (future or overdue), ignoring the specific
   // date picked above. Picking a date (or "Tất cả") switches back to "date".
@@ -1829,23 +1829,21 @@ export default function AdminDashboard() {
   // every Order row (both source: ONE_OFF and source: SUBSCRIPTION, per the
   // unified model) so this list narrows to ONE_OFF; subscription-sourced
   // rows are shown separately below in "Orders from Subscriptions".
-  const filteredOrders = orders
-    .filter((o) => o.source !== "SUBSCRIPTION")
+  const oneOffOrders = orders.filter((o) => o.source !== "SUBSCRIPTION");
+  // Count per status for the tab badges (over all one-off orders).
+  const orderStatusCounts = ORDER_STATUS_OPTIONS.reduce(
+    (acc, s) => ({ ...acc, [s]: oneOffOrders.filter((o) => o.status === s).length }),
+    {} as Record<string, number>,
+  );
+  // One tab per status is the primary filter — an order jumps to its status's
+  // tab the instant staff advance it (handleUpdateOrderStatus refetches).
+  const filteredOrders = oneOffOrders
     .filter((o) => {
-      if (orderViewTab === "completed") return o.status === "COMPLETED";
-      if (orderViewTab === "cancelled") return o.status === "CANCELLED";
-      if (o.status === "COMPLETED" || o.status === "CANCELLED") return false;
-      if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
+      if (orderViewTab !== "ALL" && o.status !== orderViewTab) return false;
       if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
       if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
-      // Brand-new orders awaiting confirmation always surface, regardless of
-      // the date filter — a prep-scheduled order lands on a future delivery
-      // date, and the kitchen must not miss it on the default (today) view.
-      if (o.status === "PENDING_CONFIRMATION") return true;
-      // "Sắp tới" (upcoming) mode ignores the date input and shows
-      // everything not today (future or overdue); otherwise fall back to
-      // the typeable date filter — empty string means "Tất cả" (no date
-      // narrowing), any other value matches only that exact calendar day.
+      // Optional secondary date narrowing (off by default): "upcoming" hides
+      // today; a typed date matches that calendar day only.
       if (orderDateMode === "upcoming") {
         if (isToday(o.deliveryDate)) return false;
       } else if (orderDateFilter && getLocalDateString(new Date(o.deliveryDate)) !== orderDateFilter) {
@@ -2412,65 +2410,52 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Current / Completed / Cancelled — the status dropdown
-                      walks an order through PENDING_CONFIRMATION →
-                      CONFIRMED → PREPARING → OUT_FOR_DELIVERY → COMPLETED;
-                      reaching COMPLETED drops it out of Current into the
-                      Completed tab here. */}
-                  <div className="flex gap-2 border-b border-border">
-                    {(
-                      [
-                        { id: "current", label: "Current" },
-                        { id: "completed", label: "Completed" },
-                        { id: "cancelled", label: "Cancelled" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setOrderViewTab(tab.id)}
-                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
-                          orderViewTab === tab.id
-                            ? "border-primary text-primary"
-                            : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  {/* One tab per order status (plus All). Advancing an order's
+                      status from its row moves it to that status's tab
+                      automatically (loadData refetch -> re-filter). */}
+                  <div className="flex gap-1 border-b border-border overflow-x-auto">
+                    {(["ALL", ...ORDER_STATUS_OPTIONS] as const).map((tabId) => {
+                      const count = tabId === "ALL" ? oneOffOrders.length : orderStatusCounts[tabId] ?? 0;
+                      const label = tabId === "ALL" ? (lang === "vi" ? "Tất cả" : "All") : ORDER_STATUS_LABELS[tabId as OrderStatus];
+                      const active = orderViewTab === tabId;
+                      return (
+                        <button
+                          key={tabId}
+                          onClick={() => setOrderViewTab(tabId)}
+                          className={`px-3 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                            active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                          {count > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Filters — only meaningful within Current, where more
-                      than one status/fulfillment type can be mixed together. */}
-                  {orderViewTab === "current" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={orderSearch}
-                        onChange={(e) => setOrderSearch(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
-                      />
-                      <select
-                        value={orderStatusFilter}
-                        onChange={(e) => setOrderStatusFilter(e.target.value as typeof orderStatusFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All statuses</option>
-                        {ORDER_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={orderFulfillmentFilter}
-                        onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All fulfillment</option>
-                        <option value="IMMEDIATE">Ready Now</option>
-                        <option value="SCHEDULED">Needs Prep</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* Secondary filters — available on every status tab. */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search customer..."
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                    <select
+                      value={orderFulfillmentFilter}
+                      onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">All fulfillment</option>
+                      <option value="IMMEDIATE">Ready Now</option>
+                      <option value="SCHEDULED">Needs Prep</option>
+                    </select>
+                  </div>
 
                   {orderDayGroups.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
