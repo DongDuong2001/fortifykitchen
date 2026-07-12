@@ -4280,7 +4280,7 @@ export default function CustomerPortal() {
                     {t("nav_menu")}
                   </button>
                 </div>
-              ) : (
+              ) : checkoutStep === "cart" ? (
                 <div className="space-y-4">
                   {cart.map((item) => (
                     <div
@@ -4331,6 +4331,10 @@ export default function CustomerPortal() {
                       </button>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground font-medium">
+                  {lang === "vi" ? `${cartCount} món trong giỏ hàng` : `${cartCount} item(s) in your cart`}
                 </div>
               )}
             </div>
