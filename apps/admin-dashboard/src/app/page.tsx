@@ -498,10 +498,10 @@ export default function AdminDashboard() {
   // --- Orders from Subscriptions: its own independent workflow view +
   // filters, separate from the one-off Orders filters above — filtering or
   // switching tabs on one table no longer touches the other.
-  const [subOrderViewTab, setSubOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
+  const [subOrderViewTab, setSubOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
   const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [subOrderSearch, setSubOrderSearch] = React.useState("");
-  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(getLocalDateString());
+  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(""); // status tabs show all dates by default
   const [subOrderDateMode, setSubOrderDateMode] = React.useState<"date" | "upcoming">("date");
 
   // Jump back to page 1 whenever a filter/tab/search change would otherwise
@@ -1864,12 +1864,13 @@ export default function AdminDashboard() {
   // separate from the one-off Orders filters above. Derived from the same
   // `orders` state, narrowed to source: SUBSCRIPTION.
   const subscriptionOrders = orders.filter((o) => o.source === "SUBSCRIPTION");
+  const subOrderStatusCounts = ORDER_STATUS_OPTIONS.reduce(
+    (acc, s) => ({ ...acc, [s]: subscriptionOrders.filter((o) => o.status === s).length }),
+    {} as Record<string, number>,
+  );
   const filteredSubscriptionOrders = subscriptionOrders
     .filter((d) => {
-      if (subOrderViewTab === "completed") return d.status === "COMPLETED";
-      if (subOrderViewTab === "cancelled") return d.status === "CANCELLED";
-      if (d.status === "COMPLETED" || d.status === "CANCELLED") return false;
-      if (subOrderStatusFilter !== "ALL" && d.status !== subOrderStatusFilter) return false;
+      if (subOrderViewTab !== "ALL" && d.status !== subOrderViewTab) return false;
       if (subOrderSearch.trim() && !d.customerName?.toLowerCase().includes(subOrderSearch.trim().toLowerCase())) return false;
       if (subOrderDateMode === "upcoming") {
         if (isToday(d.deliveryDate)) return false;
@@ -2690,49 +2691,39 @@ export default function AdminDashboard() {
                       subscription-generated orders — separate state from
                       the one-off Orders tabs above, so switching one
                       doesn't affect the other. */}
-                  <div className="flex gap-2 border-b border-border">
-                    {(
-                      [
-                        { id: "current", label: "Current" },
-                        { id: "completed", label: "Completed" },
-                        { id: "cancelled", label: "Cancelled" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setSubOrderViewTab(tab.id)}
-                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
-                          subOrderViewTab === tab.id
-                            ? "border-primary text-primary"
-                            : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  <div className="flex gap-1 border-b border-border overflow-x-auto">
+                    {(["ALL", ...ORDER_STATUS_OPTIONS] as const).map((tabId) => {
+                      const count = tabId === "ALL" ? subscriptionOrders.length : subOrderStatusCounts[tabId] ?? 0;
+                      const label = tabId === "ALL" ? (lang === "vi" ? "Tất cả" : "All") : ORDER_STATUS_LABELS[tabId as OrderStatus];
+                      const active = subOrderViewTab === tabId;
+                      return (
+                        <button
+                          key={tabId}
+                          onClick={() => setSubOrderViewTab(tabId)}
+                          className={`px-3 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                            active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                          {count > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {subOrderViewTab === "current" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={subOrderSearch}
-                        onChange={(e) => setSubOrderSearch(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
-                      />
-                      <select
-                        value={subOrderStatusFilter}
-                        onChange={(e) => setSubOrderStatusFilter(e.target.value as typeof subOrderStatusFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All statuses</option>
-                        {ORDER_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search customer..."
+                      value={subOrderSearch}
+                      onChange={(e) => setSubOrderSearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                  </div>
 
                   {subOrderDayGroups.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
