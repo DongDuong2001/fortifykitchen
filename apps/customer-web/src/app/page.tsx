@@ -60,7 +60,7 @@ const DICTIONARY = {
 
     // Menu
     menu_title: "Thực đơn Dinh dưỡng",
-    menu_subtitle: "Thực đơn giàu Protein chuẩn Gourmet được thiết kế bởi đầu bếp chuyên nghiệp để tối ưu mục tiêu dinh dưỡng của bạn.",
+    menu_subtitle: "Bữa ăn giàu protein, macro rõ ràng trên từng nhãn — sous-vide mềm mọng, không bao giờ khô.",
     filter_all: "Tất cả",
     filter_BEEF: "Thịt Bò",
     filter_CHICKEN: "Thịt Gà",
@@ -167,7 +167,7 @@ const DICTIONARY = {
     nav_home: "Home",
     nav_menu: "Menu",
     nav_order: "Order Now",
-    nav_sub: "Subscriptions",
+    nav_sub: "Memberships",
     nav_calculator: "Calculator",
     nav_about: "About Us",
     nav_dashboard: "Dashboard",
@@ -176,7 +176,7 @@ const DICTIONARY = {
 
     // Menu
     menu_title: "Nutritional Menu",
-    menu_subtitle: "Chef-designed, gourmet protein-rich meals optimized for your health and nutrition goals.",
+    menu_subtitle: "High-protein meals with the macros on every label — sous-vide, never dry.",
     filter_all: "All Proteins",
     filter_BEEF: "Beef",
     filter_CHICKEN: "Chicken",
@@ -190,14 +190,14 @@ const DICTIONARY = {
     protein_level: "Protein",
 
     // Subscriptions
-    sub_title: "Protein Pool Subscriptions",
-    sub_subtitle: "Subscribe to recurring plans for bulk protein credit at deep discounts, with flexible weekly meal delivery scheduling.",
+    sub_title: "Protein Memberships",
+    sub_subtitle: "Join a recurring membership for a bulk protein balance at deep discounts, with flexible weekly delivery scheduling.",
     sub_days: "days",
-    sub_credit: "Protein Credit",
-    sub_pricing: "Plan Price",
+    sub_credit: "Protein Balance",
+    sub_pricing: "Membership Price",
     sub_per_kg: "Equivalent to",
     sub_accepts: "COD Accepted",
-    btn_subscribe: "Subscribe Plan",
+    btn_subscribe: "Buy Membership",
     txt_sub_disclaim: "Recurring memberships are manually activated by staff after info verification. Please contact support for assistance.",
 
     // Cart Drawer
@@ -256,7 +256,7 @@ const DICTIONARY = {
     dash_subtitle: "Manage your orders, track active deliveries, and review package balances.",
     dash_orders_title: "Order History",
     dash_orders_empty: "You have no order history yet.",
-    dash_subs_title: "Active Subscriptions",
+    dash_subs_title: "Active Memberships",
     dash_subs_empty: "You have no active memberships.",
     dash_balance: "Protein Balance",
     dash_status: "Status",
@@ -3378,8 +3378,8 @@ export default function CustomerPortal() {
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-xl mx-auto">
                   {lang === "vi"
-                    ? "Mua một gói trả trước để nạp vào Ví Fortify Kitchen và nhận voucher giảm giá. Số dư Ví có thể dùng để thanh toán đơn lẻ hoặc thanh toán trọn gói cho một Subscription do đội ngũ chúng tôi thiết lập."
-                    : "Buy a prepaid tier to top up your Fortify Kitchen wallet and get a discount voucher. Wallet balance can pay for one-off orders, or fund a staff-built Subscription in full."}
+                    ? "Mua một gói trả trước để nạp vào Ví Fortify Kitchen và nhận voucher giảm giá. Số dư Ví có thể dùng để thanh toán đơn lẻ hoặc thanh toán trọn gói cho một gói hội viên do đội ngũ chúng tôi thiết lập."
+                    : "Buy a prepaid tier to top up your Fortify Kitchen wallet and get a discount voucher. Wallet balance can pay for one-off orders, or fund a staff-built membership in full."}
                 </p>
               </div>
 
@@ -3401,7 +3401,7 @@ export default function CustomerPortal() {
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
                   <p className="text-xs text-muted-foreground">
-                    {lang === "vi" ? "Đăng nhập để xem số dư Ví và mua gói." : "Log in to see your wallet balance and buy a plan."}
+                    {lang === "vi" ? "Đăng nhập để xem số dư Ví và mua gói hội viên." : "Log in to see your wallet balance and buy a membership."}
                   </p>
                   <button
                     onClick={() => setAuthModal("login")}
@@ -3456,7 +3456,7 @@ export default function CustomerPortal() {
                         ) : (
                           <>
                             <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
-                            {lang === "vi" ? "Mua gói" : "Buy plan"}
+                            {lang === "vi" ? "Mua gói hội viên" : "Buy Membership"}
                           </>
                         )}
                       </button>
@@ -3468,7 +3468,7 @@ export default function CustomerPortal() {
 
             <div className="text-center max-w-2xl mx-auto mb-10 space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight font-heading">
-                {lang === "vi" ? "Gói đăng ký của bạn" : "Your Subscriptions"}
+                {lang === "vi" ? "Gói hội viên của bạn" : "Your Memberships"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {lang === "vi"
@@ -3626,7 +3626,7 @@ export default function CustomerPortal() {
             <div className="max-w-2xl mx-auto mt-16 pt-12 border-t border-border/60">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl font-extrabold tracking-tight font-heading">
-                  {lang === "vi" ? "Muốn một gói riêng cho bạn?" : "Want a plan tailored to you?"}
+                  {lang === "vi" ? "Muốn một gói riêng cho bạn?" : "Want a membership tailored to you?"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   {lang === "vi"
