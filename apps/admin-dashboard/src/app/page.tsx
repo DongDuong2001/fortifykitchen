@@ -1838,6 +1838,10 @@ export default function AdminDashboard() {
       if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
       if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
       if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
+      // Brand-new orders awaiting confirmation always surface, regardless of
+      // the date filter — a prep-scheduled order lands on a future delivery
+      // date, and the kitchen must not miss it on the default (today) view.
+      if (o.status === "PENDING_CONFIRMATION") return true;
       // "Sắp tới" (upcoming) mode ignores the date input and shows
       // everything not today (future or overdue); otherwise fall back to
       // the typeable date filter — empty string means "Tất cả" (no date
