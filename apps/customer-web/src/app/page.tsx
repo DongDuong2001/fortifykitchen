@@ -566,6 +566,7 @@ export default function CustomerPortal() {
   const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = React.useState(false);
   const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
+  const [showWalletPlans, setShowWalletPlans] = React.useState(false);
   const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
 
   // Pay-from-wallet on an UNPAID/DEPOSIT Subscription — see the phone-lookup
@@ -3500,21 +3501,13 @@ export default function CustomerPortal() {
           <div className="max-w-7xl mx-auto mb-16">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
-                  {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
+                  {lang === "vi" ? "Số dư tài khoản" : "Account Credit"}
                 </h2>
                 <p className="text-sm text-foreground/70 max-w-xl mx-auto">
                   {lang === "vi"
                     ? "Nạp tiền vào Ví Fortify Kitchen để nhận thêm ưu đãi thành viên. Dùng số dư ví để thanh toán đơn lẻ, hoặc cho gói giao định kỳ do đội ngũ chúng tôi thiết lập — vẫn là gà sous vide mềm, giàu đạm bạn đã quen, chỉ rẻ hơn mỗi tuần."
                     : "Top up your Fortify Kitchen wallet to unlock a member discount. Use the balance to pay for one-off meals, or for a recurring meal subscription we set up for you — same tender, high-protein sous vide meals you already love, just cheaper every week."}
                 </p>
-                <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs sm:text-sm font-bold px-4 py-2 rounded-full">
-                  <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    {lang === "vi"
-                      ? "Đặt món nhẹ nhàng thôi, ví sẽ thanh toán giúp bạn, khỏi lo gì hết nha!"
-                      : "Order away, no stress — your wallet's got your back on payment!"}
-                  </span>
-                </div>
               </div>
 
               <div className="max-w-2xl mx-auto mb-8 grid sm:grid-cols-3 gap-3">
@@ -3536,28 +3529,28 @@ export default function CustomerPortal() {
               </div>
 
               {user ? (
-                <div className="max-w-md mx-auto mb-8 border border-primary/20 bg-primary/5 rounded-2xl p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-[11px] uppercase font-bold text-primary tracking-wider flex items-center gap-1.5">
-                        <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
-                        {lang === "vi" ? "Số dư ví" : "Wallet balance"}
-                      </span>
-                      <p className="text-3xl font-extrabold font-heading text-primary mt-1">{formatVND(walletBalance)}</p>
-                    </div>
+                <div className="max-w-2xl mx-auto mb-8 border border-primary/20 bg-primary/5 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[11px] uppercase font-bold text-primary tracking-wider flex items-center gap-1.5">
+                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                      {lang === "vi" ? "Số dư ví hiện tại" : "Current wallet balance"}
+                    </span>
+                    <p className="text-3xl sm:text-4xl font-extrabold font-heading text-primary mt-1">{formatVND(walletBalance)}</p>
                     {hasActivePlanDiscount && (
-                      <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full whitespace-nowrap">
-                        {lang === "vi" ? `Ưu đãi ${planDiscountPercent}%` : `Member ${planDiscountPercent}% off`}
-                      </span>
+                      <p className="text-[11px] text-primary mt-2 leading-relaxed">
+                        {lang === "vi"
+                          ? `Đang giảm ${planDiscountPercent}% mọi đơn đến hết ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")} · dùng cho món lẻ hoặc gói định kỳ.`
+                          : `${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")} · spend on meals or a subscription.`}
+                      </p>
                     )}
                   </div>
-                  {hasActivePlanDiscount && (
-                    <p className="text-[11px] text-primary mt-3 leading-relaxed">
-                      {lang === "vi"
-                        ? `Đang giảm ${planDiscountPercent}% mọi đơn đến hết ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")} · dùng cho món lẻ hoặc gói định kỳ.`
-                        : `${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")} · spend on meals or a subscription.`}
-                    </p>
-                  )}
+                  <button
+                    onClick={() => setShowWalletPlans(true)}
+                    className="shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                    {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
+                  </button>
                 </div>
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-5 px-5 border border-dashed border-border rounded-xl">
@@ -3573,7 +3566,7 @@ export default function CustomerPortal() {
                 </div>
               )}
 
-              {user && hasActivePlanDiscount && (
+              {(!user || showWalletPlans) && user && hasActivePlanDiscount && (
                 <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
                   <p className="text-xs text-amber-700">
                     {lang === "vi"
@@ -3583,7 +3576,7 @@ export default function CustomerPortal() {
                 </div>
               )}
 
-              {isLoadingPlans ? (
+              {(!user || showWalletPlans) && (isLoadingPlans ? (
                 <div className="flex justify-center py-10">
                   <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -3652,7 +3645,7 @@ export default function CustomerPortal() {
                     );
                   })}
                 </div>
-              )}
+              ))}
             </div>
         )}
 
