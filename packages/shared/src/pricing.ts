@@ -166,12 +166,3 @@ export function calculatePoolPricing(
 export function formatVND(amount: number): string {
   return new Intl.NumberFormat("vi-VN").format(Math.round(amount)) + " đ";
 }
-
-/**
- * Format grams as human-readable string (kg if >= 1000, else g).
- * Used for displaying protein pool weights.
- */
-export function formatGrams(grams: number): string {
-  if (grams >= 1000) return `${(grams / 1000).toFixed(1)} kg`;
-  return `${grams}g`;
-}

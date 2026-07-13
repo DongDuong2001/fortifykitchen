@@ -1,12 +1,14 @@
-import type { OrderStatus, OrderFulfillmentType, PaymentState, Protein, CustomPlanRequestStatus } from "@fortifykitchen/types";
+import type { OrderStatus, OrderFulfillmentType, PaymentState, Protein } from "@fortifykitchen/types";
 
+/**
+ * Protein display names (Vietnamese) — ported from the original app's
+ * src/lib/menuData.js.
+ */
 export const PROTEIN_LABELS: Record<Protein, string> = {
   CHICKEN: "Gà",
   BEEF: "Bò",
   SHRIMP: "Tôm",
 };
-
-export const PROTEIN_OPTIONS: Protein[] = ["CHICKEN", "BEEF", "SHRIMP"];
 
 /**
  * Human display label for a menu item / line item, e.g. "Gà xá xíu (150g)".
@@ -32,7 +34,6 @@ export const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
 };
 
 export const PAYMENT_STATES: PaymentState[] = ["UNPAID", "DEPOSIT", "PAID"];
-export const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
 
 /**
  * Unified order status labels (Vietnamese) — shared by one-off orders and
@@ -57,15 +58,6 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "CANCELLED",
 ];
 
-export const ORDER_STATUS_OPTIONS = [
-  "PENDING_CONFIRMATION",
-  "CONFIRMED",
-  "PREPARING",
-  "OUT_FOR_DELIVERY",
-  "COMPLETED",
-  "CANCELLED",
-] as const;
-
 // Statuses that still count as "in flight" — not yet finished and not
 // cancelled. Used to scope the admin "current" view and the customer-web
 // "upcoming" list.
@@ -84,28 +76,6 @@ export const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
 export const FULFILLMENT_TYPE_LABELS: Record<OrderFulfillmentType, string> = {
   IMMEDIATE: "Có sẵn — giao ngay",
   SCHEDULED: "Cần chuẩn bị",
-};
-
-export const ORDER_FULFILLMENT_TYPE_LABELS = FULFILLMENT_TYPE_LABELS;
-
-/**
- * Custom Plan Request lifecycle — customer submits (PENDING), staff
- * consults and either annotates it (REVIEWED), links it to a real
- * Subscription (MATCHED — set automatically when a Subscription is created
- * with this request's id), or turns it down (DECLINED).
- */
-export const CUSTOM_PLAN_REQUEST_STATUS_OPTIONS: CustomPlanRequestStatus[] = ["PENDING", "REVIEWED", "MATCHED", "DECLINED"];
-export const CUSTOM_PLAN_REQUEST_STATUS_LABELS: Record<CustomPlanRequestStatus, string> = {
-  PENDING: "Chờ tư vấn",
-  REVIEWED: "Đã xem xét",
-  MATCHED: "Đã ghép gói",
-  DECLINED: "Từ chối",
-};
-export const CUSTOM_PLAN_REQUEST_STATUS_BADGE_CLASS: Record<CustomPlanRequestStatus, string> = {
-  PENDING: "bg-amber-50 text-amber-700 border-amber-200",
-  REVIEWED: "bg-blue-50 text-blue-700 border-blue-200",
-  MATCHED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  DECLINED: "bg-red-50 text-red-700 border-red-200",
 };
 
 /**
@@ -220,6 +190,15 @@ export function computeScheduleEndDate(
 // ---------------------------------------------------------------------
 
 export const DELIVERY_AMOUNT_PRESETS_GRAMS = [500, 1000, 2000, 3000, 5000] as const;
+
+/** "1.5kg" / "500g" — used anywhere a gram amount needs a compact display. */
+export function formatGrams(grams: number): string {
+  if (grams >= 1000) {
+    const kg = grams / 1000;
+    return `${Number.isInteger(kg) ? kg : kg.toFixed(1)}kg`;
+  }
+  return `${grams}g`;
+}
 
 export interface VolumeScheduleEntry {
   index: number;
