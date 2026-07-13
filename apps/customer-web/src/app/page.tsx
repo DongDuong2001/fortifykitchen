@@ -3554,7 +3554,7 @@ export default function CustomerPortal() {
                         <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
                         {lang === "vi" ? "Số dư ví" : "Wallet balance"}
                       </span>
-                      <p className="text-3xl font-extrabold text-primary mt-1">{formatVND(walletBalance)}</p>
+                      <p className="text-3xl font-extrabold font-heading text-primary mt-1">{formatVND(walletBalance)}</p>
                     </div>
                     {hasActivePlanDiscount && (
                       <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full whitespace-nowrap">
@@ -3627,12 +3627,12 @@ export default function CustomerPortal() {
                         <div className="flex justify-between items-start gap-2">
                           <h4 className="text-base font-bold font-heading">{plan.name}</h4>
                           {plan.voucherPercent > 0 && (
-                            <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                            <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 shrink-0">
                               {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
                             </span>
                           )}
                         </div>
-                        <p className="text-2xl font-extrabold text-primary">{formatVND(plan.price)}</p>
+                        <p className="text-2xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
                         <ul className="space-y-2.5 flex-1">
                           {benefits.map((b, i) => (
                             <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
