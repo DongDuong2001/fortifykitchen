@@ -319,13 +319,6 @@ const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
 function getPlanBenefits(voucherPercent: number, lang: "vi" | "en"): { icon: typeof faWallet; text: string }[] {
   const benefits: { icon: typeof faWallet; text: string }[] = [
     {
-      icon: faWallet,
-      text:
-        lang === "vi"
-          ? "Nạp bao nhiêu là có bấy nhiêu trong ví, dùng thoải mái cho mọi đơn hàng."
-          : "Top up any amount and get the exact same credit in your wallet to spend however you like.",
-    },
-    {
       icon: faTag,
       text:
         lang === "vi"
@@ -3526,6 +3519,14 @@ export default function CustomerPortal() {
                     ? "Nạp tiền vào Ví Fortify Kitchen để nhận thêm ưu đãi thành viên. Dùng số dư ví để thanh toán đơn lẻ, hoặc cho gói giao định kỳ do đội ngũ chúng tôi thiết lập — vẫn là gà sous vide mềm, giàu đạm bạn đã quen, chỉ rẻ hơn mỗi tuần."
                     : "Top up your Fortify Kitchen wallet to unlock a member discount. Use the balance to pay for one-off meals, or for a recurring meal subscription we set up for you — same tender, high-protein sous vide meals you already love, just cheaper every week."}
                 </p>
+                <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs sm:text-sm font-bold px-4 py-2 rounded-full">
+                  <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {lang === "vi"
+                      ? "Đặt món nhẹ nhàng thôi, ví sẽ thanh toán giúp bạn, khỏi lo gì hết nha!"
+                      : "Order away, no stress — your wallet's got your back on payment!"}
+                  </span>
+                </div>
               </div>
 
               <div className="max-w-2xl mx-auto mb-8 grid sm:grid-cols-3 gap-3">
