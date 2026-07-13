@@ -459,6 +459,13 @@ export default function CustomerPortal() {
   const [checkoutAgreeTerms, setCheckoutAgreeTerms] = React.useState(false);
   const [isEditingAddress, setIsEditingAddress] = React.useState(false);
   const [checkoutResult, setCheckoutResult] = React.useState<any | null>(null);
+  // Bank-transfer confirmations kept fading away with no acknowledgment when
+  // the button just closed the modal like every other case — a toast there
+  // gets lost behind the modal's own closing animation + tab switch (same
+  // lesson learned repeatedly this session: toasts alone are too easy to
+  // miss). Instead, clicking "I have transferred" swaps this same modal to
+  // a persistent thank-you state that the customer has to explicitly close.
+  const [bankTransferAcked, setBankTransferAcked] = React.useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
   const [signupAgreeTerms, setSignupAgreeTerms] = React.useState(false);
 
@@ -1086,6 +1093,7 @@ export default function CustomerPortal() {
       setCartOpen(false);
       // Confirmation screen for both COD and bank transfer; the modal shows
       // VietQR details only when the order is a bank transfer.
+      setBankTransferAcked(false);
       setCheckoutResult(guestResult.data ?? guestResult);
       return;
     }
@@ -1117,6 +1125,7 @@ export default function CustomerPortal() {
       // cart/tab just silently changed underneath them. The modal itself
       // closes to cartOpen=false + activeTab="dashboard" on dismiss, so no
       // extra navigation is needed here.
+      setBankTransferAcked(false);
       setCheckoutResult(result);
     }
   };
@@ -5266,93 +5275,115 @@ export default function CustomerPortal() {
           <div className="absolute inset-0 cursor-pointer" onClick={() => {
             setCheckoutResult(null);
             setCartOpen(false);
+            setBankTransferAcked(false);
             setActiveTab(user ? "dashboard" : "menu");
           }} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
-            <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
-            <h3 className="text-base font-bold font-heading">
-              {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {checkoutResult.paymentMethod === "CASH_ON_DELIVERY"
-                ? lang === "vi"
-                  ? `Đơn của bạn đang được chuẩn bị. Chúng tôi sẽ liên hệ xác nhận và giao vào ${new Date(checkoutResult.deliveryDate).toLocaleDateString("vi-VN")}. Thanh toán khi nhận hàng.`
-                  : `Your order is being prepared. We'll contact you to confirm and deliver on ${new Date(checkoutResult.deliveryDate).toLocaleDateString("en-US")}. Pay on delivery.`
-                : checkoutResult.paymentMethod === "WALLET"
-                  ? lang === "vi"
-                    ? "Đã thanh toán bằng số dư Ví — đơn hàng của bạn đang được chuẩn bị."
-                    : "Paid from your wallet balance — your order is being prepared."
-                  : lang === "vi"
-                    ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
-                    : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
-            </p>
+            {checkoutResult.paymentMethod === "BANK_TRANSFER" && bankTransferAcked ? (
+              // Persistent thank-you state, swapped in after the customer
+              // explicitly confirms they've sent the money — a toast here
+              // faded away unnoticed behind the modal's own closing
+              // animation + tab switch (same lesson learned repeatedly this
+              // session), so this stays on screen until they dismiss it.
+              <>
+                <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
+                <h3 className="text-base font-bold font-heading">
+                  {lang === "vi" ? "Đã ghi nhận!" : "Got it, thanks!"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {lang === "vi"
+                    ? "Chúng tôi sẽ xác nhận giao dịch chuyển khoản và liên hệ khi đơn hàng được duyệt."
+                    : "We'll confirm the transfer and reach out once your order is approved."}
+                </p>
+                <button
+                  onClick={() => {
+                    setCheckoutResult(null);
+                    setCartOpen(false);
+                    setBankTransferAcked(false);
+                    setActiveTab(user ? "dashboard" : "menu");
+                  }}
+                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                >
+                  {lang === "vi" ? "Đóng" : "Close"}
+                </button>
+              </>
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
+                <h3 className="text-base font-bold font-heading">
+                  {lang === "vi" ? "Đặt hàng thành công!" : "Order Placed Successfully!"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {checkoutResult.paymentMethod === "CASH_ON_DELIVERY"
+                    ? lang === "vi"
+                      ? `Đơn của bạn đang được chuẩn bị. Chúng tôi sẽ liên hệ xác nhận và giao vào ${new Date(checkoutResult.deliveryDate).toLocaleDateString("vi-VN")}. Thanh toán khi nhận hàng.`
+                      : `Your order is being prepared. We'll contact you to confirm and deliver on ${new Date(checkoutResult.deliveryDate).toLocaleDateString("en-US")}. Pay on delivery.`
+                    : checkoutResult.paymentMethod === "WALLET"
+                      ? lang === "vi"
+                        ? "Đã thanh toán bằng số dư Ví — đơn hàng của bạn đang được chuẩn bị."
+                        : "Paid from your wallet balance — your order is being prepared."
+                      : lang === "vi"
+                        ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
+                        : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
+                </p>
 
-            {checkoutResult.paymentMethod === "BANK_TRANSFER" && (
-            <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
-              <p className="text-xs font-bold text-foreground text-center">
-                {lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR to Complete Payment"}
-              </p>
-              <div className="bg-white p-2 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
-                <img
-                  src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${checkoutResult.total}&addInfo=FK${checkoutResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
-                  alt="VietQR Payment Code"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="text-[11px] space-y-1 text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Ngân hàng:" : "Bank:"}</span>
-                  <span className="font-bold text-foreground">MB Bank</span>
+                {checkoutResult.paymentMethod === "BANK_TRANSFER" && (
+                <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
+                  <p className="text-xs font-bold text-foreground text-center">
+                    {lang === "vi" ? "Quét mã VietQR để thanh toán" : "Scan VietQR to Complete Payment"}
+                  </p>
+                  <div className="bg-white p-2 rounded-lg border border-border w-40 h-40 mx-auto flex items-center justify-center">
+                    <img
+                      src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${checkoutResult.total}&addInfo=FK${checkoutResult.id.slice(0, 8)}&accountName=FORTIFY%20KITCHEN`}
+                      alt="VietQR Payment Code"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="text-[11px] space-y-1 text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>{lang === "vi" ? "Ngân hàng:" : "Bank:"}</span>
+                      <span className="font-bold text-foreground">MB Bank</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{lang === "vi" ? "Số tài khoản:" : "Account Number:"}</span>
+                      <span className="font-bold text-foreground font-mono">19035678901234</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{lang === "vi" ? "Chủ tài khoản:" : "Account Holder:"}</span>
+                      <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{lang === "vi" ? "Số tiền:" : "Amount:"}</span>
+                      <span className="font-bold text-primary font-mono">{formatVND(checkoutResult.total)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{lang === "vi" ? "Nội dung chuyển khoản:" : "Transfer Reference:"}</span>
+                      <span className="font-bold text-primary font-mono">FK{checkoutResult.id.slice(0, 8).toUpperCase()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Số tài khoản:" : "Account Number:"}</span>
-                  <span className="font-bold text-foreground font-mono">19035678901234</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Chủ tài khoản:" : "Account Holder:"}</span>
-                  <span className="font-bold text-foreground uppercase">FORTIFY KITCHEN</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Số tiền:" : "Amount:"}</span>
-                  <span className="font-bold text-primary font-mono">{formatVND(checkoutResult.total)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{lang === "vi" ? "Nội dung chuyển khoản:" : "Transfer Reference:"}</span>
-                  <span className="font-bold text-primary font-mono">FK{checkoutResult.id.slice(0, 8).toUpperCase()}</span>
-                </div>
-              </div>
-            </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    if (checkoutResult.paymentMethod === "BANK_TRANSFER") {
+                      // Swap to the persistent thank-you state instead of
+                      // closing outright — see note above.
+                      setBankTransferAcked(true);
+                      return;
+                    }
+                    setCheckoutResult(null);
+                    setCartOpen(false);
+                    setActiveTab(user ? "dashboard" : "menu");
+                  }}
+                  className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+                >
+                  {checkoutResult.paymentMethod === "BANK_TRANSFER"
+                    ? lang === "vi" ? "Tôi đã chuyển khoản" : "I have transferred"
+                    : lang === "vi" ? "Xong" : "Done"}
+                </button>
+              </>
             )}
-
-            <button
-              onClick={() => {
-                // The bank-transfer button is an explicit "I've sent the
-                // money" acknowledgment, not just a dismiss — closing the
-                // modal silently on that click read as if nothing happened.
-                // Give it its own closing confirmation, same spirit as the
-                // COD/Wallet cases where the modal itself already said
-                // enough. Backdrop-click dismissal stays silent since that's
-                // an accidental-close path, not a confirmation.
-                if (checkoutResult?.paymentMethod === "BANK_TRANSFER") {
-                  toast({
-                    title: lang === "vi" ? "Đã ghi nhận!" : "Got it, thanks!",
-                    description:
-                      lang === "vi"
-                        ? "Chúng tôi sẽ xác nhận giao dịch và liên hệ khi đơn hàng được duyệt."
-                        : "We'll confirm the transfer and reach out once your order is approved.",
-                    type: "success",
-                  });
-                }
-                setCheckoutResult(null);
-                setCartOpen(false);
-                setActiveTab(user ? "dashboard" : "menu");
-              }}
-              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
-            >
-              {checkoutResult.paymentMethod === "BANK_TRANSFER"
-                ? lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"
-                : lang === "vi" ? "Xong" : "Done"}
-            </button>
           </div>
         </div>
       )}
