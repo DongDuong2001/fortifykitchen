@@ -631,7 +631,6 @@ export default function CustomerPortal() {
   const [signupLast, setSignupLast] = React.useState("");
   const [signupPhone, setSignupPhone] = React.useState("");
   const [signupAddress, setSignupAddress] = React.useState("");
-  const signupCity = "Ho Chi Minh City";
 
   // Checkout Form State
   const [checkoutAddress, setCheckoutAddress] = React.useState("");
@@ -1018,8 +1017,6 @@ export default function CustomerPortal() {
         lastName: signupLast,
         phone: signupPhone,
         address: signupAddress,
-        city: signupCity,
-        postalCode: "70000",
       },
       lang,
     );
