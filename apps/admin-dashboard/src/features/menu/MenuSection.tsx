@@ -256,7 +256,7 @@ export default function MenuSection({
                       <div className="flex items-start justify-between">
                         <div className="min-w-0">
                           <p className="font-bold text-sm truncate">{item.flavor}</p>
-                          <p className="text-[10px] text-muted-foreground">{PROTEIN_LABELS[item.protein]} · {item.sizeGrams}g</p>
+                          <p className="text-[10px] text-muted-foreground">{PROTEIN_LABELS[item.protein as Protein]} · {item.sizeGrams}g</p>
                         </div>
                         <span className="text-xs font-bold text-primary shrink-0">{formatVND(item.price)}</span>
                       </div>

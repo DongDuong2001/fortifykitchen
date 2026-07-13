@@ -13,8 +13,8 @@ interface AuthModalProps {
   lang: "vi" | "en";
   authModal: "login" | "signup" | null;
   setAuthModal: (modal: "login" | "signup" | null) => void;
-  login: (email: string, password: string, lang: "vi" | "en") => Promise<boolean>;
-  signup: (data: any, lang: "vi" | "en") => Promise<boolean>;
+  login: (email: string, password: string, lang: "vi" | "en") => Promise<{ success: boolean; message?: string }>;
+  signup: (data: any, lang: "vi" | "en") => Promise<{ success: boolean; message?: string }>;
 }
 
 export default function AuthModal({ lang, authModal, setAuthModal, login, signup }: AuthModalProps) {

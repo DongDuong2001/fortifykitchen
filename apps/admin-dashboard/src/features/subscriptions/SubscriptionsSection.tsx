@@ -4,7 +4,7 @@ import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrashAlt, faCheck, faTimes, faChevronDown, faChevronUp, faBox, faTruck, faCalendarAlt, faUtensils, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { PROTEIN_LABELS, formatGrams, formatVND, formatIntervalLabel, ORDER_STATUS_LABELS, PAYMENT_STATE_OPTIONS, DELIVERY_AMOUNT_PRESETS_GRAMS, DELIVERY_FREQUENCY_PRESETS, calculatePoolPricing } from '@fortifykitchen/shared';
-import type { Protein, PaymentState, SubscriptionStatus } from '@fortifykitchen/types';
+import type { Protein, PaymentState } from '@fortifykitchen/types';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage } from '@/lib/menu-utils';
@@ -581,7 +581,7 @@ export default function SubscriptionsSection({
                   <div key={d.id} className="border border-border rounded-lg p-3 text-xs space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="font-bold">{new Date(d.deliveryDate).toLocaleDateString('vi-VN')}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-muted">{ORDER_STATUS_LABELS[d.status as string] || d.status}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-muted">{ORDER_STATUS_LABELS[d.status as import('@fortifykitchen/types').OrderStatus] || d.status}</span>
                     </div>
                     <div className="text-muted-foreground">
                       {d.items.map((i: any) => `${PROTEIN_LABELS[i.protein as Protein] || i.protein} ${i.flavor} (${i.sizeGrams}g) ×${i.qty}`).join(', ')}

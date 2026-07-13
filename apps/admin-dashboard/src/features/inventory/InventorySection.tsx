@@ -56,6 +56,8 @@ export default function InventorySection({
 }: Props) {
   const { toast } = useToast();
 
+  const [localPages, setLocalPages] = React.useState<Record<string, number>>({});
+
   const authHeaders = React.useCallback(() => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
@@ -150,7 +152,7 @@ export default function InventorySection({
               });
 
             const itemsTotalPages = Math.ceil(items.length / PAGE_SIZE) || 1;
-            const itemsPage = clampPage(inventoryPageByProtein[protein] ?? 1, itemsTotalPages);
+            const itemsPage = clampPage(localPages[protein] || 1, itemsTotalPages);
             const pagedItems = paginate(items, itemsPage, PAGE_SIZE);
 
             return (
@@ -203,11 +205,15 @@ export default function InventorySection({
                     </table>
                   </div>
                   <PaginationControls
-                    page={itemsPage}
+                    page={localPages[protein] || 1}
                     totalPages={itemsTotalPages}
                     totalItems={items.length}
                     pageSize={PAGE_SIZE}
-                    onChange={(p) => setInventoryPageByProtein((prev) => ({ ...prev, [protein]: p }))}
+                    onChange={(p) => {
+                      const next = { ...inventoryPageByProtein, [protein]: p } as Record<string, number>;
+                      setLocalPages(next);
+                      setInventoryPageByProtein(next);
+                    }}
                   />
                 </div>
               </div>

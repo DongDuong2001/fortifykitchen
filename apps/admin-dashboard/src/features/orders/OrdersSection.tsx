@@ -283,7 +283,7 @@ export default function OrdersSection({
     </span>
   );
 
-  const renderOrderRow = (o: any, isSubOrder = false) => (
+  const renderOrderRow = (o: any, _index?: number) => (
     <tr key={o.id} className="border-b border-border/20 last:border-0 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => setOrderDetailView(o)}>
       <td className="py-3.5 font-bold">{o.customerName}</td>
       <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
