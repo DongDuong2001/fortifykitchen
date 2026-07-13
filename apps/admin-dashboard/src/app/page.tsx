@@ -2575,6 +2575,7 @@ export default function AdminDashboard() {
                                   <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
                                     {o.deliveryAddress && <span>📍 {o.deliveryAddress}</span>}
                                     <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                    {o.createdAt && <span>🕐 Đặt lúc {new Date(o.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span>}
                                   </div>
                                 </div>
                                 <span className="font-bold text-primary">{formatVND(o.total)}</span>
@@ -2665,6 +2666,7 @@ export default function AdminDashboard() {
                                     <div className="text-[10px] text-muted-foreground flex flex-col gap-0.5 mt-1">
                                       {o.deliveryAddress && <span className="truncate max-w-[200px]" title={o.deliveryAddress}>📍 {o.deliveryAddress}</span>}
                                       <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                      {o.createdAt && <span>🕐 Đặt lúc {new Date(o.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span>}
                                     </div>
                                     {o.notes && <div className="text-[10px] text-primary italic truncate mt-1.5">&quot;{o.notes}&quot;</div>}
                                   </td>
@@ -2844,6 +2846,11 @@ export default function AdminDashboard() {
                                 <tr key={d.id} className="border-b border-border/20 last:border-0 align-top">
                                   <td className="py-4">
                                     <div className="font-bold">{d.customerName}</div>
+                                    {d.createdAt && (
+                                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        🕐 Đặt lúc {new Date(d.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="py-4 text-primary font-semibold">{d.packageName}</td>
                                   <td className="py-4  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
@@ -2942,12 +2949,10 @@ export default function AdminDashboard() {
                             </span>
                             <span className="font-bold text-primary">{formatVND(c.walletBalance || 0)}</span>
                           </div>
-                          {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() && (
+                          {c.planDiscountPercent > 0 && c.walletBalance > 0 && (
                             <div className="flex items-center justify-between text-[11px] bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
                               <span className="font-semibold text-foreground">Ưu đãi gói:</span>
-                              <span className="font-bold text-emerald-700">
-                                {c.planDiscountPercent}% — đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
-                              </span>
+                              <span className="font-bold text-emerald-700">-{c.planDiscountPercent}% mọi đơn (đến khi hết ví)</span>
                             </div>
                           )}
                         </div>
@@ -2956,36 +2961,34 @@ export default function AdminDashboard() {
 
                     {/* Desktop table view */}
                     <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-xs text-left">
+                      <table className="w-full text-xs text-left border-separate border-spacing-0">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                            <th className="pb-3 font-semibold">Tên</th>
-                            <th className="pb-3 font-semibold">SĐT</th>
-                            <th className="pb-3 font-semibold">Zalo</th>
-                            <th className="pb-3 font-semibold">Địa chỉ</th>
-                            <th className="pb-3 font-semibold text-right">Số dư ví</th>
-                            <th className="pb-3 font-semibold">Ưu đãi gói</th>
-                            <th className="pb-3 font-semibold text-center">Actions</th>
+                            <th className="pb-3 pr-4 font-semibold">Tên</th>
+                            <th className="pb-3 pr-4 font-semibold">SĐT</th>
+                            <th className="pb-3 pr-4 font-semibold">Zalo</th>
+                            <th className="pb-3 pr-4 font-semibold">Địa chỉ</th>
+                            <th className="pb-3 pr-4 font-semibold text-right whitespace-nowrap">Số dư ví</th>
+                            <th className="pb-3 pr-4 font-semibold whitespace-nowrap">Ưu đãi gói</th>
+                            <th className="pb-3 pl-4 font-semibold text-center">Thao tác</th>
                           </tr>
                         </thead>
                         <tbody>
                           {paginate(customers, clampPage(customersPage, Math.ceil(customers.length / PAGE_SIZE) || 1), PAGE_SIZE).map((c) => (
                             <tr key={c.id} className="border-b border-border/20 last:border-0">
-                              <td className="py-3.5 font-bold">{c.name}</td>
-                              <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
-                              <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
-                              <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
-                              <td className="py-3.5 text-right font-bold text-primary">{formatVND(c.walletBalance || 0)}</td>
-                              <td className="py-3.5">
-                                {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() ? (
-                                  <span className="font-bold text-emerald-700">
-                                    {c.planDiscountPercent}% đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
-                                  </span>
+                              <td className="py-3.5 pr-4 font-bold">{c.name}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground whitespace-nowrap">{c.phone || "—"}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground whitespace-nowrap">{c.zalo || "—"}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
+                              <td className="py-3.5 pr-4 text-right font-bold text-primary whitespace-nowrap">{formatVND(c.walletBalance || 0)}</td>
+                              <td className="py-3.5 pr-4 whitespace-nowrap">
+                                {c.planDiscountPercent > 0 && c.walletBalance > 0 ? (
+                                  <span className="font-bold text-emerald-700">-{c.planDiscountPercent}% (đến khi hết ví)</span>
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
                                 )}
                               </td>
-                              <td className="py-3.5">
+                              <td className="py-3.5 pl-4">
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => handleEditCustomerTrigger(c)}

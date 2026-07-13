@@ -587,10 +587,12 @@ export default function CustomerPortal() {
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
   // Recurring membership discount from the customer's current
   // SubscriptionPlan (also populated from /customers/me) - applies
-  // automatically to every order until planDiscountEndsAt, no code to type.
-  // Replaces the earlier single-use plan-purchase voucher entirely.
+  // automatically to every order, no code to type. Indefinite by design —
+  // NOT time-limited, stays in effect for as long as walletBalance > 0 and
+  // naturally stops once that credit is spent down to zero (see
+  // hasActivePlanDiscount below). Replaces the earlier single-use
+  // plan-purchase voucher entirely.
   const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
-  const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
 
   // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
   // top-up (see docs/plan-and-credit-design.md). Public to browse, login
@@ -854,7 +856,6 @@ export default function CustomerPortal() {
             setCheckoutAddress(result.data.address);
             setWalletBalance(result.data.walletBalance ?? 0);
             setPlanDiscountPercent(result.data.planDiscountPercent ?? 0);
-            setPlanDiscountEndsAt(result.data.planDiscountEndsAt ?? null);
           }
         })
         .catch(console.error);
@@ -862,7 +863,6 @@ export default function CustomerPortal() {
     } else {
       setWalletBalance(0);
       setPlanDiscountPercent(0);
-      setPlanDiscountEndsAt(null);
       setMyUpgradeRequests([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1017,7 +1017,11 @@ export default function CustomerPortal() {
     return () => clearTimeout(timer);
   }, [orderNowDiscountCode, API_URL, token, lang]);
 
-  const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
+  // Indefinite by design — no expiry date. Stays active for as long as the
+  // wallet still holds credit from that plan purchase; once walletBalance
+  // is spent down to 0 the discount naturally stops applying (matches the
+  // API's OrdersService.hasActivePlanDiscount / purchase() guard).
+  const hasActivePlanDiscount = planDiscountPercent > 0 && walletBalance > 0;
   // Mirror the server pricing engine so the cart shows the same automatic
   // discounts it will charge: 10% per-protein for >=1kg, plus order spend
   // tiers. Without this the cart total wouldn't match the amount charged.
@@ -3688,8 +3692,8 @@ export default function CustomerPortal() {
                     {hasActivePlanDiscount && (
                       <p className="text-[11px] text-primary mt-2 leading-relaxed">
                         {lang === "vi"
-                          ? `Đang giảm ${planDiscountPercent}% mọi đơn đến hết ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")} · dùng cho món lẻ hoặc gói định kỳ.`
-                          : `${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")} · spend on meals or a subscription.`}
+                          ? `Đang giảm ${planDiscountPercent}% mọi đơn — áp dụng đến khi hết số dư ví · dùng cho món lẻ hoặc gói định kỳ.`
+                          : `${planDiscountPercent}% off every order — applies until your wallet balance runs out · spend on meals or a subscription.`}
                       </p>
                     )}
                   </div>
@@ -3719,8 +3723,8 @@ export default function CustomerPortal() {
                 <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
                   <p className="text-xs text-amber-700">
                     {lang === "vi"
-                      ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước hạn.`
-                      : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Please contact our team if you'd like to upgrade early.`}
+                      ? "Bạn đang có ưu đãi từ gói hiện tại. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước khi hết số dư ví."
+                      : "You already have an active plan discount. Please contact our team if you'd like to upgrade before your wallet balance runs out."}
                   </p>
                 </div>
               )}
@@ -3840,8 +3844,8 @@ export default function CustomerPortal() {
                       <div className="text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
                         <p className="text-xs text-amber-700">
                           {lang === "vi"
-                            ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Chọn gói bạn muốn nâng cấp lên bên dưới — đội ngũ chúng tôi sẽ xem xét yêu cầu.`
-                            : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Pick the tier you'd like to move to below — our team will review your request.`}
+                            ? `Bạn đang có ưu đãi từ gói hiện tại (còn ${formatVND(walletBalance)} trong ví). Chọn gói bạn muốn nâng cấp lên bên dưới — số dư hiện tại sẽ được trừ vào gói mới, bạn chỉ cần chuyển thêm phần chênh lệch.`
+                            : `You already have an active plan discount (${formatVND(walletBalance)} left in your wallet). Pick the tier you'd like to move to below — your current balance counts toward it, you'll only need to transfer the difference.`}
                         </p>
                       </div>
 

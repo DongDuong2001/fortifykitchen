@@ -299,7 +299,7 @@ export class OrdersService {
   }
 
   private async createForCustomer(
-    customer: { id: string; name: string; planDiscountPercent?: number; planDiscountEndsAt?: Date | null },
+    customer: { id: string; name: string; walletBalance: number; planDiscountPercent?: number },
     items: any[],
     deliveryDateInput: string,
     paymentStatus: PaymentState | undefined,
@@ -336,7 +336,11 @@ export class OrdersService {
     // A customer's recurring plan discount (set directly on Customer by
     // SubscriptionPlansService.confirmPurchase, replacing the earlier
     // single-use voucher) applies automatically here too — no code needed.
-    const hasActivePlanDiscount = !!(customer.planDiscountPercent && customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date());
+    // Indefinite by design: no expiry date, it just stays in effect for as
+    // long as walletBalance (fetched before this order's own wallet
+    // deduction below, if paying by WALLET) is still > 0 — i.e. the credit
+    // from that plan purchase hasn't been fully spent yet.
+    const hasActivePlanDiscount = !!(customer.planDiscountPercent && customer.walletBalance > 0);
     const planDiscountAmount = hasActivePlanDiscount ? (pricing.lineSubtotal * customer.planDiscountPercent!) / 100 : 0;
 
     // Stacking, per business decision: a discount code and the recurring

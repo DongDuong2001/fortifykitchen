@@ -27,12 +27,13 @@ export interface Customer {
   // Subscription. Never negative. See docs/plan-and-credit-design.md.
   walletBalance: number;
   // Recurring membership discount from the customer's current
-  // SubscriptionPlan, applied automatically to every order until
-  // planDiscountEndsAt — replaces the earlier single-use plan-purchase
-  // voucher design. A customer can only hold one plan's discount at a
-  // time (see SubscriptionPlansService.purchase's guard).
+  // SubscriptionPlan, applied automatically to every order — replaces the
+  // earlier single-use plan-purchase voucher design. Indefinite by design:
+  // NOT time-limited, stays in effect for as long as walletBalance > 0 and
+  // naturally stops once the balance is spent down to zero. A customer can
+  // only hold one plan's discount at a time (see
+  // SubscriptionPlansService.purchase's guard, keyed off walletBalance > 0).
   planDiscountPercent: number;
-  planDiscountEndsAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -263,13 +264,15 @@ export interface SubscriptionPlan {
 
 export type PlanUpgradeRequestStatus = "PENDING" | "APPROVED" | "DECLINED";
 
-// A customer already holding an active plan discount asking to move to a
-// higher tier before it expires — normally blocked outright by
-// SubscriptionPlansService.purchase()'s one-active-discount-at-a-time
+// A customer already holding an active plan discount (walletBalance > 0)
+// asking to move to a higher tier before it's spent down — normally blocked
+// outright by SubscriptionPlansService.purchase()'s one-active-plan-at-a-time
 // guard, so this is the self-serve request path instead of "contact our
-// team." Approving one creates a PENDING Payment for the new tier (same
-// confirm/reject queue as a normal purchase) rather than crediting the
-// wallet directly.
+// team." Approving one creates a PENDING Payment for only the PRORATED
+// difference (requestedPlan.price - current walletBalance, floored at 0) —
+// the customer's existing leftover balance counts toward the new tier, they
+// only transfer the shortfall — same confirm/reject queue as a normal
+// purchase, rather than crediting the wallet directly.
 export interface PlanUpgradeRequest {
   id: string;
   customerId: string;

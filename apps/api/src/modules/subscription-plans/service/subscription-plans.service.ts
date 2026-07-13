@@ -5,12 +5,6 @@ import { UpdateSubscriptionPlanDto } from "../dto/update-subscription-plan.dto";
 import { Decimal, PaymentMethod, PaymentStatus } from "@fortifykitchen/database";
 import { SubscriptionPlan } from "@fortifykitchen/types";
 
-// How long a plan's recurring discount stays active for, from the moment
-// staff confirm the transfer. Not yet admin-configurable per purchase — see
-// docs/plan-and-credit-design.md's "Vouchers" decision (tiered %). Revisit
-// if a real expiry requirement shows up.
-const VOUCHER_VALIDITY_DAYS = 60;
-
 type RawPlan = {
   id: string;
   name: string;
@@ -98,11 +92,14 @@ export class SubscriptionPlansService {
     }
 
     // Decided: a customer can only hold one plan's recurring discount at a
-    // time — self-serve buying a new plan while the current one is still
-    // active is blocked; upgrading is a staff-assisted action instead.
-    if (customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date()) {
+    // time. The discount is indefinite — no calendar expiry — it just stays
+    // in effect until walletBalance is spent down to 0, so THAT'S the guard:
+    // self-serve buying a new plan while money from the current one is still
+    // sitting in the wallet is blocked; use requestUpgrade() instead, which
+    // prorates the new tier against this leftover balance.
+    if (customer.walletBalance > 0) {
       throw new BadRequestException(
-        `You already have an active plan discount until ${customer.planDiscountEndsAt.toISOString().split("T")[0]}. Please contact our team to upgrade.`,
+        "You already have an active plan discount. Submit a plan upgrade request instead if you'd like to move to a higher tier.",
       );
     }
 
@@ -171,20 +168,23 @@ export class SubscriptionPlansService {
         data: { status: PaymentStatus.COMPLETED },
       });
 
-      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number; planDiscountEndsAt?: Date } = {
+      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number } = {
         walletBalance: { increment: amount },
       };
 
       // Sets (not stacks/accumulates) the recurring discount — a fresh
-      // purchase is only reachable once the previous one has lapsed (see
-      // the purchase() guard above), so there's never an existing discount
-      // to preserve or compare against here.
+      // self-serve purchase is only reachable once the previous one's
+      // balance has been spent down to 0 (see the purchase() guard above),
+      // so there's never an existing discount to preserve or compare
+      // against here. Indefinite — no expiry date; it just stays in effect
+      // until walletBalance runs out again (see Customer.planDiscountPercent
+      // doc comment). Approved upgrade requests also route through here
+      // (see approveUpgradeRequest), where this line does the same "sets
+      // the new tier" job even though some of the resulting balance came
+      // from the customer's pre-existing leftover credit, not just this
+      // Payment's amount.
       if (plan.voucherPercent > 0) {
-        const now = new Date();
-        const endsAt = new Date(now);
-        endsAt.setDate(endsAt.getDate() + VOUCHER_VALIDITY_DAYS);
         customerUpdate.planDiscountPercent = plan.voucherPercent;
-        customerUpdate.planDiscountEndsAt = endsAt;
       }
 
       await tx.customer.update({
@@ -215,16 +215,17 @@ export class SubscriptionPlansService {
     return this.mapPayment(updated);
   }
 
-  // Customer-initiated: "I already have a plan discount, but I want to move
-  // to a higher tier before it expires." Normally purchase() blocks this
-  // outright (one active discount at a time) — this is the self-serve ask
-  // instead of "contact our team." Doesn't touch the wallet or the request
-  // itself; staff review and approve/decline (see approveUpgradeRequest).
+  // Customer-initiated: "I already have a plan discount (walletBalance > 0),
+  // but I want to move to a higher tier now instead of waiting to run out."
+  // Normally purchase() blocks this outright (one active plan at a time) —
+  // this is the self-serve ask instead of "contact our team." Doesn't touch
+  // the wallet or the request itself; staff review and approve/decline (see
+  // approveUpgradeRequest, which prorates against the leftover balance).
   // Deliberately does NOT validate that requestedPlan is a strictly "higher"
   // tier than whatever plan the customer originally bought — Customer only
-  // stores the resulting planDiscountPercent/planDiscountEndsAt, not which
-  // SubscriptionPlan produced them, so there's nothing reliable to compare
-  // against here. Staff make that call when they review the request.
+  // stores the resulting planDiscountPercent, not which SubscriptionPlan
+  // produced it, so there's nothing reliable to compare against here. Staff
+  // make that call when they review the request.
   async requestUpgrade(userId: string, requestedPlanId: string, notes?: string) {
     const plan = await this.db.client.subscriptionPlan.findUnique({ where: { id: requestedPlanId } });
     if (!plan || !plan.isActive) {
@@ -298,6 +299,17 @@ export class SubscriptionPlansService {
   // off), so confirmPurchase() remains the one place that ever actually
   // credits walletBalance / sets the new discount tier, once the customer's
   // bank transfer for the new tier lands.
+  //
+  // PRORATED: the customer's current walletBalance is credit already sitting
+  // there from their existing plan, so they don't pay for the new tier from
+  // scratch — only the shortfall. E.g. they have 1,000,000đ left and the new
+  // tier costs 3,000,000đ, they transfer 2,000,000đ; once staff confirm that
+  // transfer, confirmPurchase() increments the existing 1,000,000đ by that
+  // 2,000,000đ, landing exactly on the new tier's full price. If their
+  // leftover balance already covers the new tier's price (moving to a
+  // cheaper/equal tier for the voucherPercent, say), amount floors at 0 — a
+  // free "confirm" with no transfer needed, still going through the same
+  // queue so confirmPurchase() sets the new discount tier.
   async approveUpgradeRequest(requestId: string) {
     const request = await this.db.client.planUpgradeRequest.findUnique({ where: { id: requestId } });
     if (!request) {
@@ -312,12 +324,23 @@ export class SubscriptionPlansService {
       throw new NotFoundException(`Subscription plan for upgrade request ${requestId} no longer exists`);
     }
 
+    const customer = await this.db.client.customer.findUnique({ where: { id: request.customerId } });
+    if (!customer) {
+      throw new NotFoundException(`Customer for upgrade request ${requestId} no longer exists`);
+    }
+
+    // Snapshot the shortfall at approval time — if the customer spends more
+    // from their wallet between now and staff confirming the transfer, the
+    // amount owed doesn't retroactively change (same as any other pending
+    // Payment amount never moving once opened).
+    const proratedAmount = Math.max(plan.price - customer.walletBalance, 0);
+
     const updated = await this.db.client.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
           customerId: request.customerId,
           subscriptionPlanId: plan.id,
-          amount: new Decimal(plan.price),
+          amount: new Decimal(proratedAmount),
           method: PaymentMethod.BANK_TRANSFER,
           status: PaymentStatus.PENDING,
         },

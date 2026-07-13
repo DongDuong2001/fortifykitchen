@@ -178,14 +178,18 @@ model Customer {
   // Recurring membership discount, granted directly on Customer rather than
   // as a redeemable Discount code — buying a SubscriptionPlan with
   // voucherPercent > 0 sets this (see SubscriptionPlansService.confirmPurchase)
-  // and it applies silently to every order until planDiscountEndsAt, no code
-  // to type, nothing to "redeem." Decided: this REPLACES the earlier
-  // single-use plan-purchase voucher design entirely — a customer can only
+  // and it applies silently to every order, no code to type, nothing to
+  // "redeem." Decided: this REPLACES the earlier single-use plan-purchase
+  // voucher design entirely. Indefinite by design — NOT time-limited: it
+  // stays in effect for as long as walletBalance > 0 (i.e. until the
+  // customer has spent down the credit that plan purchase funded), then
+  // naturally stops applying once the balance hits zero. A customer can only
   // ever hold one plan's discount at a time (see the purchase() guard, which
-  // blocks buying a new plan while planDiscountEndsAt is still in the
-  // future; upgrading mid-term is a staff-assisted action, not self-serve).
-  planDiscountPercent Int       @default(0)
-  planDiscountEndsAt  DateTime?
+  // blocks buying a new plan while walletBalance is still > 0; upgrading
+  // mid-plan goes through PlanUpgradeRequest instead, which prorates the
+  // top-up so the customer only pays the difference up to the new tier's
+  // price — see SubscriptionPlansService.approveUpgradeRequest).
+  planDiscountPercent Int @default(0)
 
   orders              Order[]
   subscriptions       Subscription[]
@@ -428,7 +432,7 @@ model CustomPlanRequest {
 // voucher auto-issued to one specific customer when they bought a
 // SubscriptionPlan (customerId set, code auto-generated). Origin (2) was
 // retired — SubscriptionPlan purchases now set Customer.planDiscountPercent
-// / planDiscountEndsAt directly instead of minting a Discount row (see
+// directly instead of minting a Discount row (see
 // SubscriptionPlansService.confirmPurchase and
 // docs/plan-and-credit-design.md) — so every NEW row here is admin-created.
 // customerId/redemptions are kept because (a) any pre-migration voucher
