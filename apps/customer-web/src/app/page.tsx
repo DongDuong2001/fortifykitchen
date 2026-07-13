@@ -91,7 +91,6 @@ const DICTIONARY = {
     cart_empty: "Giỏ hàng của bạn đang trống.",
     cart_subtotal: "Tạm tính",
     cart_discount: "Giảm giá",
-    cart_shipping: "Phí vận chuyển",
     cart_total: "Tổng thanh toán",
     cart_coupon: "Mã giảm giá",
     cart_apply: "Áp dụng",
@@ -207,7 +206,6 @@ const DICTIONARY = {
     cart_empty: "Your cart is empty.",
     cart_subtotal: "Subtotal",
     cart_discount: "Discount",
-    cart_shipping: "Shipping Fee",
     cart_total: "Total",
     cart_coupon: "Coupon Code",
     cart_apply: "Apply",
@@ -1010,7 +1008,12 @@ export default function CustomerPortal() {
     : 0;
   const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartPricing.finalTotal);
   const discountCodeAmount = Math.min(discountCodeAmountRaw, cartPricing.finalTotal);
-  const checkoutFinalTotal = Math.max(cartPricing.finalTotal - combinedDiscountAmount, 0) + 30000;
+  // Shipping fee is calculated and collected separately (not part of the
+  // order/cart/wallet total) — this previously added a flat 30,000đ here
+  // that the backend never actually charged (order creation only sends
+  // items/discountCode, no total), so the cart showed an inflated number
+  // that didn't match what was actually billed.
+  const checkoutFinalTotal = Math.max(cartPricing.finalTotal - combinedDiscountAmount, 0);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4595,10 +4598,8 @@ export default function CustomerPortal() {
                       <span>-{formatVND(discountCodeAmount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{t("cart_shipping")}</span>
-                    <span>{formatVND(30000)}</span>
-                  </div>
+                  {/* Shipping fee removed from the cart — it's calculated
+                      and collected separately, not part of this total. */}
                   <div className="flex justify-between items-baseline text-base font-bold border-t border-border/50 pt-2.5">
                     <span>{t("cart_total")}</span>
                     <span className="text-primary text-lg">{formatVND(checkoutFinalTotal)}</span>
