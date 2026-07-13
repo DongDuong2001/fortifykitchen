@@ -1110,12 +1110,14 @@ export default function CustomerPortal() {
       // tabs or reloads the page.
       loadDashboard();
       setDiscountCode("");
-      if (paymentMethod === "BANK_TRANSFER") {
-        setCheckoutResult(result);
-      } else {
-        setCartOpen(false);
-        setActiveTab("dashboard");
-      }
+      // Always show the confirmation modal — same as the guest checkout
+      // flow above. Previously this only fired for BANK_TRANSFER, so a
+      // logged-in customer paying COD or by Wallet got nothing but a toast
+      // (easy to miss, see the pattern noted throughout this file) and the
+      // cart/tab just silently changed underneath them. The modal itself
+      // closes to cartOpen=false + activeTab="dashboard" on dismiss, so no
+      // extra navigation is needed here.
+      setCheckoutResult(result);
     }
   };
 
@@ -5276,9 +5278,13 @@ export default function CustomerPortal() {
                 ? lang === "vi"
                   ? `Đơn của bạn đang được chuẩn bị. Chúng tôi sẽ liên hệ xác nhận và giao vào ${new Date(checkoutResult.deliveryDate).toLocaleDateString("vi-VN")}. Thanh toán khi nhận hàng.`
                   : `Your order is being prepared. We'll contact you to confirm and deliver on ${new Date(checkoutResult.deliveryDate).toLocaleDateString("en-US")}. Pay on delivery.`
-                : lang === "vi"
-                  ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
-                  : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
+                : checkoutResult.paymentMethod === "WALLET"
+                  ? lang === "vi"
+                    ? "Đã thanh toán bằng số dư Ví — đơn hàng của bạn đang được chuẩn bị."
+                    : "Paid from your wallet balance — your order is being prepared."
+                  : lang === "vi"
+                    ? "Đơn hàng của bạn đã được ghi nhận. Vui lòng hoàn tất thanh toán chuyển khoản qua VietQR bên dưới."
+                    : "Your order has been recorded. Please complete the bank transfer via VietQR below."}
             </p>
 
             {checkoutResult.paymentMethod === "BANK_TRANSFER" && (
@@ -5320,15 +5326,32 @@ export default function CustomerPortal() {
 
             <button
               onClick={() => {
+                // The bank-transfer button is an explicit "I've sent the
+                // money" acknowledgment, not just a dismiss — closing the
+                // modal silently on that click read as if nothing happened.
+                // Give it its own closing confirmation, same spirit as the
+                // COD/Wallet cases where the modal itself already said
+                // enough. Backdrop-click dismissal stays silent since that's
+                // an accidental-close path, not a confirmation.
+                if (checkoutResult?.paymentMethod === "BANK_TRANSFER") {
+                  toast({
+                    title: lang === "vi" ? "Đã ghi nhận!" : "Got it, thanks!",
+                    description:
+                      lang === "vi"
+                        ? "Chúng tôi sẽ xác nhận giao dịch và liên hệ khi đơn hàng được duyệt."
+                        : "We'll confirm the transfer and reach out once your order is approved.",
+                    type: "success",
+                  });
+                }
                 setCheckoutResult(null);
                 setCartOpen(false);
                 setActiveTab(user ? "dashboard" : "menu");
               }}
               className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
             >
-              {checkoutResult.paymentMethod === "CASH_ON_DELIVERY"
-                ? lang === "vi" ? "Xong" : "Done"
-                : lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+              {checkoutResult.paymentMethod === "BANK_TRANSFER"
+                ? lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"
+                : lang === "vi" ? "Xong" : "Done"}
             </button>
           </div>
         </div>
