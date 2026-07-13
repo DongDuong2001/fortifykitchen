@@ -36,7 +36,8 @@ import {
   faQuoteLeft,
   faShieldHalved,
   faPhone,
-  faComment
+  faComment,
+  faGift
 } from "@fortawesome/free-solid-svg-icons";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
@@ -307,6 +308,69 @@ const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
   CANCELLED: "bg-red-50 text-red-700 border-red-200",
 };
+
+// Wallet top-up plan benefits — cumulative by voucherPercent tier (each tier
+// keeps every perk from the tier below it, plus one new one), per the
+// business's own framing: 5%=Pro, 10%=Max, 15%=Pro Max, 20%=Pro Max Ultra.
+// This is deliberately code-driven rather than pulled from the admin-entered
+// `plan.description` field, so the sales copy on this page stays consistent
+// and reviewed regardless of what staff type into the plan's free-text
+// description in the admin dashboard.
+function getPlanBenefits(voucherPercent: number, lang: "vi" | "en"): { icon: typeof faWallet; text: string }[] {
+  const benefits: { icon: typeof faWallet; text: string }[] = [
+    {
+      icon: faWallet,
+      text:
+        lang === "vi"
+          ? "Nạp bao nhiêu là có bấy nhiêu trong ví, dùng thoải mái cho mọi đơn hàng."
+          : "Top up any amount and get the exact same credit in your wallet to spend however you like.",
+    },
+    {
+      icon: faTag,
+      text:
+        lang === "vi"
+          ? `Mọi đơn hàng tự động giảm ${voucherPercent}%, không cần nhớ mã giảm giá.`
+          : `Every order is automatically ${voucherPercent}% off — no code to remember.`,
+    },
+  ];
+  if (voucherPercent >= 5) {
+    benefits.push({
+      icon: faGift,
+      text:
+        lang === "vi"
+          ? "Thỉnh thoảng bạn sẽ nhận được món quà nhỏ bất ngờ từ bếp Fortify Kitchen."
+          : "Every now and then, expect a little surprise gift from our kitchen.",
+    });
+  }
+  if (voucherPercent >= 10) {
+    benefits.push({
+      icon: faGift,
+      text:
+        lang === "vi"
+          ? "Quà tặng ghé thăm thường xuyên hơn, và đôi lúc có cả món đặc biệt miễn phí."
+          : "Gifts show up more often, plus the occasional free special dish.",
+    });
+  }
+  if (voucherPercent >= 15) {
+    benefits.push({
+      icon: faUtensils,
+      text:
+        lang === "vi"
+          ? "Thoải mái tự chọn khẩu vị và gia giảm nguyên liệu đúng ý bạn cho từng phần ăn."
+          : "Customize the flavor and adjust ingredients exactly how you like, for every meal.",
+    });
+  }
+  if (voucherPercent >= 20) {
+    benefits.push({
+      icon: faMagic,
+      text:
+        lang === "vi"
+          ? "Được chế biến phần ăn riêng theo yêu cầu, cùng đồ ăn và quà tặng miễn phí thường xuyên."
+          : "Get meals custom-prepped just for you, plus free food and gifts on a regular basis.",
+    });
+  }
+  return benefits;
+}
 
 export default function CustomerPortal() {
   const {
@@ -3461,7 +3525,7 @@ export default function CustomerPortal() {
                   { n: "2", vi: ["Đặt món", "Thanh toán bằng ví hoặc khi nhận hàng."], en: ["Order meals", "Pay with wallet or cash on delivery."] },
                   { n: "3", vi: ["Giao định kỳ", "Tuỳ chọn giao hàng tuần, trừ vào ví của bạn."], en: ["Go recurring", "Optional weekly deliveries, paid from your wallet."] },
                 ].map((step) => (
-                  <div key={step.n} className="border border-border bg-card rounded-xl p-4 text-left">
+                  <div key={step.n} className="border border-border bg-card rounded-xl p-4 text-left shadow-sm">
                     <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
                       {step.n}
                     </span>
@@ -3533,34 +3597,58 @@ export default function CustomerPortal() {
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {subscriptionPlans.map((plan) => (
-                    <div key={plan.id} className="border border-border bg-card rounded-xl p-5 space-y-3 shadow-sm flex flex-col">
-                      <div className="flex justify-between items-start gap-2">
-                        <h4 className="text-sm font-bold font-heading">{plan.name}</h4>
-                        {plan.voucherPercent > 0 && (
-                          <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                            {lang === "vi" ? `+${plan.voucherPercent}% · 60 ngày` : `+${plan.voucherPercent}% off · 60 days`}
+                  {subscriptionPlans.map((plan) => {
+                    // "Max Plan" (the 10% tier) is the deliberate middle
+                    // upsell — featured so a first-time buyer isn't stuck
+                    // comparing 4 equally-weighted cards with no steer.
+                    const isFeatured = plan.voucherPercent === 10;
+                    const benefits = getPlanBenefits(plan.voucherPercent || 0, lang);
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`relative border rounded-2xl p-6 space-y-4 flex flex-col bg-card ${
+                          isFeatured ? "border-2 border-primary shadow-md" : "border-border shadow-sm"
+                        }`}
+                      >
+                        {isFeatured && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground px-3 py-1 rounded-full whitespace-nowrap">
+                            {lang === "vi" ? "Phổ biến nhất" : "Most popular"}
                           </span>
                         )}
+                        <div className="flex justify-between items-start gap-2">
+                          <h4 className="text-base font-bold font-heading">{plan.name}</h4>
+                          {plan.voucherPercent > 0 && (
+                            <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                              {lang === "vi" ? `+${plan.voucherPercent}% · 60 ngày` : `+${plan.voucherPercent}% off · 60 days`}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-2xl font-extrabold text-primary">{formatVND(plan.price)}</p>
+                        <ul className="space-y-2.5 flex-1">
+                          {benefits.map((b, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
+                              <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span>{b.text}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          onClick={() => handleBuyPlan(plan)}
+                          disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
+                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {purchasingPlanId === plan.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                              {lang === "vi" ? "Nạp ví ngay" : "Top up now"}
+                            </>
+                          )}
+                        </button>
                       </div>
-                      <p className="text-lg font-bold text-primary">{formatVND(plan.price)}</p>
-                      {plan.description && <p className="text-xs text-muted-foreground flex-1">{plan.description}</p>}
-                      <button
-                        onClick={() => handleBuyPlan(plan)}
-                        disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
-                        className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        {purchasingPlanId === plan.id ? (
-                          <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
-                            {lang === "vi" ? `Nạp ${formatVND(plan.price)}` : `Top up ${formatVND(plan.price)}`}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
