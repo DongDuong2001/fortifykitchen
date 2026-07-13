@@ -3521,10 +3521,10 @@ export default function CustomerPortal() {
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                   {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
                 </h2>
-                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                <p className="text-sm text-foreground/70 max-w-xl mx-auto">
                   {lang === "vi"
-                    ? "Nạp tiền vào Ví Fortify Kitchen để nhận thêm ưu đãi thành viên. Dùng số dư ví để thanh toán đơn lẻ, hoặc cho gói giao định kỳ do đội ngũ chúng tôi thiết lập."
-                    : "Top up your Fortify Kitchen wallet to unlock a member discount. Use the balance to pay for one-off meals, or for a recurring meal subscription we set up for you."}
+                    ? "Nạp tiền vào Ví Fortify Kitchen để nhận thêm ưu đãi thành viên. Dùng số dư ví để thanh toán đơn lẻ, hoặc cho gói giao định kỳ do đội ngũ chúng tôi thiết lập — vẫn là gà sous vide mềm, giàu đạm bạn đã quen, chỉ rẻ hơn mỗi tuần."
+                    : "Top up your Fortify Kitchen wallet to unlock a member discount. Use the balance to pay for one-off meals, or for a recurring meal subscription we set up for you — same tender, high-protein sous vide meals you already love, just cheaper every week."}
                 </p>
               </div>
 
@@ -3539,7 +3539,7 @@ export default function CustomerPortal() {
                       {step.n}
                     </span>
                     <p className="text-sm font-bold mt-2">{lang === "vi" ? step.vi[0] : step.en[0]}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">
                       {lang === "vi" ? step.vi[1] : step.en[1]}
                     </p>
                   </div>
@@ -3550,7 +3550,7 @@ export default function CustomerPortal() {
                 <div className="max-w-md mx-auto mb-8 border border-primary/20 bg-primary/5 rounded-2xl p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span className="text-[11px] uppercase font-bold text-primary/70 tracking-wider flex items-center gap-1.5">
+                      <span className="text-[11px] uppercase font-bold text-primary tracking-wider flex items-center gap-1.5">
                         <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
                         {lang === "vi" ? "Số dư ví" : "Wallet balance"}
                       </span>
@@ -3563,7 +3563,7 @@ export default function CustomerPortal() {
                     )}
                   </div>
                   {hasActivePlanDiscount && (
-                    <p className="text-[11px] text-primary/70 mt-3 leading-relaxed">
+                    <p className="text-[11px] text-primary mt-3 leading-relaxed">
                       {lang === "vi"
                         ? `Đang giảm ${planDiscountPercent}% mọi đơn đến hết ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")} · dùng cho món lẻ hoặc gói định kỳ.`
                         : `${planDiscountPercent}% off every order until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")} · spend on meals or a subscription.`}
@@ -3571,13 +3571,13 @@ export default function CustomerPortal() {
                   )}
                 </div>
               ) : (
-                <div className="max-w-sm mx-auto mb-8 text-center py-4 px-5 border border-dashed border-border rounded-xl">
-                  <p className="text-xs text-muted-foreground">
+                <div className="max-w-sm mx-auto mb-8 text-center py-5 px-5 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-foreground/70">
                     {lang === "vi" ? "Đăng nhập để xem số dư ví và nạp ví." : "Log in to see your wallet balance and top up."}
                   </p>
                   <button
                     onClick={() => setAuthModal("login")}
-                    className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer"
+                    className="mt-3 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-xs px-5 py-2 rounded-lg transition-all cursor-pointer"
                   >
                     {t("btn_signin")}
                   </button>
@@ -3600,7 +3600,7 @@ export default function CustomerPortal() {
                 </div>
               ) : subscriptionPlans.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-xl">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-foreground/70">
                     {lang === "vi" ? "Chưa có gói nạp nào. Trong lúc chờ, bạn có thể đặt món lẻ từ thực đơn." : "No top-up packs available yet. Meanwhile, you can order individual meals from the menu."}
                   </p>
                 </div>
