@@ -215,6 +215,169 @@ export class SubscriptionPlansService {
     return this.mapPayment(updated);
   }
 
+  // Customer-initiated: "I already have a plan discount, but I want to move
+  // to a higher tier before it expires." Normally purchase() blocks this
+  // outright (one active discount at a time) — this is the self-serve ask
+  // instead of "contact our team." Doesn't touch the wallet or the request
+  // itself; staff review and approve/decline (see approveUpgradeRequest).
+  // Deliberately does NOT validate that requestedPlan is a strictly "higher"
+  // tier than whatever plan the customer originally bought — Customer only
+  // stores the resulting planDiscountPercent/planDiscountEndsAt, not which
+  // SubscriptionPlan produced them, so there's nothing reliable to compare
+  // against here. Staff make that call when they review the request.
+  async requestUpgrade(userId: string, requestedPlanId: string, notes?: string) {
+    const plan = await this.db.client.subscriptionPlan.findUnique({ where: { id: requestedPlanId } });
+    if (!plan || !plan.isActive) {
+      throw new NotFoundException(`Subscription plan with ID ${requestedPlanId} not found`);
+    }
+
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) {
+      throw new BadRequestException("No customer profile found for this account");
+    }
+
+    const existingPending = await this.db.client.planUpgradeRequest.findFirst({
+      where: { customerId: customer.id, status: "PENDING" },
+    });
+    if (existingPending) {
+      throw new BadRequestException("You already have a pending plan upgrade request. Please wait for staff to review it.");
+    }
+
+    const request = await this.db.client.planUpgradeRequest.create({
+      data: {
+        customerId: customer.id,
+        requestedPlanId: plan.id,
+        notes,
+      },
+    });
+
+    return this.mapUpgradeRequest(request, customer.name, plan.name);
+  }
+
+  // Customer's own view of their upgrade-request history.
+  async findMyUpgradeRequests(userId: string) {
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) {
+      throw new BadRequestException("No customer profile found for this account");
+    }
+    const list = await this.db.client.planUpgradeRequest.findMany({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: "desc" },
+    });
+    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const plans = await this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } });
+    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+    return list.map((r) => this.mapUpgradeRequest(r, customer.name, planNameById.get(r.requestedPlanId)));
+  }
+
+  // Staff queue — every upgrade request still awaiting review.
+  async findPendingUpgradeRequests() {
+    const list = await this.db.client.planUpgradeRequest.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (list.length === 0) return [];
+
+    const customerIds = [...new Set(list.map((r) => r.customerId))];
+    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const [customers, plans] = await Promise.all([
+      this.db.client.customer.findMany({ where: { id: { in: customerIds } } }),
+      this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } }),
+    ]);
+    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
+    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+    return list.map((r) =>
+      this.mapUpgradeRequest(r, customerNameById.get(r.customerId), planNameById.get(r.requestedPlanId)),
+    );
+  }
+
+  // Staff approves — this does NOT credit the wallet itself. It creates the
+  // same kind of PENDING Payment purchase() would (deliberately bypassing
+  // the one-active-discount guard, since staff have now explicitly signed
+  // off), so confirmPurchase() remains the one place that ever actually
+  // credits walletBalance / sets the new discount tier, once the customer's
+  // bank transfer for the new tier lands.
+  async approveUpgradeRequest(requestId: string) {
+    const request = await this.db.client.planUpgradeRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new NotFoundException(`Plan upgrade request with ID ${requestId} not found`);
+    }
+    if (request.status !== "PENDING") {
+      throw new BadRequestException(`Upgrade request ${requestId} is already ${request.status}, not PENDING`);
+    }
+
+    const plan = await this.db.client.subscriptionPlan.findUnique({ where: { id: request.requestedPlanId } });
+    if (!plan || !plan.isActive) {
+      throw new NotFoundException(`Subscription plan for upgrade request ${requestId} no longer exists`);
+    }
+
+    const updated = await this.db.client.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          customerId: request.customerId,
+          subscriptionPlanId: plan.id,
+          amount: new Decimal(plan.price),
+          method: PaymentMethod.BANK_TRANSFER,
+          status: PaymentStatus.PENDING,
+        },
+      });
+
+      return tx.planUpgradeRequest.update({
+        where: { id: request.id },
+        data: { status: "APPROVED", paymentId: payment.id },
+      });
+    });
+
+    return this.mapUpgradeRequest(updated, undefined, plan.name);
+  }
+
+  // Staff declines — e.g. not actually eligible, wrong tier requested.
+  async declineUpgradeRequest(requestId: string, adminNotes?: string) {
+    const request = await this.db.client.planUpgradeRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new NotFoundException(`Plan upgrade request with ID ${requestId} not found`);
+    }
+    if (request.status !== "PENDING") {
+      throw new BadRequestException(`Upgrade request ${requestId} is already ${request.status}, not PENDING`);
+    }
+    const updated = await this.db.client.planUpgradeRequest.update({
+      where: { id: requestId },
+      data: { status: "DECLINED", adminNotes },
+    });
+    return this.mapUpgradeRequest(updated);
+  }
+
+  private mapUpgradeRequest(
+    r: {
+      id: string;
+      customerId: string;
+      requestedPlanId: string;
+      notes: string | null;
+      status: string;
+      adminNotes: string | null;
+      paymentId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    customerName?: string,
+    requestedPlanName?: string,
+  ) {
+    return {
+      id: r.id,
+      customerId: r.customerId,
+      customerName,
+      requestedPlanId: r.requestedPlanId,
+      requestedPlanName,
+      notes: r.notes ?? undefined,
+      status: r.status,
+      adminNotes: r.adminNotes ?? undefined,
+      paymentId: r.paymentId ?? undefined,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
+  }
+
   private mapPlan(p: RawPlan): SubscriptionPlan {
     return {
       id: p.id,

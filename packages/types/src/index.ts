@@ -221,7 +221,8 @@ export type PaymentMethod =
   | "STRIPE"
   | "CASH_ON_DELIVERY"
   | "BANK_TRANSFER"
-  | "WALLET"; // paid from Customer.walletBalance
+  | "WALLET" // paid from Customer.walletBalance
+  | "MANUAL_TOPUP"; // staff directly credited the wallet from the admin dashboard
 
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
 
@@ -256,6 +257,29 @@ export interface SubscriptionPlan {
   voucherPercent: number;
   description?: string;
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type PlanUpgradeRequestStatus = "PENDING" | "APPROVED" | "DECLINED";
+
+// A customer already holding an active plan discount asking to move to a
+// higher tier before it expires — normally blocked outright by
+// SubscriptionPlansService.purchase()'s one-active-discount-at-a-time
+// guard, so this is the self-serve request path instead of "contact our
+// team." Approving one creates a PENDING Payment for the new tier (same
+// confirm/reject queue as a normal purchase) rather than crediting the
+// wallet directly.
+export interface PlanUpgradeRequest {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  requestedPlanId: string;
+  requestedPlanName?: string;
+  notes?: string;
+  status: PlanUpgradeRequestStatus;
+  adminNotes?: string;
+  paymentId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

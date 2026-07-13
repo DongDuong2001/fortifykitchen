@@ -601,6 +601,16 @@ export default function CustomerPortal() {
   const [showWalletPlans, setShowWalletPlans] = React.useState(false);
   const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
 
+  // Plan-upgrade requests — a customer already holding an active plan
+  // discount asking to move to a higher tier before it expires (normally
+  // blocked outright by the purchase() guard above). Self-serve ask instead
+  // of "contact our team"; staff approve/decline in the admin dashboard. See
+  // SubscriptionPlansService.requestUpgrade.
+  const [myUpgradeRequests, setMyUpgradeRequests] = React.useState<any[]>([]);
+  const [selectedUpgradePlanId, setSelectedUpgradePlanId] = React.useState<string | null>(null);
+  const [upgradeRequestNotes, setUpgradeRequestNotes] = React.useState("");
+  const [isSubmittingUpgradeRequest, setIsSubmittingUpgradeRequest] = React.useState(false);
+
   // Pay-from-wallet on an UNPAID/DEPOSIT Subscription — see the phone-lookup
   // and dashboard subscription views below.
   const [payingSubscriptionId, setPayingSubscriptionId] = React.useState<string | null>(null);
@@ -848,11 +858,14 @@ export default function CustomerPortal() {
           }
         })
         .catch(console.error);
+      fetchMyUpgradeRequests();
     } else {
       setWalletBalance(0);
       setPlanDiscountPercent(0);
       setPlanDiscountEndsAt(null);
+      setMyUpgradeRequests([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, API_URL]);
 
   // Wallet is only a valid checkout option while logged in — if the
@@ -1322,6 +1335,71 @@ export default function CustomerPortal() {
       });
     } finally {
       setPurchasingPlanId(null);
+    }
+  };
+
+  // Customer's own upgrade-request history — refreshed on login and after
+  // submitting a new request, so the UI can show "request pending" and
+  // block duplicate submissions client-side too.
+  const fetchMyUpgradeRequests = async () => {
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscription-plans/public/my-upgrade-requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.data) {
+        setMyUpgradeRequests(result.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Ask staff to move to a higher tier while the current plan discount is
+  // still active — normally blocked outright by handleBuyPlan's server-side
+  // guard. Self-serve ask instead of "contact our team."
+  const handleSubmitUpgradeRequest = async () => {
+    if (!selectedUpgradePlanId) return;
+    setIsSubmittingUpgradeRequest(true);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscription-plans/public/request-upgrade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestedPlanId: selectedUpgradePlanId, notes: upgradeRequestNotes || undefined }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        toast({
+          title: lang === "vi" ? "Đã gửi yêu cầu nâng cấp" : "Upgrade request sent",
+          description:
+            lang === "vi"
+              ? "Đội ngũ Fortify Kitchen sẽ xem xét và phản hồi sớm."
+              : "Our team will review it and get back to you soon.",
+          type: "success",
+        });
+        setSelectedUpgradePlanId(null);
+        setUpgradeRequestNotes("");
+        fetchMyUpgradeRequests();
+      } else {
+        toast({
+          title: translateApiError(
+            result?.message,
+            lang,
+            lang === "vi" ? "Không thể gửi yêu cầu nâng cấp lúc này" : "Could not send the upgrade request right now",
+          ),
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        type: "error",
+      });
+    } finally {
+      setIsSubmittingUpgradeRequest(false);
     }
   };
 
@@ -3739,17 +3817,91 @@ export default function CustomerPortal() {
                 </button>
               </div>
 
-              {hasActivePlanDiscount && (
-                <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
-                  <p className="text-xs text-amber-700">
-                    {lang === "vi"
-                      ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước hạn.`
-                      : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Please contact our team if you'd like to upgrade early.`}
-                  </p>
-                </div>
-              )}
+              {hasActivePlanDiscount ? (
+                (() => {
+                  const pendingUpgradeRequest = myUpgradeRequests.find((r) => r.status === "PENDING");
+                  if (pendingUpgradeRequest) {
+                    return (
+                      <div className="max-w-lg mx-auto text-center py-6 px-6 border border-primary/20 bg-primary/5 rounded-xl">
+                        <FontAwesomeIcon icon={faClock} className="h-5 w-5 text-primary mb-2" />
+                        <p className="text-sm font-bold">
+                          {lang === "vi" ? "Yêu cầu nâng cấp đang chờ duyệt" : "Upgrade request pending review"}
+                        </p>
+                        <p className="text-xs text-foreground/70 mt-1.5 leading-relaxed">
+                          {lang === "vi"
+                            ? `Bạn đã yêu cầu chuyển sang "${pendingUpgradeRequest.requestedPlanName ?? ""}". Đội ngũ Fortify Kitchen sẽ xem xét và liên hệ sớm.`
+                            : `You asked to move to "${pendingUpgradeRequest.requestedPlanName ?? ""}". Our team will review it and reach out soon.`}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="max-w-lg mx-auto space-y-4">
+                      <div className="text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
+                        <p className="text-xs text-amber-700">
+                          {lang === "vi"
+                            ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Chọn gói bạn muốn nâng cấp lên bên dưới — đội ngũ chúng tôi sẽ xem xét yêu cầu.`
+                            : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Pick the tier you'd like to move to below — our team will review your request.`}
+                        </p>
+                      </div>
 
-              {isLoadingPlans ? (
+                      {isLoadingPlans ? (
+                        <div className="flex justify-center py-6">
+                          <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {subscriptionPlans.map((plan) => (
+                            <button
+                              key={plan.id}
+                              onClick={() => setSelectedUpgradePlanId(plan.id)}
+                              className={`w-full flex items-center justify-between gap-3 border rounded-xl p-3.5 text-left transition-all cursor-pointer ${
+                                selectedUpgradePlanId === plan.id
+                                  ? "border-2 border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              <div>
+                                <p className="text-sm font-bold">{plan.name}</p>
+                                {plan.voucherPercent > 0 && (
+                                  <p className="text-[11px] text-primary font-semibold mt-0.5">
+                                    {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-base font-extrabold font-heading text-primary shrink-0">
+                                {formatVND(plan.price)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <textarea
+                        value={upgradeRequestNotes}
+                        onChange={(e) => setUpgradeRequestNotes(e.target.value)}
+                        placeholder={lang === "vi" ? "Ghi chú thêm cho đội ngũ (không bắt buộc)" : "Any notes for our team (optional)"}
+                        rows={2}
+                        className="w-full border border-border rounded-lg p-3 text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+
+                      <button
+                        onClick={handleSubmitUpgradeRequest}
+                        disabled={!selectedUpgradePlanId || isSubmittingUpgradeRequest}
+                        className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm py-3 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isSubmittingUpgradeRequest ? (
+                          <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                        ) : lang === "vi" ? (
+                          "Gửi yêu cầu nâng cấp"
+                        ) : (
+                          "Send upgrade request"
+                        )}
+                      </button>
+                    </div>
+                  );
+                })()
+              ) : isLoadingPlans ? (
                 <div className="flex justify-center py-10">
                   <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>

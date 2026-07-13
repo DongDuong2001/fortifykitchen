@@ -98,6 +98,13 @@ enum PaymentMethod {
   CASH_ON_DELIVERY
   BANK_TRANSFER
   WALLET // paid from Customer.walletBalance — see docs/plan-and-credit-design.md
+  MANUAL_TOPUP // staff directly credited the wallet from the admin dashboard, no customer bank transfer involved
+}
+
+enum PlanUpgradeRequestStatus {
+  PENDING // customer submitted, awaiting staff review
+  APPROVED // staff approved — a PENDING Payment was created for the new tier, same confirm/reject queue as a normal plan purchase
+  DECLINED
 }
 
 model User {
@@ -180,11 +187,12 @@ model Customer {
   planDiscountPercent Int       @default(0)
   planDiscountEndsAt  DateTime?
 
-  orders             Order[]
-  subscriptions      Subscription[]
-  customPlanRequests CustomPlanRequest[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  orders              Order[]
+  subscriptions       Subscription[]
+  customPlanRequests  CustomPlanRequest[]
+  planUpgradeRequests PlanUpgradeRequest[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([phone])
 }
@@ -502,7 +510,38 @@ model SubscriptionPlan {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  upgradeRequests PlanUpgradeRequest[]
+
   @@index([isActive])
+}
+
+// A customer already holding an active plan discount asks to move to a
+// higher tier before their current one expires — normally blocked outright
+// by SubscriptionPlansService.purchase()'s one-active-discount-at-a-time
+// guard, so this is the self-serve request path instead of "contact our
+// team." Approving one does NOT credit the wallet directly — it creates
+// the same kind of PENDING Payment a normal purchase() would (deliberately
+// bypassing that guard, since staff have now explicitly signed off), which
+// then flows through the existing subscription-plan-purchases confirm/
+// reject queue once the bank transfer actually arrives. This keeps exactly
+// one place (SubscriptionPlansService.confirmPurchase) ever responsible for
+// crediting walletBalance / setting the new discount tier.
+model PlanUpgradeRequest {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  requestedPlanId String
+  requestedPlan   SubscriptionPlan @relation(fields: [requestedPlanId], references: [id], onDelete: Cascade)
+  notes           String? // optional note from the customer on why they want to upgrade now
+  status          PlanUpgradeRequestStatus @default(PENDING)
+  adminNotes      String? // staff's reason for declining, if declined
+  paymentId       String? // set once approved — the Payment row staff need to confirm
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
 }
 
 // Ledger of actual payment transactions (future real payment processing).

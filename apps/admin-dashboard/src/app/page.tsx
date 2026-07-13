@@ -417,6 +417,17 @@ export default function AdminDashboard() {
   // Row id currently mid-flight on Confirm/Reject, so a double-click can't
   // double-fire the request while it's in progress.
   const [processingTopUpId, setProcessingTopUpId] = React.useState<string | null>(null);
+  // Customer-submitted "move me to a higher tier" requests — approving one
+  // only opens a PENDING Payment (shows up in pendingTopUps above once
+  // reloaded), it does NOT credit the wallet directly. See
+  // SubscriptionPlansService.approveUpgradeRequest.
+  const [pendingUpgradeRequests, setPendingUpgradeRequests] = React.useState<any[]>([]);
+  const [processingUpgradeRequestId, setProcessingUpgradeRequestId] = React.useState<string | null>(null);
+  // --- Admin direct wallet top-up (customer list/edit modal) ---
+  const [topUpCustomerId, setTopUpCustomerId] = React.useState<string | null>(null);
+  const [topUpAmount, setTopUpAmount] = React.useState("");
+  const [topUpNote, setTopUpNote] = React.useState("");
+  const [isSubmittingTopUp, setIsSubmittingTopUp] = React.useState(false);
   // Staff-wide low-balance summary (wallet + subscription pool) shown as a
   // Dashboard alert widget — same shape as the inventory alerts above it.
   const [lowBalance, setLowBalance] = React.useState<any>({ poolsLow: [], walletsLow: [], totalCount: 0 });
@@ -732,14 +743,16 @@ export default function AdminDashboard() {
           setDiscounts(result.data || []);
         }
       } else if (section === "subscription-plans") {
-        const [resPlans, resPending] = await Promise.all([
+        const [resPlans, resPending, resUpgradeRequests] = await Promise.all([
           fetch(`${API_URL}/subscription-plans`, { headers }).catch(() => null),
           fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }).catch(() => null),
+          fetch(`${API_URL}/plan-upgrade-requests/pending`, { headers }).catch(() => null),
         ]);
-        if (checkOffline([resPlans, resPending])) return;
-        if (handleUnauthorized([resPlans, resPending])) return;
+        if (checkOffline([resPlans, resPending, resUpgradeRequests])) return;
+        if (handleUnauthorized([resPlans, resPending, resUpgradeRequests])) return;
         if (resPlans && resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
         if (resPending && resPending.ok) setPendingTopUps((await resPending.json()).data || []);
+        if (resUpgradeRequests && resUpgradeRequests.ok) setPendingUpgradeRequests((await resUpgradeRequests.json()).data || []);
       } else if (section === "home-frames") {
         const res = await fetch(`${API_URL}/home-frames/admin`, { headers }).catch(() => null);
         if (checkOffline([res])) return;
@@ -978,6 +991,9 @@ export default function AdminDashboard() {
     setCustomerZalo("");
     setCustomerAddress("");
     setCustomerNotes("");
+    setTopUpCustomerId(null);
+    setTopUpAmount("");
+    setTopUpNote("");
   };
 
   const handleEditCustomerTrigger = (c: any) => {
@@ -987,6 +1003,9 @@ export default function AdminDashboard() {
     setCustomerZalo(c.zalo || "");
     setCustomerAddress(c.address || "");
     setCustomerNotes(c.notes || "");
+    setTopUpCustomerId(c.id);
+    setTopUpAmount("");
+    setTopUpNote("");
     setCustomerModal("edit");
   };
 
@@ -1830,6 +1849,95 @@ export default function AdminDashboard() {
       },
       { variant: "destructive" },
     );
+  };
+
+  // --- Plan upgrade requests queue ---
+  const handleApproveUpgradeRequest = async (id: string) => {
+    try {
+      setProcessingUpgradeRequestId(id);
+      const res = await fetch(`${API_URL}/plan-upgrade-requests/${id}/approve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast({
+          title: "Đã duyệt yêu cầu nâng cấp — đã mở giao dịch chờ chuyển khoản trong danh sách bên dưới",
+          type: "success",
+        });
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể duyệt yêu cầu", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi duyệt yêu cầu", type: "error" });
+    } finally {
+      setProcessingUpgradeRequestId(null);
+    }
+  };
+
+  const handleDeclineUpgradeRequest = (id: string) => {
+    requestConfirm(
+      "Từ chối yêu cầu nâng cấp gói này?",
+      async () => {
+        try {
+          setProcessingUpgradeRequestId(id);
+          const res = await fetch(`${API_URL}/plan-upgrade-requests/${id}/decline`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({}),
+          });
+          if (res.ok) {
+            toast({ title: "Đã từ chối yêu cầu nâng cấp", type: "default" });
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể từ chối yêu cầu", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setProcessingUpgradeRequestId(null);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
+  // --- Admin direct wallet top-up — staff crediting a customer's wallet
+  // straight from the dashboard, no bank-transfer reconciliation step (see
+  // CustomersService.topUpWallet). Opened from the customer edit modal.
+  const handleSubmitWalletTopUp = async () => {
+    if (!topUpCustomerId) return;
+    const amount = Number(topUpAmount);
+    if (!amount || amount <= 0) {
+      toast({ title: "Số tiền nạp phải lớn hơn 0", type: "error" });
+      return;
+    }
+    setIsSubmittingTopUp(true);
+    try {
+      const res = await fetch(`${API_URL}/customers/${topUpCustomerId}/wallet-topup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount, note: topUpNote || undefined }),
+      });
+      if (res.ok) {
+        toast({ title: `Đã cộng ${amount.toLocaleString()} ₫ vào ví khách hàng`, type: "success" });
+        setTopUpAmount("");
+        setTopUpNote("");
+        setTopUpCustomerId(null);
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể nạp tiền vào ví", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi nạp ví", type: "error" });
+    } finally {
+      setIsSubmittingTopUp(false);
+    }
   };
 
   const formatVND = (num: number) => {
@@ -4013,6 +4121,72 @@ export default function AdminDashboard() {
                       onChange={setPendingTopUpsPage}
                     />
                   </div>
+
+                  {/* Plan-upgrade requests queue — a customer already
+                      holding an active plan discount asking to move to a
+                      higher tier before it expires. Approving one does NOT
+                      credit the wallet directly — it opens a PENDING
+                      payment that then shows up in the "Chờ xác nhận
+                      chuyển khoản" queue above, same confirm/reject flow as
+                      any other plan purchase. */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold font-heading">
+                      Yêu cầu nâng cấp gói ({pendingUpgradeRequests.length})
+                    </h3>
+                    {pendingUpgradeRequests.length === 0 ? (
+                      <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                        Không có yêu cầu nâng cấp gói nào đang chờ duyệt
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {pendingUpgradeRequests.map((r: any) => (
+                          <div key={r.id} className="border border-border bg-card rounded-2xl p-5 shadow-sm space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-sm">{r.customerName}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Muốn chuyển sang: <span className="font-semibold">{r.requestedPlanName}</span>
+                                </p>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200">
+                                Chờ duyệt
+                              </span>
+                            </div>
+
+                            <div className="text-xs space-y-1 bg-muted/30 border border-border/50 rounded-lg p-3">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Ngày yêu cầu:</span>
+                                <span className="font-semibold">{new Date(r.createdAt).toLocaleString("vi-VN")}</span>
+                              </div>
+                              {r.notes && (
+                                <div className="pt-1">
+                                  <span className="text-muted-foreground">Ghi chú của khách: </span>
+                                  <span className="font-semibold">{r.notes}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                              <button
+                                onClick={() => handleApproveUpgradeRequest(r.id)}
+                                disabled={processingUpgradeRequestId === r.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faCheck} className="h-3 w-3" /> Duyệt
+                              </button>
+                              <button
+                                onClick={() => handleDeclineUpgradeRequest(r.id)}
+                                disabled={processingUpgradeRequestId === r.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="h-3 w-3" /> Từ chối
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -4418,6 +4592,56 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+
+            {/* Direct wallet top-up — staff crediting the customer's wallet
+                right from here, no bank-transfer reconciliation step (see
+                CustomersService.topUpWallet). Edit mode only: a brand-new
+                customer has no wallet history worth crediting yet before
+                being saved. */}
+            {customerModal === "edit" && (() => {
+              const editingCustomer = customers.find((c: any) => c.id === editingCustomerId);
+              return (
+                <div className="pt-5 border-t border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold font-heading flex items-center gap-1.5">
+                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3 text-primary" />
+                      Nạp ví trực tiếp
+                    </h4>
+                    {editingCustomer && (
+                      <span className="text-[11px] text-muted-foreground">
+                        Số dư hiện tại: <span className="font-bold text-primary">{formatVND(editingCustomer.walletBalance ?? 0)}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Số tiền (₫)"
+                      value={topUpAmount}
+                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Ghi chú (không bắt buộc)"
+                      value={topUpNote}
+                      onChange={(e) => setTopUpNote(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSubmitWalletTopUp}
+                    disabled={isSubmittingTopUp || !topUpAmount}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                    {isSubmittingTopUp ? "Đang nạp..." : "Nạp vào ví"}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
