@@ -535,9 +535,11 @@ export class OrdersService {
         deliveryDate: filters?.date ? new Date(filters.date) : undefined,
       },
       include: { items: true, subscription: { select: { packageName: true } } },
-      // Oldest first — matches the admin Orders tab, which lists orders
-      // chronologically so the oldest still-open ones surface first.
-      orderBy: { deliveryDate: "asc" },
+      // Newest-placed first, same as the customer's own order history
+      // (findForUser below) — staff want to see what just came in at the
+      // top, matching the customer-facing view instead of the previous
+      // oldest-delivery-date-first ordering.
+      orderBy: { createdAt: "desc" },
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
