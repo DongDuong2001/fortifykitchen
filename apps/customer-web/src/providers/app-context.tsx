@@ -21,8 +21,8 @@ interface AppContextType {
   cartTotal: number;
   isCartOpen: boolean;
   setCartOpen: (open: boolean) => void;
-  login: (email: string, password: string, lang?: Lang) => Promise<boolean>;
-  signup: (data: any, lang?: Lang) => Promise<boolean>;
+  login: (email: string, password: string, lang?: Lang) => Promise<{ success: boolean; message?: string }>;
+  signup: (data: any, lang?: Lang) => Promise<{ success: boolean; message?: string }>;
   logout: (lang?: Lang) => void;
   addToCart: (item: MenuItem, qty?: number, notes?: string, lang?: Lang) => void;
   removeFromCart: (itemId: string, lang?: Lang) => void;
@@ -77,7 +77,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart]);
 
-  const login = async (email: string, password: string, lang: Lang = "vi"): Promise<boolean> => {
+  const login = async (
+    email: string,
+    password: string,
+    lang: Lang = "vi",
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
@@ -90,16 +94,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const result = await res.json();
       if (!res.ok) {
+        const message = translateApiError(
+          result.message,
+          lang,
+          lang === "vi" ? "Email hoặc mật khẩu không đúng." : "Invalid credentials",
+        );
         toast({
           title: lang === "vi" ? "Đăng nhập thất bại" : "Login Failed",
-          description: translateApiError(
-            result.message,
-            lang,
-            lang === "vi" ? "Email hoặc mật khẩu không đúng." : "Invalid credentials",
-          ),
+          description: message,
           type: "error",
         });
-        return false;
+        // Returned alongside the toast (not just the toast alone) so the
+        // login modal can show an inline error too — a toast in the
+        // bottom-right corner is easy to miss while a full-screen modal
+        // backdrop has your attention (same issue as the checkout flow,
+        // see placeOrder below).
+        return { success: false, message };
       }
 
       setToken(result.data.accessToken);
@@ -113,19 +123,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           lang === "vi" ? `Đã đăng nhập với tên ${result.data.user.firstName}` : `Logged in as ${result.data.user.firstName}`,
         type: "success",
       });
-      return true;
+      return { success: true };
     } catch (error) {
       console.error(error);
+      const message =
+        lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server";
       toast({
         title: lang === "vi" ? "Lỗi đăng nhập" : "Login Error",
-        description: lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server",
+        description: message,
         type: "error",
       });
-      return false;
+      return { success: false, message };
     }
   };
 
-  const signup = async (data: any, lang: Lang = "vi"): Promise<boolean> => {
+  const signup = async (data: any, lang: Lang = "vi"): Promise<{ success: boolean; message?: string }> => {
     try {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: "POST",
@@ -138,16 +150,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const result = await res.json();
       if (!res.ok) {
+        const message = translateApiError(
+          result.message,
+          lang,
+          lang === "vi" ? "Không thể tạo tài khoản. Vui lòng kiểm tra lại thông tin." : "Failed to create account",
+        );
         toast({
           title: lang === "vi" ? "Đăng ký thất bại" : "Registration Failed",
-          description: translateApiError(
-            result.message,
-            lang,
-            lang === "vi" ? "Không thể tạo tài khoản. Vui lòng kiểm tra lại thông tin." : "Failed to create account",
-          ),
+          description: message,
           type: "error",
         });
-        return false;
+        return { success: false, message };
       }
 
       setToken(result.data.accessToken);
@@ -160,15 +173,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: lang === "vi" ? "Chào mừng bạn đến với Fortify Kitchen!" : "Welcome to FortifyKitchen!",
         type: "success",
       });
-      return true;
+      return { success: true };
     } catch (error) {
       console.error(error);
+      const message =
+        lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server";
       toast({
         title: lang === "vi" ? "Lỗi đăng ký" : "Signup Error",
-        description: lang === "vi" ? "Không thể kết nối đến máy chủ — vui lòng thử lại." : "Could not connect to authentication server",
+        description: message,
         type: "error",
       });
-      return false;
+      return { success: false, message };
     }
   };
 

@@ -37,7 +37,8 @@ import {
   faShieldHalved,
   faPhone,
   faComment,
-  faGift
+  faGift,
+  faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { formatGrams } from "@fortifykitchen/shared";
@@ -599,9 +600,17 @@ export default function CustomerPortal() {
   const [loginEmail, setLoginEmail] = React.useState("");
   const [loginPass, setLoginPass] = React.useState("");
   const [rememberMe, setRememberMe] = React.useState(false);
+  // Inline errors shown in the modal itself — a toast alone is easy to
+  // miss behind the modal's own dark backdrop (same issue fixed for
+  // checkout; see placeOrder in app-context.tsx).
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [signupError, setSignupError] = React.useState<string | null>(null);
 
-  // Restore saved credentials if remember me was enabled
+  // Restore saved credentials if remember me was enabled, and clear any
+  // leftover error whenever the modal opens, closes, or switches mode.
   React.useEffect(() => {
+    setLoginError(null);
+    setSignupError(null);
     if (authModal === "login") {
       const savedEmail = localStorage.getItem("fk_remember_email");
       const savedPass = localStorage.getItem("fk_remember_pass");
@@ -980,8 +989,9 @@ export default function CustomerPortal() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(loginEmail, loginPass, lang);
-    if (success) {
+    setLoginError(null);
+    const result = await login(loginEmail, loginPass, lang);
+    if (result.success) {
       if (rememberMe) {
         localStorage.setItem("fk_remember_email", loginEmail);
         localStorage.setItem("fk_remember_pass", loginPass);
@@ -992,12 +1002,15 @@ export default function CustomerPortal() {
       setAuthModal(null);
       setLoginEmail("");
       setLoginPass("");
+    } else if (result.message) {
+      setLoginError(result.message);
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await signup(
+    setSignupError(null);
+    const result = await signup(
       {
         email: signupEmail,
         password: signupPass,
@@ -1010,7 +1023,7 @@ export default function CustomerPortal() {
       },
       lang,
     );
-    if (success) {
+    if (result.success) {
       setAuthModal(null);
       setSignupEmail("");
       setSignupPass("");
@@ -1018,6 +1031,8 @@ export default function CustomerPortal() {
       setSignupLast("");
       setSignupPhone("");
       setSignupAddress("");
+    } else if (result.message) {
+      setSignupError(result.message);
     }
   };
 
@@ -4775,6 +4790,14 @@ export default function CustomerPortal() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setAuthModal(null)} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8 z-10 space-y-6">
+            <button
+              type="button"
+              onClick={() => setAuthModal(null)}
+              aria-label={lang === "vi" ? "Đóng" : "Close"}
+              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer"
+            >
+              <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+            </button>
             <div className="text-center">
               <h3 className="text-xl font-bold font-heading">
                 {authModal === "login" ? t("auth_login_title") : t("auth_register_title")}
@@ -4786,6 +4809,11 @@ export default function CustomerPortal() {
 
             {authModal === "login" ? (
               <form onSubmit={handleLogin} className="space-y-4">
+                {loginError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed">
+                    {loginError}
+                  </p>
+                )}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("auth_email")}</label>
                   <input
@@ -4841,6 +4869,11 @@ export default function CustomerPortal() {
               </form>
             ) : (
               <form onSubmit={handleSignup} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                {signupError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed">
+                    {signupError}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("auth_first")}</label>
