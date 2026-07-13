@@ -569,6 +569,10 @@ export default function AdminDashboard() {
   const [discountAmount, setDiscountAmount] = React.useState(10);
   const [discountStarts, setDiscountStarts] = React.useState("2026-07-04T00:00:00Z");
   const [discountEnds, setDiscountEnds] = React.useState("2026-12-31T23:59:59Z");
+  // Admin-only note on why this code exists — never shown to the customer,
+  // just so staff can tell codes apart in the list below (e.g. "Tết 2026
+  // campaign, public" vs "Goodwill code for customer X after late delivery").
+  const [discountDescription, setDiscountDescription] = React.useState("");
 
   // --- Subscription Plan (wallet top-up tier) form state — one form does
   // double duty for create and edit, same as the Promotional Codes form,
@@ -1654,12 +1658,14 @@ export default function AdminDashboard() {
           isActive: true,
           startsAt: new Date(discountStarts).toISOString(),
           endsAt: new Date(discountEnds).toISOString(),
+          description: discountDescription.trim() || undefined,
         }),
       });
 
       if (res.ok) {
         setDiscountCode("");
         setDiscountAmount(10);
+        setDiscountDescription("");
         loadData();
       } else {
         const error = await res.json();
@@ -3654,6 +3660,19 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Description <span className="normal-case font-normal">(internal note, not shown to customer)</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Tết 2026 campaign, public code shared on Facebook"
+                          value={discountDescription}
+                          onChange={(e) => setDiscountDescription(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        />
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs cursor-pointer"
@@ -3671,6 +3690,7 @@ export default function AdminDashboard() {
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
                             <th className="pb-3 font-semibold">Code</th>
+                            <th className="pb-3 font-semibold">Origin</th>
                             <th className="pb-3 font-semibold">Type</th>
                             <th className="pb-3 font-semibold">Value</th>
                             <th className="pb-3 font-semibold">Valid Period</th>
@@ -3681,6 +3701,20 @@ export default function AdminDashboard() {
                           {paginate(discounts, clampPage(discountsPage, Math.ceil(discounts.length / PAGE_SIZE) || 1), PAGE_SIZE).map((d) => (
                             <tr key={d.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold tracking-wider">{d.code}</td>
+                              <td className="py-3.5 max-w-[220px]">
+                                {d.customerId ? (
+                                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full mb-1">
+                                    Customer-linked{d.customerName ? `: ${d.customerName}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full mb-1">
+                                    Admin / public
+                                  </span>
+                                )}
+                                {d.description && (
+                                  <p className="text-muted-foreground leading-snug">{d.description}</p>
+                                )}
+                              </td>
                               <td className="py-3.5 text-muted-foreground">{d.type}</td>
                               <td className="py-3.5 font-bold text-primary">
                                 {d.type === "PERCENTAGE" ? `${d.amount} %` : formatVND(d.amount)}

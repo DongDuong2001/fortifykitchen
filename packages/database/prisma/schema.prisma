@@ -415,12 +415,22 @@ model CustomPlanRequest {
   @@index([matchedSubscriptionId])
 }
 
-// Coupon-style promo codes. Two origins now share this table: (1) a public
-// code an admin creates by hand (customerId null), and (2) a voucher
-// auto-issued to one specific customer when they buy a SubscriptionPlan
-// (customerId set, code auto-generated — see SubscriptionPlansService) —
-// the tiered "5% off / 10% off" reward described in
-// docs/plan-and-credit-design.md.
+// Coupon-style promo codes. Historically this table had two origins: (1) a
+// public code an admin creates by hand (customerId null), and (2) a
+// voucher auto-issued to one specific customer when they bought a
+// SubscriptionPlan (customerId set, code auto-generated). Origin (2) was
+// retired — SubscriptionPlan purchases now set Customer.planDiscountPercent
+// / planDiscountEndsAt directly instead of minting a Discount row (see
+// SubscriptionPlansService.confirmPurchase and
+// docs/plan-and-credit-design.md) — so every NEW row here is admin-created.
+// customerId/redemptions are kept because (a) any pre-migration voucher
+// rows still exist and are still redeemable/expirable, and (b) an admin can
+// still hand-create a customer-scoped code via customerId if needed.
+//
+// `description` is admin-facing only (never shown to the customer) so
+// staff can tell codes apart at a glance — e.g. "Tết 2026 campaign,
+// public" vs "Goodwill code for customer X after late delivery" — without
+// having to infer origin from customerId alone.
 model Discount {
   id          String              @id @default(uuid())
   code        String              @unique
@@ -429,7 +439,8 @@ model Discount {
   isActive    Boolean             @default(true)
   startsAt    DateTime
   endsAt      DateTime
-  customerId  String? // set only for a plan-purchase voucher; null for a public code
+  customerId  String? // set for a customer-scoped code (legacy plan voucher, or a hand-created one-off); null for a public code
+  description String? // admin-only note on why this code exists / who it's for
   redemptions DiscountRedemption[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt

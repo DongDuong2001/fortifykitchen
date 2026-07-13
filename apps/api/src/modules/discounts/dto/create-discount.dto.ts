@@ -1,11 +1,20 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsEnum, IsNumber, Min, IsBoolean, IsDateString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsString, IsNotEmpty, IsEnum, IsNumber, Min, IsBoolean, IsDateString, IsOptional } from "class-validator";
 
 export class CreateDiscountDto {
   @ApiProperty({ example: "FORTIFY10" })
   @IsString()
   @IsNotEmpty()
   code!: string;
+
+  // Admin-only note on why this code exists — e.g. "Tết 2026 campaign,
+  // public" or "Goodwill code for customer X after late delivery". Never
+  // shown to the customer; purely so staff can tell codes apart in the
+  // admin list without inferring origin from customerId alone.
+  @ApiPropertyOptional({ example: "Tết 2026 campaign, public code shared on Facebook" })
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @ApiProperty({ example: "PERCENTAGE", enum: ["PERCENTAGE", "FIXED"] })
   @IsEnum(["PERCENTAGE", "FIXED"])
