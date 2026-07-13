@@ -572,6 +572,11 @@ export default function CustomerPortal() {
   // Pay-from-wallet on an UNPAID/DEPOSIT Subscription — see the phone-lookup
   // and dashboard subscription views below.
   const [payingSubscriptionId, setPayingSubscriptionId] = React.useState<string | null>(null);
+  // Inline error shown right under the pay-from-wallet button — a toast
+  // alone is too easy to miss down in the corner (same lesson learned from
+  // the login modal fix earlier), so failures also get a persistent banner
+  // keyed to the specific subscription that failed.
+  const [payFromWalletError, setPayFromWalletError] = React.useState<{ id: string; title: string; description?: string } | null>(null);
 
   // In-app low-balance notifications (wallet + subscription pools) — see
   // GET /notifications/me. Dismissal is session-only (plain component
@@ -1280,6 +1285,7 @@ export default function CustomerPortal() {
   // wallet can't fully cover it.
   const handlePayFromWallet = async (subscriptionId: string) => {
     setPayingSubscriptionId(subscriptionId);
+    setPayFromWalletError(null);
     try {
       const token = localStorage.getItem("fk_token");
       const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
@@ -1311,26 +1317,24 @@ export default function CustomerPortal() {
           .catch(() => {});
       } else {
         const isShortBalance = /wallet balance is insufficient/i.test(result?.message || "");
-        toast({
-          title: translateApiError(
-            result?.message,
-            lang,
-            lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
-          ),
-          description: isShortBalance
-            ? lang === "vi"
-              ? "Vào mục Số dư tài khoản để nạp thêm, sau đó quay lại thanh toán."
-              : "Top up in the Account Credit section, then come back and try paying again."
-            : undefined,
-          type: "error",
-        });
+        const title = translateApiError(
+          result?.message,
+          lang,
+          lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
+        );
+        const description = isShortBalance
+          ? lang === "vi"
+            ? "Vào mục Số dư tài khoản để nạp thêm, sau đó quay lại thanh toán."
+            : "Top up in the Account Credit section, then come back and try paying again."
+          : undefined;
+        toast({ title, description, type: "error" });
+        setPayFromWalletError({ id: subscriptionId, title, description });
       }
     } catch (err) {
       console.error(err);
-      toast({
-        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
-        type: "error",
-      });
+      const title = lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again";
+      toast({ title, type: "error" });
+      setPayFromWalletError({ id: subscriptionId, title });
     } finally {
       setPayingSubscriptionId(null);
     }
@@ -3882,6 +3886,12 @@ export default function CustomerPortal() {
                           {lang === "vi" ? "Đăng nhập để thanh toán bằng Ví" : "Log in to pay from wallet"}
                         </button>
                       )}
+                      {payFromWalletError && payFromWalletError.id === sub.id && (
+                        <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed">
+                          <p className="font-bold">{payFromWalletError.title}</p>
+                          {payFromWalletError.description && <p className="mt-0.5 opacity-90">{payFromWalletError.description}</p>}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -4395,6 +4405,12 @@ export default function CustomerPortal() {
                                     </>
                                   )}
                                 </button>
+                                {payFromWalletError && payFromWalletError.id === sub.id && (
+                                  <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed">
+                                    <p className="font-bold">{payFromWalletError.title}</p>
+                                    {payFromWalletError.description && <p className="mt-0.5 opacity-90">{payFromWalletError.description}</p>}
+                                  </div>
+                                )}
                               </div>
                             )}
 
