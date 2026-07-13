@@ -431,6 +431,15 @@ model CustomPlanRequest {
 // staff can tell codes apart at a glance — e.g. "Tết 2026 campaign,
 // public" vs "Goodwill code for customer X after late delivery" — without
 // having to infer origin from customerId alone.
+// usageLimit/usageCount cap total redemptions across ALL customers
+// (separate from the existing @@unique([discountId, customerId]) on
+// DiscountRedemption, which only ever caps one customer to one use of a
+// given code). usageLimit null = unlimited. usageCount is a denormalized
+// counter incremented atomically in the same transaction that creates the
+// DiscountRedemption row (see OrdersService.create) via a conditional
+// `updateMany` guarded by `usageCount < usageLimit` — Postgres row locking
+// inside that transaction is what makes the check-and-increment safe under
+// concurrent redemptions, not a plain read-then-write.
 model Discount {
   id          String              @id @default(uuid())
   code        String              @unique
@@ -441,6 +450,8 @@ model Discount {
   endsAt      DateTime
   customerId  String? // set for a customer-scoped code (legacy plan voucher, or a hand-created one-off); null for a public code
   description String? // admin-only note on why this code exists / who it's for
+  usageLimit  Int? // max total redemptions across all customers; null = unlimited
+  usageCount  Int                 @default(0) // denormalized count of successful redemptions so far
   redemptions DiscountRedemption[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt

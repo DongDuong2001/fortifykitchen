@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsEnum, IsNumber, Min, IsBoolean, IsDateString, IsOptional } from "class-validator";
+import { IsString, IsNotEmpty, IsEnum, IsNumber, Min, IsBoolean, IsDateString, IsOptional, IsInt } from "class-validator";
 
 export class CreateDiscountDto {
   @ApiProperty({ example: "FORTIFY10" })
@@ -36,4 +36,14 @@ export class CreateDiscountDto {
   @ApiProperty({ example: "2026-12-31T23:59:59Z" })
   @IsDateString()
   endsAt!: string;
+
+  // Max total redemptions across all customers, e.g. "only the first 20
+  // people who use this code get the discount." Omit/leave blank for
+  // unlimited — this is separate from the existing one-use-per-customer
+  // rule, which always applies regardless of this limit.
+  @ApiPropertyOptional({ example: 20 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  usageLimit?: number;
 }

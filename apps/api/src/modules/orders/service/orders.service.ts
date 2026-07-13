@@ -162,7 +162,15 @@ export class OrdersService {
   private async resolveDiscount(
     code: string,
     customerId: string,
-  ): Promise<{ id: string; code: string; type: string; amount: Decimal; customerId: string | null }> {
+  ): Promise<{
+    id: string;
+    code: string;
+    type: string;
+    amount: Decimal;
+    customerId: string | null;
+    usageLimit: number | null;
+    usageCount: number;
+  }> {
     const normalized = code.trim().toUpperCase();
     const discount = await this.db.client.discount.findUnique({ where: { code: normalized } });
     if (!discount) {
@@ -177,6 +185,13 @@ export class OrdersService {
     }
     if (discount.customerId && discount.customerId !== customerId) {
       throw new BadRequestException(`Discount code "${code}" is not valid for your account`);
+    }
+    // Fast, non-atomic early-out for the common case — the real,
+    // race-safe enforcement is the conditional updateMany inside the
+    // order-creation transaction below, same reasoning as the
+    // one-redemption-per-customer check.
+    if (discount.usageLimit !== null && discount.usageCount >= discount.usageLimit) {
+      throw new BadRequestException(`Discount code "${code}" has reached its usage limit.`);
     }
     return discount;
   }
@@ -408,6 +423,24 @@ export class OrdersService {
       // this code for this customer, rolling back everything above
       // (stock, wallet, order) along with it.
       if (discount) {
+        // Claim one slot against the total usage cap (separate from the
+        // per-customer check below), if one is set. A conditional
+        // updateMany rather than a plain read-then-write — Postgres takes
+        // a row lock on the matched row inside this transaction, so a
+        // second concurrent claim re-evaluates the WHERE clause against
+        // the just-incremented count instead of a stale read, which is
+        // what actually prevents two concurrent orders from both slipping
+        // past a "19 of 20 used" check.
+        if (discount.usageLimit !== null) {
+          const claim = await tx.discount.updateMany({
+            where: { id: discount.id, usageCount: { lt: discount.usageLimit } },
+            data: { usageCount: { increment: 1 } },
+          });
+          if (claim.count === 0) {
+            throw new BadRequestException(`Discount code "${discount.code}" has reached its usage limit.`);
+          }
+        }
+
         try {
           await tx.discountRedemption.create({
             data: { discountId: discount.id, customerId: customer.id, orderId: created.id },

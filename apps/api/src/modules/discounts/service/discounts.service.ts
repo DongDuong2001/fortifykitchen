@@ -52,6 +52,7 @@ export class DiscountsService {
         startsAt: new Date(dto.startsAt),
         endsAt: new Date(dto.endsAt),
         description: dto.description?.trim() || null,
+        usageLimit: dto.usageLimit ?? null,
       },
     });
 
@@ -88,6 +89,14 @@ export class DiscountsService {
 
     if (now > discount.endsAt) {
       throw new BadRequestException("Discount code has expired");
+    }
+
+    // Preview-only check — the real, race-safe claim happens atomically
+    // inside OrdersService.create's transaction. This just lets the
+    // customer-web live-preview widget say "out of uses" immediately while
+    // typing, instead of only discovering it after a failed checkout.
+    if (discount.usageLimit !== null && discount.usageCount >= discount.usageLimit) {
+      throw new BadRequestException(`Discount code "${code}" has reached its usage limit.`);
     }
 
     if (userId) {

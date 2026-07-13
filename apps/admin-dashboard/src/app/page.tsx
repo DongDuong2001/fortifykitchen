@@ -573,6 +573,10 @@ export default function AdminDashboard() {
   // just so staff can tell codes apart in the list below (e.g. "Tết 2026
   // campaign, public" vs "Goodwill code for customer X after late delivery").
   const [discountDescription, setDiscountDescription] = React.useState("");
+  // Blank = unlimited. When set, e.g. "20", only the first 20 total
+  // redemptions across all customers succeed — separate from the existing
+  // one-use-per-customer rule, which always applies regardless.
+  const [discountUsageLimit, setDiscountUsageLimit] = React.useState("");
 
   // --- Subscription Plan (wallet top-up tier) form state — one form does
   // double duty for create and edit, same as the Promotional Codes form,
@@ -1659,6 +1663,7 @@ export default function AdminDashboard() {
           startsAt: new Date(discountStarts).toISOString(),
           endsAt: new Date(discountEnds).toISOString(),
           description: discountDescription.trim() || undefined,
+          usageLimit: discountUsageLimit.trim() ? Number(discountUsageLimit) : undefined,
         }),
       });
 
@@ -1666,6 +1671,7 @@ export default function AdminDashboard() {
         setDiscountCode("");
         setDiscountAmount(10);
         setDiscountDescription("");
+        setDiscountUsageLimit("");
         loadData();
       } else {
         const error = await res.json();
@@ -3673,6 +3679,20 @@ export default function AdminDashboard() {
                         />
                       </div>
 
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Usage Limit <span className="normal-case font-normal">(blank = unlimited)</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 20 — only the first 20 redemptions succeed"
+                          value={discountUsageLimit}
+                          onChange={(e) => setDiscountUsageLimit(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        />
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs cursor-pointer"
@@ -3693,6 +3713,7 @@ export default function AdminDashboard() {
                             <th className="pb-3 font-semibold">Origin</th>
                             <th className="pb-3 font-semibold">Type</th>
                             <th className="pb-3 font-semibold">Value</th>
+                            <th className="pb-3 font-semibold">Usage</th>
                             <th className="pb-3 font-semibold">Valid Period</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
@@ -3718,6 +3739,16 @@ export default function AdminDashboard() {
                               <td className="py-3.5 text-muted-foreground">{d.type}</td>
                               <td className="py-3.5 font-bold text-primary">
                                 {d.type === "PERCENTAGE" ? `${d.amount} %` : formatVND(d.amount)}
+                              </td>
+                              <td className="py-3.5">
+                                {d.usageLimit == null ? (
+                                  <span className="text-muted-foreground">{d.usageCount ?? 0} used</span>
+                                ) : (
+                                  <span className={d.usageCount >= d.usageLimit ? "font-bold text-red-500" : "text-muted-foreground"}>
+                                    {d.usageCount ?? 0} / {d.usageLimit}
+                                    {d.usageCount >= d.usageLimit ? " — out of uses" : ""}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-3.5 text-muted-foreground">
                                 {new Date(d.startsAt).toLocaleDateString("vi-VN")} - {new Date(d.endsAt).toLocaleDateString("vi-VN")}
