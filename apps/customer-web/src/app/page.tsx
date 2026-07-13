@@ -4262,6 +4262,15 @@ export default function CustomerPortal() {
                               <div className="text-[11px] text-muted-foreground mt-1 truncate">
                                 {(myOrders[0].items || []).map((i: any) => i.flavor).join(", ")}
                               </div>
+                              {myOrders[0].createdAt && (
+                                <div className="text-[10px] text-muted-foreground/80 mt-0.5">
+                                  {lang === "vi" ? "Đặt lúc: " : "Placed: "}
+                                  {new Date(myOrders[0].createdAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  })}
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
@@ -4338,6 +4347,15 @@ export default function CustomerPortal() {
                               <div>
                                 <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
                                 <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+                                {order.createdAt && (
+                                  <div className="text-[11px] text-muted-foreground mt-1">
+                                    {lang === "vi" ? "Đặt lúc: " : "Placed: "}
+                                    {new Date(order.createdAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    })}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
