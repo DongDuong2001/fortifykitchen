@@ -1919,7 +1919,7 @@ export default function CustomerPortal() {
                 )}
               </h1>
 
-              <p className="text-sm sm:text-base text-secondary/90 leading-relaxed max-w-xl font-sans font-light">
+              <p className="text-sm sm:text-base text-foreground/70 leading-relaxed max-w-xl font-sans font-light">
                 {lang === "vi"
                   ? "Chúng tôi tái định nghĩa trải nghiệm ẩm thực lành mạnh với sự chính xác tuyệt đối từ công thức chế biến nấu chậm (sous-vide) khép kín. Mỗi đĩa ăn là sự kết hợp hoàn hảo giữa chỉ số macros rõ ràng và hương vị nguyên bản ngọt mọng tự nhiên, đồng hành chân thành cùng hành trình sức khỏe của riêng bạn."
                   : "We redefine nutritious dining with absolute precision through closed-loop sous-vide slow-cooking. Every dish achieves the perfect balance of clear macronutrients and tender, succulent flavor, accompanying you personally on your journey."}
@@ -1940,19 +1940,22 @@ export default function CustomerPortal() {
                 </button>
               </div>
 
-              {/* Social Proof Line (Editorial style) */}
+              {/* Social Proof Line (Editorial style) — real, verifiable
+                  operational facts (delivery area + shelf life from the
+                  business brief) rather than an unverifiable member-count
+                  claim, since the business is still pre-trial-sell. */}
               <div className="pt-8 border-t border-border/30 max-w-lg">
-                <p className="text-xs text-secondary/80 leading-relaxed font-sans font-light">
+                <p className="text-xs text-foreground/70 leading-relaxed font-sans font-light">
                   {lang === "vi"
-                    ? "Chế độ dinh dưỡng cân bằng đang đồng hành cùng hơn 2,000+ thành viên tại TP. Hồ Chí Minh năng động mỗi ngày."
-                    : "Balanced nutrition is powering over 2,000+ active members in Ho Chi Minh City daily."}
+                    ? "Giao tận nơi nội thành TP. Hồ Chí Minh, bảo quản lạnh tới 7 ngày — mỗi phần ăn đều có sẵn thông tin macro rõ ràng."
+                    : "Delivered fresh across inner-city Ho Chi Minh City, chilled for up to 7 days — every meal comes labeled with clear macros."}
                 </p>
               </div>
             </div>
 
             {/* Right Asymmetrical Composition Column (Aesop-like organic layout) */}
             <div className="lg:col-span-5 relative flex items-center justify-center lg:justify-end">
-              <div className="relative w-full max-w-[400px] lg:max-w-full aspect-[4/5] rounded-[16px] overflow-hidden border border-border/40 bg-card p-4 shadow-sm transition-all duration-500 hover:shadow-md">
+              <div className="relative w-full max-w-[400px] lg:max-w-full aspect-[4/5] rounded-md overflow-hidden border border-border/40 bg-card p-4 shadow-sm transition-all duration-500 hover:shadow-md">
                 <img
                   src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800"
                   alt="Premium nutritious plate"
@@ -1969,22 +1972,10 @@ export default function CustomerPortal() {
         {/* TAB 0: HOME / LANDING PAGE */}
         {activeTab === "home" && (
           <div className="space-y-16 sm:space-y-20">
-            {/* Trust Strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-              {[
-                { icon: faFlask, text: lang === "vi" ? "Sous-vide, không bao giờ khô" : "Sous-vide, never dry" },
-                { icon: faLeaf, text: lang === "vi" ? "Nông sản chuẩn VietGAP" : "VietGAP produce" },
-                { icon: faHeart, text: lang === "vi" ? "Macros rõ ràng trên nhãn" : "Macros on every label" },
-                { icon: faTruck, text: lang === "vi" ? "Giao nội thành TP.HCM" : "HCMC inner-city delivery" },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 text-left">
-                  <div className="h-9 w-9 rounded-full bg-primary/5 flex items-center justify-center text-primary shrink-0">
-                    <FontAwesomeIcon icon={item.icon} className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground leading-snug">{item.text}</span>
-                </div>
-              ))}
-            </div>
+            {/* Trust Strip removed — it repeated sous-vide/VietGAP/macros
+                almost verbatim against the "Why Fortify" pillars just below,
+                and HCMC delivery now lives in the hero's social-proof line
+                instead, so nothing here was lost, just de-duplicated. */}
 
             {/* Featured Menu Section */}
             <div className="space-y-10 text-center">
@@ -2028,15 +2019,10 @@ export default function CustomerPortal() {
                   </div>
                 ))}
               </div>
-
-              <div className="pt-4">
-                <button
-                  onClick={() => setActiveTab("menu")}
-                  className="bg-primary hover:bg-[#95260f] text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md"
-                >
-                  {lang === "vi" ? "Xem toàn bộ thực đơn" : "View Entire Menu"}
-                </button>
-              </div>
+              {/* Its own "view full menu" CTA was removed — the hero's
+                  "Khám phá thực đơn" button and the bottom final-CTA band
+                  already cover this same action; a third identical button
+                  in between them was pure repetition. */}
             </div>
 
             {/* Why Fortify — Canonical Pillars */}
@@ -2073,7 +2059,7 @@ export default function CustomerPortal() {
 
                 {/* Pillar 2: Organic */}
                 <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500/5 flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <FontAwesomeIcon icon={faLeaf} className="h-4 w-4" />
                   </div>
                   <div className="space-y-2">
@@ -2090,7 +2076,7 @@ export default function CustomerPortal() {
 
                 {/* Pillar 3: Macros */}
                 <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
-                  <div className="h-10 w-10 rounded-xl bg-rose-500/5 flex items-center justify-center text-rose-500 transition-colors group-hover:bg-rose-500 group-hover:text-white">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
                   </div>
                   <div className="space-y-2">
@@ -2107,7 +2093,7 @@ export default function CustomerPortal() {
 
                 {/* Pillar 4: Transparent */}
                 <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-4 hover:border-primary/30 transition-all shadow-xs group">
-                  <div className="h-10 w-10 rounded-xl bg-amber-500/5 flex items-center justify-center text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                  <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <FontAwesomeIcon icon={faShieldHalved} className="h-4 w-4" />
                   </div>
                   <div className="space-y-2">
@@ -2151,37 +2137,27 @@ export default function CustomerPortal() {
               </div>
             </div>
 
-            {/* Mission / Quote Callout */}
-            <div className="border border-border/70 bg-card rounded-3xl p-8 sm:p-10 shadow-warm relative overflow-hidden flex gap-5 sm:gap-6 items-start max-w-4xl mx-auto">
-              <FontAwesomeIcon icon={faQuoteLeft} className="h-8 w-8 text-primary/20 shrink-0 mt-1" />
-              <div className="space-y-4">
-                <p className="text-base sm:text-lg text-foreground font-heading italic leading-relaxed">
-                  {lang === "vi"
-                    ? "Chúng tôi tập trung nghiên cứu và chuẩn hóa các khẩu phần ăn ngon miệng, đảm bảo đầy đủ hàm lượng dinh dưỡng thiết yếu và tính tiện lợi cho cuộc sống năng động."
-                    : "We focus on designing and standardizing delicious meals that guarantee essential nutritional requirements and convenience for active lifestyles."}
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="h-[1px] w-8 bg-secondary/40" />
-                  <span className="text-[10px] font-bold text-secondary uppercase tracking-widest font-sans">
-                    {lang === "vi" ? "Đội ngũ Phát triển Fortify Kitchen" : "Fortify Kitchen Development Team"}
-                  </span>
-                </div>
-              </div>
-            </div>
+            {/* Mission / Quote Callout removed — it used the exact same
+                quote-block styling as the real customer testimonial right
+                below it, so the two read as "two testimonials" back to
+                back even though this one was just internal mission copy
+                restating what the hero/pillars already said. Cutting it
+                lets the one real testimonial stand on its own. */}
 
             {/* Customer Testimonial */}
-            <div className="bg-[#D4EFE4]/30 border border-[#D4EFE4]/70 p-12 rounded-3xl space-y-8 text-center max-w-4xl mx-auto">
-              <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-[#2F4A3C]">
+            <div className="border border-border/70 bg-card p-12 rounded-3xl space-y-8 text-center max-w-4xl mx-auto shadow-warm">
+              <FontAwesomeIcon icon={faQuoteLeft} className="h-8 w-8 text-primary/20 mx-auto" />
+              <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-primary block">
                 {lang === "vi" ? "Đánh giá từ khách hàng" : "Customer Testimonials"}
               </span>
-              <p className="text-xl sm:text-2xl font-light italic leading-relaxed text-[#2F4A3C] font-heading">
+              <p className="text-xl sm:text-2xl font-light italic leading-relaxed text-foreground font-heading">
                 {lang === "vi"
                   ? "\u201cĂn uống lành mạnh chưa bao giờ dễ dàng và mọng nước đến thế! Ức gà nấu sous-vide của Fortify Kitchen mềm ngọt như tan trong miệng, vượt xa mọi quán ăn healthy mình từng thử.\u201d"
                   : "\u201cHealthy eating has never been this effortless and juicy! The sous-vide chicken from Fortify Kitchen melts in your mouth. It goes way beyond any healthy diner I\u2019ve ever tried.\u201d"}
               </p>
               <div className="space-y-1">
-                <p className="text-xs font-bold text-[#2F4A3C]">Minh Anh</p>
-                <p className="text-[10px] text-[#2F4A3C]/70">{lang === "vi" ? "Hội viên 6 tháng · Quận 1, TP. HCM" : "6-month member · District 1, HCMC"}</p>
+                <p className="text-xs font-bold text-foreground">Minh Anh</p>
+                <p className="text-[10px] text-foreground/60">{lang === "vi" ? "Hội viên 6 tháng · Quận 1, TP. HCM" : "6-month member · District 1, HCMC"}</p>
               </div>
             </div>
 
