@@ -285,7 +285,7 @@ const ORDER_STATUS_LABELS: Record<"vi" | "en", Record<string, string>> = {
     PENDING_CONFIRMATION: "Chờ xác nhận",
     CONFIRMED: "Đã xác nhận",
     PREPARING: "Đang chuẩn bị",
-    OUT_FOR_DELIVERY: "Đang giao",
+    OUT_FOR_DELIVERY: "Đang giao hàng",
     COMPLETED: "Hoàn thành",
     CANCELLED: "Đã huỷ",
   },
@@ -307,6 +307,20 @@ const ORDER_STATUS_BADGE_CLASS: Record<string, string> = {
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
   CANCELLED: "bg-red-50 text-red-700 border-red-200",
 };
+
+// Shopee-style order-history grouping — customers manage a big order list
+// far more easily as status buckets than one long undifferentiated feed.
+// CONFIRMED is folded into the "Đang chuẩn bị" bucket since from the
+// customer's point of view staff acknowledging the order and starting to
+// cook it are the same "we're on it" moment; it isn't its own tab.
+const ORDER_HISTORY_STATUS_GROUPS: { key: string; statuses: string[] | null; vi: string; en: string }[] = [
+  { key: "ALL", statuses: null, vi: "Tất cả", en: "All" },
+  { key: "PENDING_CONFIRMATION", statuses: ["PENDING_CONFIRMATION"], vi: "Chờ xác nhận", en: "Awaiting confirmation" },
+  { key: "PREPARING", statuses: ["CONFIRMED", "PREPARING"], vi: "Đang chuẩn bị", en: "Preparing" },
+  { key: "OUT_FOR_DELIVERY", statuses: ["OUT_FOR_DELIVERY"], vi: "Đang giao hàng", en: "Out for delivery" },
+  { key: "COMPLETED", statuses: ["COMPLETED"], vi: "Đã giao", en: "Delivered" },
+  { key: "CANCELLED", statuses: ["CANCELLED"], vi: "Đã hủy", en: "Cancelled" },
+];
 
 // Wallet top-up plan benefits — cumulative by voucherPercent tier (each tier
 // keeps every perk from the tier below it, plus one new one), per the
@@ -710,6 +724,11 @@ export default function CustomerPortal() {
 
   // User Dashboard State
   const [myOrders, setMyOrders] = React.useState<any[]>([]);
+  // Which Shopee-style status bucket is showing in "Lịch sử đơn hàng" — see
+  // ORDER_HISTORY_STATUS_GROUPS. Defaults to "ALL" so nothing is hidden by
+  // default, matching the marketplace convention of always having an "All"
+  // tab alongside the status-specific ones.
+  const [orderHistoryGroup, setOrderHistoryGroup] = React.useState<string>("ALL");
   const [mySubscriptions, setMySubscriptions] = React.useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = React.useState(false);
   // Sub-navigation within the private dashboard tab — Overview / Orders /
@@ -4248,8 +4267,10 @@ export default function CustomerPortal() {
                               <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
                                 {formatVND(myOrders[0].total)}
                               </span>
-                              <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
-                                {myOrders[0].status}
+                              <span
+                                className={`text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[myOrders[0].status] || "bg-primary/10 text-primary border-primary/20"}`}
+                              >
+                                {ORDER_STATUS_LABELS[lang][myOrders[0].status] || myOrders[0].status}
                               </span>
                             </div>
                           </div>
@@ -4275,7 +4296,43 @@ export default function CustomerPortal() {
                       </div>
                     ) : (
                       <div className="max-w-3xl space-y-6">
-                        {myOrders.map((order) => (
+                        {/* Shopee-style status buckets — sorting through every
+                            order in one long list was confusing, so this
+                            groups them exactly like a marketplace app does. */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                          {ORDER_HISTORY_STATUS_GROUPS.map((group) => {
+                            const count = group.statuses === null ? myOrders.length : myOrders.filter((o) => group.statuses!.includes(o.status)).length;
+                            const isActive = orderHistoryGroup === group.key;
+                            return (
+                              <button
+                                key={group.key}
+                                onClick={() => setOrderHistoryGroup(group.key)}
+                                className={`shrink-0 text-xs font-bold px-3.5 py-2 rounded-full border transition-all cursor-pointer whitespace-nowrap ${
+                                  isActive
+                                    ? "bg-primary border-primary text-primary-foreground"
+                                    : "bg-card border-border text-muted-foreground hover:border-primary/40"
+                                }`}
+                              >
+                                {lang === "vi" ? group.vi : group.en}
+                                {count > 0 && <span className="ml-1.5 opacity-80">({count})</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {(() => {
+                          const activeGroup = ORDER_HISTORY_STATUS_GROUPS.find((g) => g.key === orderHistoryGroup);
+                          const filteredOrders = activeGroup?.statuses === null ? myOrders : myOrders.filter((o) => activeGroup?.statuses!.includes(o.status));
+                          if (filteredOrders.length === 0) {
+                            return (
+                              <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                                <p className="text-xs text-muted-foreground">
+                                  {lang === "vi" ? "Không có đơn nào trong mục này." : "No orders in this status."}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return filteredOrders.map((order) => (
                           <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
                               <div>
@@ -4286,8 +4343,10 @@ export default function CustomerPortal() {
                                 <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
                                   {formatVND(order.total)}
                                 </span>
-                                <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/20">
-                                  {order.status}
+                                <span
+                                  className={`text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[order.status] || "bg-primary/10 text-primary border-primary/20"}`}
+                                >
+                                  {ORDER_STATUS_LABELS[lang][order.status] || order.status}
                                 </span>
                               </div>
                             </div>
@@ -4304,43 +4363,53 @@ export default function CustomerPortal() {
                               ))}
                             </div>
 
-                            {/* Live Step Progress Indicator for COD/Shipment */}
-                            <div>
-                              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                                {t("status_label")}
+                            {/* Live Step Progress Indicator — or a cancelled
+                                banner, since a cancelled order isn't "further
+                                along" a forward progress bar. */}
+                            {order.status === "CANCELLED" ? (
+                              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-xs font-semibold">
+                                <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5 shrink-0" />
+                                {lang === "vi" ? "Đơn hàng này đã bị hủy." : "This order was cancelled."}
                               </div>
-                              <div className="grid grid-cols-4 gap-2 relative">
-                                {/* Horizontal connecting line */}
-                                <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
+                            ) : (
+                              <div>
+                                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
+                                  {t("status_label")}
+                                </div>
+                                <div className="grid grid-cols-5 gap-1.5 relative">
+                                  {/* Horizontal connecting line */}
+                                  <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
 
-                                {[
-                                  { key: "PENDING", label: lang === "vi" ? "Đã nhận" : "Received", icon: faClock },
-                                  { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
-                                  { key: "PREPARING", label: lang === "vi" ? "Đang nấu" : "Preparing", icon: faUtensils },
-                                  { key: "DELIVERED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faTruck },
-                                ].map((step) => {
-                                  const statuses = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
-                                  const currentIdx = statuses.indexOf(order.status);
-                                  const targetIdx = statuses.indexOf(step.key === "DELIVERED" ? "DELIVERED" : step.key);
-                                  const isPassed = currentIdx >= targetIdx;
+                                  {[
+                                    { key: "PENDING_CONFIRMATION", label: lang === "vi" ? "Chờ xác nhận" : "Awaiting", icon: faClock },
+                                    { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
+                                    { key: "PREPARING", label: lang === "vi" ? "Đang chuẩn bị" : "Preparing", icon: faUtensils },
+                                    { key: "OUT_FOR_DELIVERY", label: lang === "vi" ? "Đang giao hàng" : "Out for delivery", icon: faTruck },
+                                    { key: "COMPLETED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faCheck },
+                                  ].map((step) => {
+                                    const statuses = ["PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "COMPLETED"];
+                                    const currentIdx = statuses.indexOf(order.status);
+                                    const targetIdx = statuses.indexOf(step.key);
+                                    const isPassed = currentIdx >= targetIdx;
 
-                                  return (
-                                    <div key={step.key} className="flex flex-col items-center text-center">
-                                      <div
-                                        className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
-                                          isPassed
-                                            ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
-                                            : "bg-muted border-border text-muted-foreground"
-                                        }`}
-                                      >
-                                        <FontAwesomeIcon icon={step.icon} className="h-4 w-4" />
+                                    return (
+                                      <div key={step.key} className="flex flex-col items-center text-center">
+                                        <div
+                                          className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${
+                                            isPassed
+                                              ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15"
+                                              : "bg-muted border-border text-muted-foreground"
+                                          }`}
+                                        >
+                                          <FontAwesomeIcon icon={step.icon} className="h-3.5 w-3.5" />
+                                        </div>
+                                        <span className="text-[9px] font-bold mt-2 text-muted-foreground leading-tight">{step.label}</span>
                                       </div>
-                                      <span className="text-[10px] font-bold mt-2 text-muted-foreground">{step.label}</span>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Shipment details */}
                             <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
@@ -4355,7 +4424,8 @@ export default function CustomerPortal() {
                               </span>
                             </div>
                           </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>
