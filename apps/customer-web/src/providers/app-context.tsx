@@ -45,6 +45,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = React.useState<CartItem[]>([]);
   const [isCartOpen, setCartOpen] = React.useState(false);
   const { toast } = useToast();
+  // Guards addToCart against a single hard/rapid click firing the handler
+  // twice (double click, or a mouse/trackpad double-registering a click) —
+  // without this, two increments land within the same instant and the
+  // customer sees the wrong quantity for one perceived tap.
+  const lastAddRef = React.useRef<Record<string, number>>({});
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -200,11 +205,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (menuItem: MenuItem, qty = 1, notes?: string, lang: Lang = "vi") => {
+    // Swallow an accidental double-fire (hard/rapid click registering as two
+    // events) within a short window — a real second intentional click on
+    // the same item a moment later still goes through fine.
+    const now = Date.now();
+    const last = lastAddRef.current[menuItem.id] || 0;
+    if (now - last < 400) return;
+    lastAddRef.current[menuItem.id] = now;
+
     setCart((prev) => {
       const existingIdx = prev.findIndex((item) => item.menuItem.id === menuItem.id);
       if (existingIdx > -1) {
         const updated = [...prev];
-        updated[existingIdx].quantity += qty;
+        // Replace with a new object rather than mutating the existing one
+        // in place — the previous `updated[existingIdx].quantity += qty`
+        // mutated an object still referenced by the outgoing `prev` array,
+        // which is exactly the kind of state mutation React's dev-mode
+        // double-invoked updaters can turn into a silent double-count.
+        updated[existingIdx] = { ...updated[existingIdx], quantity: updated[existingIdx].quantity + qty };
         return updated;
       }
       return [...prev, { menuItem, quantity: qty, notes }];

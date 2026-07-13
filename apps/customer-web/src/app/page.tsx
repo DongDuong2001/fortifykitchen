@@ -395,6 +395,19 @@ export default function CustomerPortal() {
   } = useApp();
   const { toast } = useToast();
 
+  // Brief inline "Added!" state on the Add-to-Cart button itself — the
+  // corner toast alone kept going unnoticed (same lesson learned elsewhere
+  // in this file), so the button flashes a confirmation right where the
+  // customer is already looking.
+  const [justAddedId, setJustAddedId] = React.useState<string | null>(null);
+  const justAddedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleAddToCartClick = (item: any) => {
+    addToCart(item, 1, undefined, lang);
+    setJustAddedId(item.id);
+    if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
+    justAddedTimerRef.current = setTimeout(() => setJustAddedId(null), 1200);
+  };
+
   // In-app replacement for window.confirm — used for the one destructive
   // customer-facing action (postponing a subscription delivery) instead of
   // a native browser dialog.
@@ -2029,11 +2042,18 @@ export default function CustomerPortal() {
                     </div>
                     <div className="px-6 pb-6 pt-2">
                       <button
-                        onClick={() => addToCart(item, 1, undefined, lang)}
-                        className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() => handleAddToCartClick(item)}
+                        disabled={justAddedId === item.id}
+                        className={`w-full text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-default ${
+                          justAddedId === item.id
+                            ? "bg-emerald-500 text-white"
+                            : "bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground"
+                        }`}
                       >
-                        <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
-                        {lang === "vi" ? "Thêm vào giỏ" : "Add to Cart"}
+                        <FontAwesomeIcon icon={justAddedId === item.id ? faCheck : faPlus} className="h-4 w-4" />
+                        {justAddedId === item.id
+                          ? (lang === "vi" ? "Đã thêm!" : "Added!")
+                          : (lang === "vi" ? "Thêm vào giỏ" : "Add to Cart")}
                       </button>
                     </div>
                   </div>
@@ -2555,11 +2575,18 @@ export default function CustomerPortal() {
 
                             <div className="px-6 pb-6 pt-3">
                               <button
-                                onClick={() => addToCart(selected, 1, undefined, lang)}
-                                className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                onClick={() => handleAddToCartClick(selected)}
+                                disabled={justAddedId === selected.id}
+                                className={`w-full text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-default ${
+                                  justAddedId === selected.id
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground"
+                                }`}
                               >
-                                <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
-                                {t("btn_add_cart")}
+                                <FontAwesomeIcon icon={justAddedId === selected.id ? faCheck : faPlus} className="h-4 w-4" />
+                                {justAddedId === selected.id
+                                  ? (lang === "vi" ? "Đã thêm!" : "Added!")
+                                  : t("btn_add_cart")}
                               </button>
                             </div>
                           </div>
