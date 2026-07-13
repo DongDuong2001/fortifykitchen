@@ -1252,6 +1252,7 @@ export default function CustomerPortal() {
       const result = await res.json().catch(() => null);
       if (res.ok) {
         setPlanPurchaseResult(result?.data);
+        setShowWalletPlans(false);
       } else {
         toast({
           title: translateApiError(
@@ -1309,12 +1310,18 @@ export default function CustomerPortal() {
           })
           .catch(() => {});
       } else {
+        const isShortBalance = /wallet balance is insufficient/i.test(result?.message || "");
         toast({
           title: translateApiError(
             result?.message,
             lang,
             lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
           ),
+          description: isShortBalance
+            ? lang === "vi"
+              ? "Vào mục Số dư tài khoản để nạp thêm, sau đó quay lại thanh toán."
+              : "Top up in the Account Credit section, then come back and try paying again."
+            : undefined,
           type: "error",
         });
       }
@@ -3566,7 +3573,7 @@ export default function CustomerPortal() {
                 </div>
               )}
 
-              {(!user || showWalletPlans) && user && hasActivePlanDiscount && (
+              {!user && hasActivePlanDiscount && (
                 <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
                   <p className="text-xs text-amber-700">
                     {lang === "vi"
@@ -3576,7 +3583,7 @@ export default function CustomerPortal() {
                 </div>
               )}
 
-              {(!user || showWalletPlans) && (isLoadingPlans ? (
+              {!user && (isLoadingPlans ? (
                 <div className="flex justify-center py-10">
                   <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -3647,6 +3654,106 @@ export default function CustomerPortal() {
                 </div>
               ))}
             </div>
+        )}
+
+        {/* Wallet top-up plan picker — popup for logged-in customers only,
+            opened via the "Add Money to Wallet" button on the balance card.
+            Guests see the same grid inline above (no popup, no login gate). */}
+        {user && showWalletPlans && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+            <div className="absolute inset-0 cursor-pointer" onClick={() => setShowWalletPlans(false)} />
+            <div className="relative w-full max-w-6xl bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-8 z-10 my-8 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg sm:text-xl font-bold font-heading">
+                  {lang === "vi" ? "Chọn gói nạp ví" : "Choose a top-up pack"}
+                </h3>
+                <button
+                  onClick={() => setShowWalletPlans(false)}
+                  className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+                </button>
+              </div>
+
+              {hasActivePlanDiscount && (
+                <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
+                  <p className="text-xs text-amber-700">
+                    {lang === "vi"
+                      ? `Bạn đang có ưu đãi từ gói hiện tại đến hết ngày ${new Date(planDiscountEndsAt!).toLocaleDateString("vi-VN")}. Vui lòng liên hệ đội ngũ Fortify Kitchen nếu muốn nâng cấp gói trước hạn.`
+                      : `You already have an active plan discount until ${new Date(planDiscountEndsAt!).toLocaleDateString("en-US")}. Please contact our team if you'd like to upgrade early.`}
+                  </p>
+                </div>
+              )}
+
+              {isLoadingPlans ? (
+                <div className="flex justify-center py-10">
+                  <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : subscriptionPlans.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-foreground/70">
+                    {lang === "vi" ? "Chưa có gói nạp nào. Trong lúc chờ, bạn có thể đặt món lẻ từ thực đơn." : "No top-up packs available yet. Meanwhile, you can order individual meals from the menu."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {subscriptionPlans.map((plan) => {
+                    const isFeatured = plan.voucherPercent === 10;
+                    const benefits = getPlanBenefits(plan.voucherPercent || 0, lang);
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`relative border rounded-2xl p-6 space-y-4 flex flex-col bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary ${
+                          isFeatured ? "border-2 border-primary shadow-md" : "border-border shadow-sm"
+                        }`}
+                      >
+                        {isFeatured && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground px-3 py-1 rounded-full whitespace-nowrap">
+                            {lang === "vi" ? "Phổ biến nhất" : "Most popular"}
+                          </span>
+                        )}
+                        <div className="flex justify-between items-start gap-2 min-h-12">
+                          <h4 className="text-base font-bold font-heading">{plan.name}</h4>
+                          {plan.voucherPercent > 0 && (
+                            <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 shrink-0">
+                              {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-3xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
+                        <ul className="space-y-2.5 flex-1">
+                          {benefits.map((b, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
+                              <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span>{b.text}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          onClick={() => handleBuyPlan(plan)}
+                          disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
+                          className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                            isFeatured
+                              ? "bg-primary hover:bg-primary/95 text-primary-foreground"
+                              : "border-2 border-primary text-primary bg-transparent hover:bg-primary/5"
+                          }`}
+                        >
+                          {purchasingPlanId === plan.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                              {lang === "vi" ? "Nạp ví ngay" : "Top up now"}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {activeTab === "subscriptions" && (

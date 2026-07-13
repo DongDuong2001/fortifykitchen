@@ -10,6 +10,10 @@
 // English-speaking users see the raw backend message as-is (no locale
 // mismatch for them), so this only changes behavior when lang === "vi".
 const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
+  {
+    match: /wallet balance is insufficient to cover this subscription/i,
+    vi: "Số dư Ví của bạn không đủ để thanh toán trọn gói đăng ký này. Vui lòng nạp thêm vào ví rồi thử lại.",
+  },
   { match: /wallet balance is insufficient/i, vi: "Số dư Ví của bạn không đủ để thanh toán khoản này." },
   { match: /invalid email or password/i, vi: "Email hoặc mật khẩu không đúng." },
   { match: /email already registered/i, vi: "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng email khác." },
