@@ -3509,7 +3509,7 @@ export default function CustomerPortal() {
             phone-number lookup so a customer can check their remaining
             balance per protein and postpone today's delivery themselves) */}
         {activeTab === "wallet" && (
-          <div className="max-w-3xl mx-auto mb-16">
+          <div className="max-w-7xl mx-auto mb-16">
               <div className="text-center mb-8 space-y-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
                   {lang === "vi" ? "Ví & nạp ví" : "Wallet & top-up"}
@@ -3606,7 +3606,7 @@ export default function CustomerPortal() {
                   </p>
                 </div>
               ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {subscriptionPlans.map((plan) => {
                     // "Max Plan" (the 10% tier) is the deliberate middle
                     // upsell — featured so a first-time buyer isn't stuck
@@ -3616,7 +3616,7 @@ export default function CustomerPortal() {
                     return (
                       <div
                         key={plan.id}
-                        className={`relative border rounded-2xl p-6 space-y-4 flex flex-col bg-card ${
+                        className={`relative border rounded-2xl p-6 space-y-4 flex flex-col bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary ${
                           isFeatured ? "border-2 border-primary shadow-md" : "border-border shadow-sm"
                         }`}
                       >
@@ -3625,7 +3625,7 @@ export default function CustomerPortal() {
                             {lang === "vi" ? "Phổ biến nhất" : "Most popular"}
                           </span>
                         )}
-                        <div className="flex justify-between items-start gap-2">
+                        <div className="flex justify-between items-start gap-2 min-h-12">
                           <h4 className="text-base font-bold font-heading">{plan.name}</h4>
                           {plan.voucherPercent > 0 && (
                             <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 shrink-0">
@@ -3633,7 +3633,7 @@ export default function CustomerPortal() {
                             </span>
                           )}
                         </div>
-                        <p className="text-2xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
+                        <p className="text-3xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
                         <ul className="space-y-2.5 flex-1">
                           {benefits.map((b, i) => (
                             <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
@@ -3645,7 +3645,11 @@ export default function CustomerPortal() {
                         <button
                           onClick={() => handleBuyPlan(plan)}
                           disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
-                          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                            isFeatured
+                              ? "bg-primary hover:bg-primary/95 text-primary-foreground"
+                              : "border-2 border-primary text-primary bg-transparent hover:bg-primary/5"
+                          }`}
                         >
                           {purchasingPlanId === plan.id ? (
                             <FontAwesomeIcon icon={faSpinner} className="h-3.5 w-3.5 animate-spin" />
