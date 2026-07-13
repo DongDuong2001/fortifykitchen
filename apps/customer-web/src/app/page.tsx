@@ -333,7 +333,7 @@ function getPlanBenefits(voucherPercent: number, lang: "vi" | "en"): { icon: typ
           : `Every order is automatically ${voucherPercent}% off — no code to remember.`,
     },
   ];
-  if (voucherPercent >= 5) {
+  if (voucherPercent === 5) {
     benefits.push({
       icon: faGift,
       text:
@@ -342,13 +342,22 @@ function getPlanBenefits(voucherPercent: number, lang: "vi" | "en"): { icon: typ
           : "Every now and then, expect a little surprise gift from our kitchen.",
     });
   }
-  if (voucherPercent >= 10) {
+  if (voucherPercent === 10 || voucherPercent === 15) {
     benefits.push({
       icon: faGift,
       text:
         lang === "vi"
           ? "Quà tặng ghé thăm thường xuyên hơn, và đôi lúc có cả món đặc biệt miễn phí."
           : "Gifts show up more often, plus the occasional free special dish.",
+    });
+  }
+  if (voucherPercent === 20) {
+    benefits.push({
+      icon: faGift,
+      text:
+        lang === "vi"
+          ? "Quà tặng cho mọi đơn hàng, và đôi lúc có cả món đặc biệt miễn phí."
+          : "Gifts with every order, plus the occasional free special dish.",
     });
   }
   if (voucherPercent >= 15) {
@@ -3619,7 +3628,7 @@ export default function CustomerPortal() {
                           <h4 className="text-base font-bold font-heading">{plan.name}</h4>
                           {plan.voucherPercent > 0 && (
                             <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                              {lang === "vi" ? `+${plan.voucherPercent}% · 60 ngày` : `+${plan.voucherPercent}% off · 60 days`}
+                              {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
                             </span>
                           )}
                         </div>
