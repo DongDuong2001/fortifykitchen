@@ -5,6 +5,7 @@ import { UpdateCustomerDto } from "../dto/update-customer.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
 import { parsePagination } from "../../../common/utils/pagination.util";
 import { Customer } from "@fortifykitchen/types";
+import { Decimal, PaymentMethod, PaymentStatus } from "@fortifykitchen/database";
 
 @Injectable()
 export class CustomersService {
@@ -92,6 +93,40 @@ export class CustomersService {
     return this.mapCustomer(customer);
   }
 
+  // Staff directly crediting a customer's wallet from the admin dashboard —
+  // no bank-transfer reconciliation step, since staff are the ones putting
+  // the money in right now (e.g. cash handed over in person, a transfer that
+  // arrived through a channel not otherwise tracked here). Creates a
+  // COMPLETED Payment immediately (audit trail — deliberately not piggybacked
+  // on update() which has no such record) and increments walletBalance
+  // atomically in the same transaction, mirroring
+  // SubscriptionPlansService.confirmPurchase()'s shape.
+  async topUpWallet(id: string, amount: number, note?: string): Promise<Customer> {
+    await this.findOne(id);
+
+    const updated = await this.db.client.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          customerId: id,
+          amount: new Decimal(amount),
+          method: PaymentMethod.MANUAL_TOPUP,
+          status: PaymentStatus.COMPLETED,
+          // No dedicated notes field on Payment — transactionId is repurposed
+          // here to hold staff's free-text reason, same as it would hold a
+          // gateway reference for other payment methods.
+          transactionId: note,
+        },
+      });
+
+      return tx.customer.update({
+        where: { id },
+        data: { walletBalance: { increment: amount } },
+      });
+    });
+
+    return this.mapCustomer(updated);
+  }
+
   private mapCustomer(customer: {
     id: string;
     userId: string | null;
@@ -102,7 +137,6 @@ export class CustomersService {
     notes: string | null;
     walletBalance: number;
     planDiscountPercent: number;
-    planDiscountEndsAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): Customer {
@@ -116,7 +150,6 @@ export class CustomersService {
       notes: customer.notes ?? undefined,
       walletBalance: customer.walletBalance,
       planDiscountPercent: customer.planDiscountPercent,
-      planDiscountEndsAt: customer.planDiscountEndsAt ?? undefined,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };

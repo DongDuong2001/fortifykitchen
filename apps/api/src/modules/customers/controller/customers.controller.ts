@@ -16,6 +16,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from "@ne
 import { CustomersService } from "../service/customers.service";
 import { CreateCustomerDto } from "../dto/create-customer.dto";
 import { UpdateCustomerDto } from "../dto/update-customer.dto";
+import { TopUpWalletDto } from "../dto/top-up-wallet.dto";
 import { Customer } from "@fortifykitchen/types";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
@@ -73,6 +74,18 @@ export class CustomersController {
     @Body() dto: UpdateCustomerDto,
   ): Promise<Customer> {
     return this.customersService.update(id, dto);
+  }
+
+  @Post(":id/wallet-topup")
+  @Roles("ADMIN", "MANAGER", "STAFF")
+  @ApiOperation({ summary: "Staff directly credits this customer's wallet — creates an audit-trail Payment and increments walletBalance immediately (no bank-transfer reconciliation step)." })
+  @ApiResponse({ status: 201, description: "Wallet credited; returns the updated customer." })
+  @ApiResponse({ status: 404, description: "Customer not found" })
+  async topUpWallet(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: TopUpWalletDto,
+  ): Promise<Customer> {
+    return this.customersService.topUpWallet(id, dto.amount, dto.note);
   }
 
   @Delete(":id")

@@ -5,12 +5,6 @@ import { UpdateSubscriptionPlanDto } from "../dto/update-subscription-plan.dto";
 import { Decimal, PaymentMethod, PaymentStatus } from "@fortifykitchen/database";
 import { SubscriptionPlan } from "@fortifykitchen/types";
 
-// How long a plan's recurring discount stays active for, from the moment
-// staff confirm the transfer. Not yet admin-configurable per purchase — see
-// docs/plan-and-credit-design.md's "Vouchers" decision (tiered %). Revisit
-// if a real expiry requirement shows up.
-const VOUCHER_VALIDITY_DAYS = 60;
-
 type RawPlan = {
   id: string;
   name: string;
@@ -98,11 +92,14 @@ export class SubscriptionPlansService {
     }
 
     // Decided: a customer can only hold one plan's recurring discount at a
-    // time — self-serve buying a new plan while the current one is still
-    // active is blocked; upgrading is a staff-assisted action instead.
-    if (customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date()) {
+    // time. The discount is indefinite — no calendar expiry — it just stays
+    // in effect until walletBalance is spent down to 0, so THAT'S the guard:
+    // self-serve buying a new plan while money from the current one is still
+    // sitting in the wallet is blocked; use requestUpgrade() instead, which
+    // prorates the new tier against this leftover balance.
+    if (customer.walletBalance > 0) {
       throw new BadRequestException(
-        `You already have an active plan discount until ${customer.planDiscountEndsAt.toISOString().split("T")[0]}. Please contact our team to upgrade.`,
+        "You already have an active plan discount. Submit a plan upgrade request instead if you'd like to move to a higher tier.",
       );
     }
 
@@ -171,20 +168,23 @@ export class SubscriptionPlansService {
         data: { status: PaymentStatus.COMPLETED },
       });
 
-      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number; planDiscountEndsAt?: Date } = {
+      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number } = {
         walletBalance: { increment: amount },
       };
 
       // Sets (not stacks/accumulates) the recurring discount — a fresh
-      // purchase is only reachable once the previous one has lapsed (see
-      // the purchase() guard above), so there's never an existing discount
-      // to preserve or compare against here.
+      // self-serve purchase is only reachable once the previous one's
+      // balance has been spent down to 0 (see the purchase() guard above),
+      // so there's never an existing discount to preserve or compare
+      // against here. Indefinite — no expiry date; it just stays in effect
+      // until walletBalance runs out again (see Customer.planDiscountPercent
+      // doc comment). Approved upgrade requests also route through here
+      // (see approveUpgradeRequest), where this line does the same "sets
+      // the new tier" job even though some of the resulting balance came
+      // from the customer's pre-existing leftover credit, not just this
+      // Payment's amount.
       if (plan.voucherPercent > 0) {
-        const now = new Date();
-        const endsAt = new Date(now);
-        endsAt.setDate(endsAt.getDate() + VOUCHER_VALIDITY_DAYS);
         customerUpdate.planDiscountPercent = plan.voucherPercent;
-        customerUpdate.planDiscountEndsAt = endsAt;
       }
 
       await tx.customer.update({
@@ -213,6 +213,192 @@ export class SubscriptionPlansService {
       data: { status: PaymentStatus.FAILED },
     });
     return this.mapPayment(updated);
+  }
+
+  // Customer-initiated: "I already have a plan discount (walletBalance > 0),
+  // but I want to move to a higher tier now instead of waiting to run out."
+  // Normally purchase() blocks this outright (one active plan at a time) —
+  // this is the self-serve ask instead of "contact our team." Doesn't touch
+  // the wallet or the request itself; staff review and approve/decline (see
+  // approveUpgradeRequest, which prorates against the leftover balance).
+  // Deliberately does NOT validate that requestedPlan is a strictly "higher"
+  // tier than whatever plan the customer originally bought — Customer only
+  // stores the resulting planDiscountPercent, not which SubscriptionPlan
+  // produced it, so there's nothing reliable to compare against here. Staff
+  // make that call when they review the request.
+  async requestUpgrade(userId: string, requestedPlanId: string, notes?: string) {
+    const plan = await this.db.client.subscriptionPlan.findUnique({ where: { id: requestedPlanId } });
+    if (!plan || !plan.isActive) {
+      throw new NotFoundException(`Subscription plan with ID ${requestedPlanId} not found`);
+    }
+
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) {
+      throw new BadRequestException("No customer profile found for this account");
+    }
+
+    const existingPending = await this.db.client.planUpgradeRequest.findFirst({
+      where: { customerId: customer.id, status: "PENDING" },
+    });
+    if (existingPending) {
+      throw new BadRequestException("You already have a pending plan upgrade request. Please wait for staff to review it.");
+    }
+
+    const request = await this.db.client.planUpgradeRequest.create({
+      data: {
+        customerId: customer.id,
+        requestedPlanId: plan.id,
+        notes,
+      },
+    });
+
+    return this.mapUpgradeRequest(request, customer.name, plan.name);
+  }
+
+  // Customer's own view of their upgrade-request history.
+  async findMyUpgradeRequests(userId: string) {
+    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    if (!customer) {
+      throw new BadRequestException("No customer profile found for this account");
+    }
+    const list = await this.db.client.planUpgradeRequest.findMany({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: "desc" },
+    });
+    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const plans = await this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } });
+    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+    return list.map((r) => this.mapUpgradeRequest(r, customer.name, planNameById.get(r.requestedPlanId)));
+  }
+
+  // Staff queue — every upgrade request still awaiting review.
+  async findPendingUpgradeRequests() {
+    const list = await this.db.client.planUpgradeRequest.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (list.length === 0) return [];
+
+    const customerIds = [...new Set(list.map((r) => r.customerId))];
+    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const [customers, plans] = await Promise.all([
+      this.db.client.customer.findMany({ where: { id: { in: customerIds } } }),
+      this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } }),
+    ]);
+    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
+    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+    return list.map((r) =>
+      this.mapUpgradeRequest(r, customerNameById.get(r.customerId), planNameById.get(r.requestedPlanId)),
+    );
+  }
+
+  // Staff approves — this does NOT credit the wallet itself. It creates the
+  // same kind of PENDING Payment purchase() would (deliberately bypassing
+  // the one-active-discount guard, since staff have now explicitly signed
+  // off), so confirmPurchase() remains the one place that ever actually
+  // credits walletBalance / sets the new discount tier, once the customer's
+  // bank transfer for the new tier lands.
+  //
+  // PRORATED: the customer's current walletBalance is credit already sitting
+  // there from their existing plan, so they don't pay for the new tier from
+  // scratch — only the shortfall. E.g. they have 1,000,000đ left and the new
+  // tier costs 3,000,000đ, they transfer 2,000,000đ; once staff confirm that
+  // transfer, confirmPurchase() increments the existing 1,000,000đ by that
+  // 2,000,000đ, landing exactly on the new tier's full price. If their
+  // leftover balance already covers the new tier's price (moving to a
+  // cheaper/equal tier for the voucherPercent, say), amount floors at 0 — a
+  // free "confirm" with no transfer needed, still going through the same
+  // queue so confirmPurchase() sets the new discount tier.
+  async approveUpgradeRequest(requestId: string) {
+    const request = await this.db.client.planUpgradeRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new NotFoundException(`Plan upgrade request with ID ${requestId} not found`);
+    }
+    if (request.status !== "PENDING") {
+      throw new BadRequestException(`Upgrade request ${requestId} is already ${request.status}, not PENDING`);
+    }
+
+    const plan = await this.db.client.subscriptionPlan.findUnique({ where: { id: request.requestedPlanId } });
+    if (!plan || !plan.isActive) {
+      throw new NotFoundException(`Subscription plan for upgrade request ${requestId} no longer exists`);
+    }
+
+    const customer = await this.db.client.customer.findUnique({ where: { id: request.customerId } });
+    if (!customer) {
+      throw new NotFoundException(`Customer for upgrade request ${requestId} no longer exists`);
+    }
+
+    // Snapshot the shortfall at approval time — if the customer spends more
+    // from their wallet between now and staff confirming the transfer, the
+    // amount owed doesn't retroactively change (same as any other pending
+    // Payment amount never moving once opened).
+    const proratedAmount = Math.max(plan.price - customer.walletBalance, 0);
+
+    const updated = await this.db.client.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          customerId: request.customerId,
+          subscriptionPlanId: plan.id,
+          amount: new Decimal(proratedAmount),
+          method: PaymentMethod.BANK_TRANSFER,
+          status: PaymentStatus.PENDING,
+        },
+      });
+
+      return tx.planUpgradeRequest.update({
+        where: { id: request.id },
+        data: { status: "APPROVED", paymentId: payment.id },
+      });
+    });
+
+    return this.mapUpgradeRequest(updated, undefined, plan.name);
+  }
+
+  // Staff declines — e.g. not actually eligible, wrong tier requested.
+  async declineUpgradeRequest(requestId: string, adminNotes?: string) {
+    const request = await this.db.client.planUpgradeRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new NotFoundException(`Plan upgrade request with ID ${requestId} not found`);
+    }
+    if (request.status !== "PENDING") {
+      throw new BadRequestException(`Upgrade request ${requestId} is already ${request.status}, not PENDING`);
+    }
+    const updated = await this.db.client.planUpgradeRequest.update({
+      where: { id: requestId },
+      data: { status: "DECLINED", adminNotes },
+    });
+    return this.mapUpgradeRequest(updated);
+  }
+
+  private mapUpgradeRequest(
+    r: {
+      id: string;
+      customerId: string;
+      requestedPlanId: string;
+      notes: string | null;
+      status: string;
+      adminNotes: string | null;
+      paymentId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    customerName?: string,
+    requestedPlanName?: string,
+  ) {
+    return {
+      id: r.id,
+      customerId: r.customerId,
+      customerName,
+      requestedPlanId: r.requestedPlanId,
+      requestedPlanName,
+      notes: r.notes ?? undefined,
+      status: r.status,
+      adminNotes: r.adminNotes ?? undefined,
+      paymentId: r.paymentId ?? undefined,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
   }
 
   private mapPlan(p: RawPlan): SubscriptionPlan {

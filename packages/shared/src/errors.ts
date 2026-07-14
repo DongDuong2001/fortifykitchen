@@ -30,7 +30,11 @@ const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
   { match: /discount code ".*" has reached its usage limit/i, vi: "Mã giảm giá này đã hết lượt sử dụng." },
   {
     match: /you already have an active plan discount/i,
-    vi: "Bạn đang có ưu đãi từ gói hiện tại. Vui lòng liên hệ đội ngũ Fortify Kitchen để nâng cấp gói.",
+    vi: "Bạn đang có ưu đãi từ gói hiện tại. Vào tab Ví để gửi yêu cầu nâng cấp gói, đội ngũ chúng tôi sẽ xem xét.",
+  },
+  {
+    match: /you already have a pending plan upgrade request/i,
+    vi: "Bạn đã có một yêu cầu nâng cấp gói đang chờ duyệt. Vui lòng đợi đội ngũ Fortify Kitchen xem xét.",
   },
 ];
 
