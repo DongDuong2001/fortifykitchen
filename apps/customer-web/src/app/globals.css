@@ -56,16 +56,27 @@
   --foreground: #1E2016;        /* Deep matcha primary */
   --primary: #B0361B;           /* Clay red tertiary */
   --primary-foreground: #F8F3E1;/* Warm cream surface text */
-  --secondary: #7B8069;         /* Bamboo secondary green */
+  --secondary: #656B54;         /* Bamboo secondary green — darkened from #7B8069 so
+                                    secondary-foreground cream text on secondary-bg
+                                    buttons clears AA (4.99:1, was 3.68:1) */
   --secondary-foreground: #F8F3E1;
   --muted: #E6DFCE;
-  --muted-foreground: #7B8069;  
+  --muted-foreground: #5C6350;  /* Darkened from #7B8069 — that shade only cleared
+                                    3.08-3.68:1 against background/card/muted, failing
+                                    AA's 4.5:1 for normal text despite being the default
+                                    secondary-text color used across most of the site.
+                                    This clears 5.25-5.63:1. */
   --accent: #B0361B;
   --accent-foreground: #F8F3E1;
   --destructive: #B0361B;
   --destructive-foreground: #F8F3E1;
-  --border: #E6DFCE;            /* Card outlines, dividers */
-  --input: #F8F3E1;             
+  --border: #7B8069;            /* Card outlines, dividers — reuses the original bamboo
+                                    tone (freed up above) since the prior #E6DFCE was
+                                    only ~1.1:1 against background/card, failing WCAG
+                                    1.4.11's 3:1 non-text-contrast minimum for anything
+                                    functional (input fields, clickable card edges).
+                                    This clears 3.43-3.68:1. */
+  --input: #F8F3E1;
   --ring: #B0361B;
   --card: #F8F3E1;              /* Warm cream surface card */
   --card-foreground: #1E2016;

@@ -2366,7 +2366,7 @@ export default function CustomerPortal() {
               </p>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-foreground">Minh Anh</p>
-                <p className="text-[10px] text-foreground/60">{lang === "vi" ? "Hội viên 6 tháng · Quận 1, TP. HCM" : "6-month member · District 1, HCMC"}</p>
+                <p className="text-[10px] text-foreground/70">{lang === "vi" ? "Hội viên 6 tháng · Quận 1, TP. HCM" : "6-month member · District 1, HCMC"}</p>
               </div>
             </div>
 
@@ -3812,7 +3812,7 @@ export default function CustomerPortal() {
                         </ul>
                       </>
                     ) : (
-                      <p className="text-xs text-foreground/60 leading-relaxed">
+                      <p className="text-xs text-foreground/70 leading-relaxed">
                         {lang === "vi"
                           ? "Bạn chưa có gói nạp nào. Chọn một gói để bắt đầu nhận ưu đãi thành viên."
                           : "You haven't bought a top-up pack yet. Pick one to start earning a member discount."}
