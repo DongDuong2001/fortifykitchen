@@ -58,3 +58,10 @@ export const SAUCE_OPTIONS = [
   { id: "citrus", label: "Xốt cam chua ngọt (Citrus)" },
   { id: "spicy", label: "Xốt tương cay (Spicy Soy)" },
 ] as const;
+
+export const ORDER_HISTORY_STATUS_GROUPS = [
+  { key: "all", vi: "Tất cả", en: "All", statuses: null },
+  { key: "active", vi: "Đang xử lý", en: "Processing", statuses: ["PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"] },
+  { key: "completed", vi: "Hoàn thành", en: "Completed", statuses: ["COMPLETED"] },
+  { key: "cancelled", vi: "Đã huỷ", en: "Cancelled", statuses: ["CANCELLED"] },
+] as const;
