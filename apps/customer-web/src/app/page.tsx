@@ -126,11 +126,17 @@ export default function CustomerPortal() {
   const [customOrderQty, setCustomOrderQty] = React.useState<number>(1);
 
   const [checkoutProvince, setCheckoutProvince] = React.useState("79");
-  const [checkoutWard, setCheckoutWard] = React.useState("");
   const [checkoutStreet, setCheckoutStreet] = React.useState("");
   const [checkoutAgreeTerms, setCheckoutAgreeTerms] = React.useState(false);
   const [checkoutResult, setCheckoutResult] = React.useState<any | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
+
+  const [showWalletPlans, setShowWalletPlans] = React.useState(false);
+  const [selectedUpgradePlanId, setSelectedUpgradePlanId] = React.useState<string | null>(null);
+  const [upgradeRequestNotes, setUpgradeRequestNotes] = React.useState("");
+  const [isSubmittingUpgradeRequest, setIsSubmittingUpgradeRequest] = React.useState(false);
+  const [myUpgradeRequests] = React.useState<any[]>([]);
+  const [payFromWalletError, setPayFromWalletError] = React.useState<{ id: string; title: string; description?: string } | null>(null);
 
   const [lang, setLang] = React.useState<"vi" | "en">("vi");
 
@@ -274,14 +280,17 @@ export default function CustomerPortal() {
   const [checkoutGuestPhone, setCheckoutGuestPhone] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState("CASH_ON_DELIVERY");
   const [discountCode, setDiscountCode] = React.useState("");
+  const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [discountCodeError, setDiscountCodeError] = React.useState<string | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
   const [checkoutStep, setCheckoutStep] = React.useState<"cart" | "details">("cart");
+  // Silence unused state warnings (used in useEffect callbacks)
+  void discountCodeStatus;
+  void discountCodeError;
   React.useEffect(() => {
     if (!isCartOpen) setCheckoutStep("cart");
   }, [isCartOpen]);
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
-  const [discountCodeStatus, setDiscountCodeStatus] = React.useState<"idle" | "checking" | "valid" | "invalid">("idle");
-  const [discountCodeError, setDiscountCodeError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!user && paymentMethod === "WALLET") {
@@ -499,6 +508,8 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
       setCheckoutGuestName("");
       setCheckoutGuestPhone("");
       setCartOpen(false);
+      // Confirmation screen for both COD and bank transfer; the modal shows
+      // VietQR details only when the order is a bank transfer.
       setCheckoutResult(guestResult.data ?? guestResult);
       return;
     }
@@ -513,12 +524,12 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
     if (result) {
       loadDashboard();
       setDiscountCode("");
-      if (paymentMethod === "BANK_TRANSFER") {
-        setCheckoutResult(result);
-      } else {
-        setCartOpen(false);
-        setActiveTab("dashboard");
-      }
+      // Always show the confirmation modal — same as the guest checkout
+      // flow above. Previously this only fired for BANK_TRANSFER, so a
+      // logged-in customer paying COD or by Wallet got nothing but a toast
+      // and the cart/tab just silently changed. The modal closes to
+      // cartOpen=false + activeTab="dashboard" on dismiss.
+      setCheckoutResult(result);
     }
   };
 
@@ -620,6 +631,7 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
 
   const handlePayFromWallet = async (subscriptionId: string) => {
     setPayingSubscriptionId(subscriptionId);
+    setPayFromWalletError(null);
     try {
       const token = localStorage.getItem("fk_token");
       const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
@@ -650,23 +662,72 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
           })
           .catch(() => {});
       } else {
+        const isShortBalance = /wallet balance is insufficient/i.test(result?.message || "");
+        const title = translateApiError(
+          result?.message,
+          lang,
+          lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
+        );
+        const description = isShortBalance
+          ? lang === "vi"
+            ? "Vào mục Số dư tài khoản để nạp thêm, sau đó quay lại thanh toán."
+            : "Top up in the Account Credit section, then come back and try paying again."
+          : undefined;
+        toast({ title, description, type: "error" });
+        setPayFromWalletError({ id: subscriptionId, title, description });
+      }
+    } catch (err) {
+      console.error(err);
+      const title = lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again";
+      toast({ title, type: "error" });
+      setPayFromWalletError({ id: subscriptionId, title });
+    } finally {
+      setPayingSubscriptionId(null);
+    }
+  };
+
+  const handleSubmitUpgradeRequest = async () => {
+    if (!selectedUpgradePlanId || !user?.id) return;
+    setIsSubmittingUpgradeRequest(true);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/wallet/upgrade-request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetPlanId: selectedUpgradePlanId,
+          notes: upgradeRequestNotes.trim() || undefined,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
         toast({
-          title: translateApiError(
-            result?.message,
-            lang,
-            lang === "vi" ? "Không thể thanh toán bằng Ví. Vui lòng kiểm tra số dư và thử lại." : "Couldn't pay from your wallet. Check your balance and try again.",
-          ),
+          title: lang === "vi" ? "Gửi yêu cầu thành công" : "Request submitted",
+          description: lang === "vi" ? "Đội ngũ sẽ xem xét và liên hệ sớm." : "Our team will review and reach out soon.",
+          type: "success",
+        });
+        setShowWalletPlans(false);
+        setSelectedUpgradePlanId(null);
+        setUpgradeRequestNotes("");
+        loadDashboard();
+      } else {
+        toast({
+          title: lang === "vi" ? "Gửi yêu cầu thất bại" : "Failed to submit request",
+          description: result?.message || (lang === "vi" ? "Vui lòng thử lại." : "Please try again."),
           type: "error",
         });
       }
     } catch (err) {
       console.error(err);
       toast({
-        title: lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again",
+        title: lang === "vi" ? "Lỗi kết nối" : "Connection error",
         type: "error",
       });
     } finally {
-      setPayingSubscriptionId(null);
+      setIsSubmittingUpgradeRequest(false);
     }
   };
 
@@ -1046,6 +1107,15 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
             planPurchaseResult={planPurchaseResult}
             setPlanPurchaseResult={setPlanPurchaseResult}
             handleBuyPlan={handleBuyPlan}
+            setShowWalletPlans={setShowWalletPlans}
+            showWalletPlans={showWalletPlans}
+            selectedUpgradePlanId={selectedUpgradePlanId}
+            setSelectedUpgradePlanId={setSelectedUpgradePlanId}
+            upgradeRequestNotes={upgradeRequestNotes}
+            setUpgradeRequestNotes={setUpgradeRequestNotes}
+            isSubmittingUpgradeRequest={isSubmittingUpgradeRequest}
+            handleSubmitUpgradeRequest={handleSubmitUpgradeRequest}
+            myUpgradeRequests={myUpgradeRequests}
           />
         )}
         {activeTab === "subscriptions" && (
@@ -1056,16 +1126,31 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
             lookupPhone={lookupPhone}
             setLookupPhone={setLookupPhone}
             myPoolSubscriptions={myPoolSubscriptions}
-            setMyPoolSubscriptions={setMyPoolSubscriptions}
             isLookupLoading={isLookupLoading}
             lookupError={lookupError}
             hasLookedUp={hasLookedUp}
-            setHasLookedUp={setHasLookedUp}
             handleLookupSubscription={handleLookupSubscription}
             handlePostponeMyDelivery={handlePostponeMyDelivery}
             handlePayFromWallet={handlePayFromWallet}
             payingSubscriptionId={payingSubscriptionId}
+            payFromWalletError={payFromWalletError}
             setAuthModal={setAuthModal}
+            walletBalance={walletBalance}
+            planDiscountPercent={planDiscountPercent}
+            planDiscountEndsAt={planDiscountEndsAt}
+            subscriptionPlans={subscriptionPlans}
+            isLoadingPlans={isLoadingPlans}
+            purchasingPlanId={purchasingPlanId}
+            showWalletPlans={showWalletPlans}
+            setShowWalletPlans={setShowWalletPlans}
+            selectedUpgradePlanId={selectedUpgradePlanId}
+            setSelectedUpgradePlanId={setSelectedUpgradePlanId}
+            upgradeRequestNotes={upgradeRequestNotes}
+            setUpgradeRequestNotes={setUpgradeRequestNotes}
+            isSubmittingUpgradeRequest={isSubmittingUpgradeRequest}
+            handleSubmitUpgradeRequest={handleSubmitUpgradeRequest}
+            myUpgradeRequests={myUpgradeRequests}
+            handleBuyPlan={handleBuyPlan}
           />
         )}
         {activeTab === "dashboard" && (
@@ -1096,28 +1181,15 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         cart={cart}
         cartCount={cartCount}
         cartTotal={cartTotal}
-        clearCart={clearCart}
         removeFromCart={removeFromCart}
         updateCartQuantity={updateCartQuantity}
         checkoutStep={checkoutStep}
         setCheckoutStep={setCheckoutStep}
-        user={user}
-        walletBalance={walletBalance}
         hasActivePlanDiscount={hasActivePlanDiscount}
         planDiscountPercent={planDiscountPercent}
-        discountCode={discountCode}
-        setDiscountCode={setDiscountCode}
         verifiedDiscount={verifiedDiscount}
-        discountCodeStatus={discountCodeStatus}
-        discountCodeError={discountCodeError}
-        checkoutAddress={checkoutAddress}
-        setCheckoutAddress={setCheckoutAddress}
         checkoutNotes={checkoutNotes}
         setCheckoutNotes={setCheckoutNotes}
-        checkoutGuestName={checkoutGuestName}
-        setCheckoutGuestName={setCheckoutGuestName}
-        checkoutGuestPhone={checkoutGuestPhone}
-        setCheckoutGuestPhone={setCheckoutGuestPhone}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
         checkoutAgreeTerms={checkoutAgreeTerms}
@@ -1127,16 +1199,12 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         handleCheckout={handleCheckout}
         checkoutProvince={checkoutProvince}
         setCheckoutProvince={setCheckoutProvince}
-        checkoutWard={checkoutWard}
-        setCheckoutWard={setCheckoutWard}
         checkoutStreet={checkoutStreet}
         setCheckoutStreet={setCheckoutStreet}
         checkoutResult={checkoutResult}
         setCheckoutResult={setCheckoutResult}
         setActiveTab={handleSetActiveTab}
         loadDashboard={loadDashboard}
-        showPrivacyModal={showPrivacyModal}
-        setShowPrivacyModal={setShowPrivacyModal}
       />
 
       <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} />
