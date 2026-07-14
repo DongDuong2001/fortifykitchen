@@ -261,45 +261,51 @@ export default function SubscriptionsSection({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {subscriptionPlans.map((plan) => {
-                  const isFeatured = plan.voucherPercent === 10;
                   const benefits = getPlanBenefits(plan.voucherPercent || 0, lang);
+                  
+                  // Color theme based on voucher percent
+                  const getPlanTheme = (voucherPercent: number) => {
+                    if (voucherPercent >= 25) return { bg: "bg-gradient-to-br from-[linear-gradient(135deg,#1E2016_0%,#2E7D32_100%)]", border: "border-transparent", accent: "text-white", badge: "bg-amber-500/20 text-amber-400 border-amber-500/40", btn: "bg-amber-500 hover:bg-amber-400 text-white", iconColor: "text-amber-400" };
+                    if (voucherPercent >= 20) return { bg: "bg-card", border: "border-border", accent: "text-amber-600", badge: "bg-amber-500/10 text-amber-600 border-amber-500/30", btn: "border-2 border-amber-500 text-amber-600 bg-transparent hover:bg-amber-500 hover:text-white", iconColor: "text-amber-600" };
+                    if (voucherPercent >= 15) return { bg: "bg-gradient-to-br from-[linear-gradient(135deg,#1E2016_0%,#2E7D32_100%)]", border: "border-primary", accent: "text-white", badge: "bg-primary-foreground/10 text-white border-white/30", btn: "bg-white hover:bg-primary-foreground/90 text-primary", iconColor: "text-white" };
+                    if (voucherPercent >= 10) return { bg: "bg-primary", border: "border-primary", accent: "text-primary-foreground", badge: "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30", btn: "bg-primary-foreground hover:bg-primary-foreground/90 text-primary", iconColor: "text-primary-foreground" };
+                    return { bg: "bg-card", border: "border-border", accent: "text-primary", badge: "bg-primary/10 text-primary border-primary/20", btn: "border-2 border-primary text-primary bg-transparent hover:bg-primary/5", iconColor: "text-primary" };
+                  };
+                  
+                  const theme = getPlanTheme(plan.voucherPercent || 0);
+                  const isFeatured = plan.voucherPercent >= 10;
+                  
                   return (
                     <div
                       key={plan.id}
-                      className={`relative border rounded-2xl p-6 space-y-4 flex flex-col bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary ${
-                        isFeatured ? "border-2 border-primary shadow-md" : "border-border shadow-sm"
-                      }`}
+                      className={`relative border rounded-2xl p-6 space-y-4 flex flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary ${theme.bg} ${theme.border}`}
                     >
                       {isFeatured && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground px-3 py-1 rounded-full whitespace-nowrap">
+                        <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full whitespace-nowrap ${theme.badge}`}>
                           {lang === "vi" ? "Phổ biến nhất" : "Most popular"}
                         </span>
                       )}
                       <div className="flex justify-between items-start gap-2 min-h-12">
-                        <h4 className="text-base font-bold font-heading">{plan.name}</h4>
+                        <h4 className="text-base font-bold font-heading {theme.accent}">{plan.name}</h4>
                         {plan.voucherPercent > 0 && (
-                          <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 shrink-0">
+                          <span className={`text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full border shrink-0 ${theme.accent} ${theme.badge}`}>
                             {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
                           </span>
                         )}
                       </div>
-                      <p className="text-3xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
+                      <p className="text-3xl font-extrabold font-heading {theme.accent}">{formatVND(plan.price)}</p>
                       <ul className="space-y-2.5 flex-1">
                         {benefits.map((b, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
-                            <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <span>{b.text}</span>
+                          <li key={i} className="flex items-start gap-2.5 text-xs leading-relaxed">
+                            <FontAwesomeIcon icon={b.icon} className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${theme.iconColor}`} />
+                            <span className={theme.accent}>{b.text}</span>
                           </li>
                         ))}
                       </ul>
                       <button
                         onClick={() => handleBuyPlan(plan)}
                         disabled={purchasingPlanId === plan.id || hasActivePlanDiscount}
-                        className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                          isFeatured
-                            ? "bg-primary hover:bg-primary/95 text-primary-foreground"
-                            : "border-2 border-primary text-primary bg-transparent hover:bg-primary/5"
-                        }`}
+                        className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${theme.btn}`}
                       >
                         {purchasingPlanId === plan.id ? (
                           <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 animate-spin" />
