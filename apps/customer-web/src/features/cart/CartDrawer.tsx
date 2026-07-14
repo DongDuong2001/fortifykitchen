@@ -49,7 +49,6 @@ interface CartDrawerProps {
   setCartOpen: (open: boolean) => void;
   cart: { menuItem: MenuItem; quantity: number }[];
   cartCount: number;
-  cartTotal: number;
   removeFromCart: (itemId: string) => void;
   updateCartQuantity: (itemId: string, qty: number) => void;
   checkoutStep: "cart" | "details";
@@ -70,10 +69,6 @@ interface CartDrawerProps {
   setCheckoutProvince: (province: string) => void;
   checkoutStreet: string;
   setCheckoutStreet: (street: string) => void;
-  checkoutResult: any;
-  setCheckoutResult: (result: any) => void;
-  setActiveTab: (tab: "home" | "menu" | "order-now" | "calculator" | "wallet" | "subscriptions" | "dashboard") => void;
-  loadDashboard: () => Promise<void>;
 }
 
 export default function CartDrawer({
@@ -82,7 +77,6 @@ export default function CartDrawer({
   setCartOpen,
   cart,
   cartCount,
-  cartTotal,
   removeFromCart,
   updateCartQuantity,
   checkoutStep,
@@ -107,12 +101,34 @@ export default function CartDrawer({
   if (!isCartOpen) return null;
 
   const cartPricing = calculateOrderTotal(cart.map((i) => ({ menuItemId: i.menuItem.id, protein: i.menuItem.protein as any, flavor: i.menuItem.flavor, sizeGrams: i.menuItem.sizeGrams, unitPrice: i.menuItem.price, qty: i.quantity })));
-  const bulkDiscountAmount = Math.max(cartTotal - cartPricing.finalTotal, 0);
-  const planDiscountAmountCart = hasActivePlanDiscount ? (cartPricing.lineSubtotal * planDiscountPercent) / 100 : 0;
-  const discountCodeAmountRaw = verifiedDiscount ? Math.max(verifiedDiscount.type === "PERCENTAGE" ? (cartPricing.lineSubtotal * verifiedDiscount.amount) / 100 : verifiedDiscount.amount, 0) : 0;
-  const combinedDiscountAmount = Math.min(discountCodeAmountRaw + planDiscountAmountCart, cartPricing.finalTotal);
-  const discountCodeAmount = Math.min(discountCodeAmountRaw, cartPricing.finalTotal);
-  const checkoutFinalTotal = Math.max(cartPricing.finalTotal - combinedDiscountAmount, 0);
+
+  // Raw total (no discounts)
+  const rawTotal = cart.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0);
+
+  // Protein discount (per-protein >=1000g = 10% off)
+  const proteinDiscountAmount = rawTotal - cartPricing.lineSubtotal;
+
+  // Order tier discount
+  const orderDiscountAmount = cartPricing.orderDiscountAmount || (cartPricing.lineSubtotal - cartPricing.finalTotal);
+  
+  // Member plan discount (applied on lineSubtotal)
+  const planDiscountAmount = hasActivePlanDiscount ? (cartPricing.lineSubtotal * planDiscountPercent) / 100 : 0;
+  
+  // Coupon discount
+  const couponDiscountAmount = verifiedDiscount 
+    ? Math.max(
+        verifiedDiscount.type === "PERCENTAGE" 
+          ? (cartPricing.lineSubtotal * verifiedDiscount.amount) / 100 
+          : verifiedDiscount.amount, 
+        0
+      )
+    : 0;
+
+  // Combined discount total (capped at lineSubtotal)
+  const combinedDiscountAmount = Math.min(planDiscountAmount + couponDiscountAmount, cartPricing.lineSubtotal);
+  
+  // Final total after all discounts
+  const checkoutFinalTotal = Math.max(cartPricing.lineSubtotal - combinedDiscountAmount - orderDiscountAmount, 0);
 
   if (checkoutStep === "details") {
     return (
@@ -155,10 +171,11 @@ export default function CartDrawer({
             <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3 text-left">
               <p className="text-xs font-bold text-foreground text-center">{lang === "vi" ? "Tóm tắt đơn hàng" : "Order Summary"}</p>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("cart_subtotal", lang)}</span><span className="font-semibold">{formatVND(cartPricing.lineSubtotal)}</span></div>
-                {bulkDiscountAmount > 0 && (<div className="flex justify-between text-emerald-600"><span>{t("filter_all", lang)}</span><span>-{formatVND(bulkDiscountAmount)}</span></div>)}
-                {hasActivePlanDiscount && (<div className="flex justify-between text-emerald-600"><span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span><span>-{formatVND(planDiscountAmountCart)}</span></div>)}
-                {discountCodeAmount > 0 && (<div className="flex justify-between text-emerald-600"><span>{t("cart_discount", lang)}</span><span>-{formatVND(discountCodeAmount)}</span></div>)}
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("cart_subtotal", lang)}</span><span className="font-semibold">{formatVND(rawTotal)}</span></div>
+                {proteinDiscountAmount > 0 && (<div className="flex justify-between text-emerald-600"><span>{lang === "vi" ? "Giảm protein (≥1kg/loại)" : "Protein discount (≥1kg/type)"}</span><span>-{formatVND(proteinDiscountAmount)}</span></div>)}
+                {orderDiscountAmount > 0 && (<div className="flex justify-between text-emerald-600"><span>{lang === "vi" ? `Giảm đơn hàng (${cartPricing.orderDiscountPercent || 0}%)` : `Order discount (${cartPricing.orderDiscountPercent || 0}%)`}</span><span>-{formatVND(orderDiscountAmount)}</span></div>)}
+                {hasActivePlanDiscount && (<div className="flex justify-between text-emerald-600"><span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span><span>-{formatVND(planDiscountAmount)}</span></div>)}
+                {couponDiscountAmount > 0 && (<div className="flex justify-between text-emerald-600"><span>{t("cart_discount", lang)}</span><span>-{formatVND(couponDiscountAmount)}</span></div>)}
                 {/* Shipping fee removed from the cart — it's calculated and collected separately, not part of this total. */}
                 <div className="flex justify-between items-baseline text-base font-bold border-t border-border/50 pt-2.5">
                   <span>{t("cart_total", lang)}</span>
@@ -190,10 +207,11 @@ export default function CartDrawer({
             <>
               <div className="space-y-3">{cart.map((item) => (<CartItem key={item.menuItem.id} item={item} lang={lang} onUpdateQty={updateCartQuantity} onRemove={removeFromCart} />))}</div>
               <div className="border-t border-border/40 pt-4 space-y-2">
-                <div className="flex justify-between text-xs"><span className="text-muted-foreground">{t("cart_subtotal", lang)}</span><span className="font-semibold">{formatVND(cartPricing.lineSubtotal)}</span></div>
-                {bulkDiscountAmount > 0 && (<div className="flex justify-between text-xs text-emerald-600"><span>{t("filter_all", lang)}</span><span>-{formatVND(bulkDiscountAmount)}</span></div>)}
-                {hasActivePlanDiscount && (<div className="flex justify-between text-xs text-emerald-600"><span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span><span>-{formatVND(planDiscountAmountCart)}</span></div>)}
-                {discountCodeAmount > 0 && (<div className="flex justify-between text-xs text-emerald-600"><span>{t("cart_discount", lang)}</span><span>-{formatVND(discountCodeAmount)}</span></div>)}
+                <div className="flex justify-between text-xs"><span className="text-muted-foreground">{t("cart_subtotal", lang)}</span><span className="font-semibold">{formatVND(rawTotal)}</span></div>
+                {proteinDiscountAmount > 0 && (<div className="flex justify-between text-xs text-emerald-600"><span>{lang === "vi" ? "Giảm protein (≥1kg/loại)" : "Protein discount (≥1kg/type)"}</span><span>-{formatVND(proteinDiscountAmount)}</span></div>)}
+                {orderDiscountAmount > 0 && (<div className="flex justify-between text-xs text-emerald-600"><span>{lang === "vi" ? `Giảm đơn hàng (${cartPricing.orderDiscountPercent || 0}%)` : `Order discount (${cartPricing.orderDiscountPercent || 0}%)`}</span><span>-{formatVND(orderDiscountAmount)}</span></div>)}
+                {hasActivePlanDiscount && (<div className="flex justify-between text-xs text-emerald-600"><span>{lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}</span><span>-{formatVND(planDiscountAmount)}</span></div>)}
+                {couponDiscountAmount > 0 && (<div className="flex justify-between text-xs text-emerald-600"><span>{t("cart_discount", lang)}</span><span>-{formatVND(couponDiscountAmount)}</span></div>)}
                 {/* Shipping fee removed from the cart — it's calculated and collected separately, not part of this total. */}
                 <div className="flex justify-between items-baseline text-base font-bold border-t border-border/50 pt-2.5">
                   <span>{t("cart_total", lang)}</span>

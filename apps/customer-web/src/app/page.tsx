@@ -81,7 +81,7 @@ export default function CustomerPortal() {
     token,
     cart,
     cartCount,
-    cartTotal,
+    cartTotal: _cartTotal,
     isCartOpen,
     setCartOpen,
     login,
@@ -1180,7 +1180,6 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         setCartOpen={setCartOpen}
         cart={cart}
         cartCount={cartCount}
-        cartTotal={cartTotal}
         removeFromCart={removeFromCart}
         updateCartQuantity={updateCartQuantity}
         checkoutStep={checkoutStep}
@@ -1201,10 +1200,6 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         setCheckoutProvince={setCheckoutProvince}
         checkoutStreet={checkoutStreet}
         setCheckoutStreet={setCheckoutStreet}
-        checkoutResult={checkoutResult}
-        setCheckoutResult={setCheckoutResult}
-        setActiveTab={handleSetActiveTab}
-        loadDashboard={loadDashboard}
       />
 
       <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} />
