@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShoppingBag, faWallet, faCalendarAlt, faTruck, faSearch, faCheckCircle } from "@fortawesome/free-solid-svg-icons";
+import { faShoppingBag, faWallet, faCalendarAlt, faTruck, faSearch, faCheckCircle, faClock, faCheck, faUtensils } from "@fortawesome/free-solid-svg-icons";
 import { DICTIONARY } from "@/constants/dictionary";
-import { ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS, PROTEIN_LABELS } from "@/constants/order-status";
+import { ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS, PROTEIN_LABELS, ORDER_HISTORY_STATUS_GROUPS } from "@/constants/order-status";
 import { formatVND, formatGrams } from "@fortifykitchen/shared";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -52,7 +52,8 @@ export default function DashboardSection({
   handleTrackOrders,
   setAuthModal,
 }: DashboardSectionProps) {
-  const [_orderDetail, setOrderDetail] = React.useState<any | null>(null);
+  const [orderDetail, setOrderDetail] = React.useState<any | null>(null);
+  const [orderHistoryGroup, setOrderHistoryGroup] = React.useState("all");
 
   if (!user) {
     return (
@@ -177,34 +178,151 @@ export default function DashboardSection({
 
       {dashboardSection === "orders" && (
         <div className="space-y-4">
-          {myOrders.length === 0 ? (
-            <div className="text-center py-20 border border-dashed border-border rounded-xl">
-              <FontAwesomeIcon icon={faShoppingBag} className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">{t("dash_orders_empty", lang)}</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {myOrders.map((o: any) => (
-                <div key={o.id} onClick={() => setOrderDetail(o)} className="border border-border bg-card rounded-2xl p-5 shadow-sm cursor-pointer hover:border-primary/30 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-foreground">{o.customerName}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(o.deliveryDate).toLocaleDateString("vi-VN")}</p>
-                    </div>
-                    <span className="font-bold text-primary">{formatVND(o.total)}</span>
+          {/* Shopee-style status buckets */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {ORDER_HISTORY_STATUS_GROUPS.map((group) => {
+              const statuses = group.statuses as string[] | null;
+              const count = statuses === null ? myOrders.length : myOrders.filter((o: { status: string }) => statuses!.includes(o.status)).length;
+              const isActive = orderHistoryGroup === group.key;
+              return (
+                <button
+                  key={group.key}
+                  onClick={() => setOrderHistoryGroup(group.key)}
+                  className={`shrink-0 text-xs font-bold px-3.5 py-2 rounded-full border transition-all cursor-pointer whitespace-nowrap ${isActive ? "bg-primary border-primary text-primary-foreground" : "bg-card border-border text-muted-foreground hover:border-primary/40"}`}
+                >
+                  {lang === "vi" ? group.vi : group.en}
+                  {count > 0 && <span className="ml-1.5 opacity-80">({count})</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const activeGroup = ORDER_HISTORY_STATUS_GROUPS.find((g) => g.key === orderHistoryGroup);
+            const statuses = activeGroup?.statuses as string[] | null;
+            const filteredOrders = statuses === null ? myOrders : myOrders.filter((o: { status: string }) => statuses!.includes(o.status));
+            if (filteredOrders.length === 0) {
+              return (
+                <div className="p-8 text-center border border-dashed border-border rounded-xl">
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi" ? "Không có đơn nào trong mục này." : "No orders in this status."}
+                  </p>
+                </div>
+              );
+            }
+            return filteredOrders.map((order) => (
+              <div key={order.id} onClick={() => setOrderDetail(order)} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm cursor-pointer hover:border-primary/30 transition-colors">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
+                  <div>
+                    <div className="text-xs text-muted-foreground font-semibold">{t("order_id", lang)}</div>
+                    <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+                    {order.createdAt && (
+                      <div className="text-[11px] text-muted-foreground mt-1">
+                        {lang === "vi" ? "Đặt lúc: " : "Placed: "}
+                        {new Date(order.createdAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 items-center mt-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${o.fulfillmentType === "IMMEDIATE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                      {o.fulfillmentType === "IMMEDIATE" ? t("filter_all", lang) : t("filter_all", lang)}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs bg-muted/60 text-muted-foreground font-bold px-3 py-1 rounded-full border border-border">
+                      {formatVND(order.total)}
                     </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${ORDER_STATUS_BADGE_CLASS[o.status as string] || "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                      {ORDER_STATUS_LABELS[lang][o.status] || o.status}
+                    <span
+                      className={`text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap ${ORDER_STATUS_BADGE_CLASS[order.status] || "bg-primary/10 text-primary border-primary/20"}`}
+                    >
+                      {ORDER_STATUS_LABELS[lang][order.status] || order.status}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="space-y-3">
+                  {(order.items || []).map((item: any) => (
+                    <div key={item.id} className="flex gap-3">
+                      <div className="h-12 w-12 rounded-lg bg-muted/40 flex-shrink-0 overflow-hidden relative">
+                        {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<FontAwesomeIcon icon={faUtensils} className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{item.flavor}</p>
+                        <p className="text-xs text-muted-foreground">{formatVND(item.price)} × {item.quantity}</p>
+                        {(item.proteinGrams || item.carbGrams || item.fatGrams) && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-3">
+                            {item.proteinGrams && <span>P: {item.proteinGrams}g</span>}
+                            {item.carbGrams && <span>C: {item.carbGrams}g</span>}
+                            {item.fatGrams && <span>F: {item.fatGrams}g</span>}
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-bold text-primary shrink-0">{formatVND(item.price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Live Step Progress Indicator or Cancelled banner */}
+                {order.status === "CANCELLED" ? (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-xs font-semibold">
+                    <FontAwesomeIcon icon={faCheckCircle} className="h-3.5 w-3.5 shrink-0" />
+                    {lang === "vi" ? "Đơn hàng này đã bị hủy." : "This order was cancelled."}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
+                      {t("status_label", lang)}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5 relative">
+                      {/* Horizontal connecting line */}
+                      <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
+                      {[
+                        { key: "PENDING_CONFIRMATION", label: lang === "vi" ? "Chờ xác nhận" : "Awaiting", icon: faClock },
+                        { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
+                        { key: "PREPARING", label: lang === "vi" ? "Đang chuẩn bị" : "Preparing", icon: faUtensils },
+                        { key: "OUT_FOR_DELIVERY", label: lang === "vi" ? "Đang giao hàng" : "Out for delivery", icon: faTruck },
+                        { key: "COMPLETED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faCheck },
+                      ].map((step) => {
+                        const statuses = ["PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "COMPLETED"];
+                        const currentIdx = statuses.indexOf(order.status);
+                        const targetIdx = statuses.indexOf(step.key);
+                        const isPassed = currentIdx >= targetIdx;
+
+                        return (
+                          <div key={step.key} className="flex flex-col items-center text-center">
+                            <div
+                              className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${isPassed ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15" : "bg-muted border-border text-muted-foreground"}`}
+                            >
+                              <FontAwesomeIcon icon={step.icon} className="h-3.5 w-3.5" />
+                            </div>
+                            <span className="text-[9px] font-bold mt-2 text-muted-foreground leading-tight">{step.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shipment details */}
+                <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
+                  {order.shipmentCode && (
+                    <span className="font-mono bg-muted/50 px-2 py-0.5 rounded border border-border/50">
+                      {lang === "vi" ? "Mã vận đơn: " : "Tracking: "}{order.shipmentCode}
+                    </span>
+                  )}
+                  {order.fulfillmentType === "SCHEDULED" && order.deliveryDate && (
+                    <span>
+                      {lang === "vi" ? "Dự kiến giao: " : "Est. delivery: "}
+                      {new Date(order.deliveryDate).toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium" })}
+                    </span>
+                  )}
+                  {order.paymentStatus && order.paymentStatus !== "PAID" && (
+                    <span className="text-amber-600 font-semibold">
+                      {lang === "vi" ? "Chưa thanh toán" : "Unpaid"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       )}
 
@@ -254,6 +372,58 @@ export default function DashboardSection({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {orderDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderDetail(null)} />
+          <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 my-8 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold font-heading">{t("order_id", lang)} {orderDetail.id}</h3>
+              <button onClick={() => setOrderDetail(null)} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer">
+                <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-bold text-foreground">{orderDetail.customerName}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{new Date(orderDetail.createdAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium", timeStyle: "short" })}</p>
+                </div>
+                <span className="font-bold text-primary">{formatVND(orderDetail.total)}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center mt-3">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${orderDetail.fulfillmentType === "IMMEDIATE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                  {orderDetail.fulfillmentType === "IMMEDIATE" ? t("filter_all", lang) : t("filter_all", lang)}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${ORDER_STATUS_BADGE_CLASS[orderDetail.status] || "bg-primary/10 text-primary border-primary/20"}`}>
+                  {ORDER_STATUS_LABELS[lang][orderDetail.status] || orderDetail.status}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {(orderDetail.items || []).map((item: any) => (
+                  <div key={item.id} className="flex gap-3">
+                    <div className="h-12 w-12 rounded-lg bg-muted/40 flex-shrink-0 overflow-hidden relative">
+                      {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<FontAwesomeIcon icon={faUtensils} className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{item.flavor}</p>
+                      <p className="text-xs text-muted-foreground">{formatVND(item.price)} × {item.quantity}</p>
+                      {(item.proteinGrams || item.carbGrams || item.fatGrams) && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-3">
+                          {item.proteinGrams && <span>P: {item.proteinGrams}g</span>}
+                          {item.carbGrams && <span>C: {item.carbGrams}g</span>}
+                          {item.fatGrams && <span>F: {item.fatGrams}g</span>}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-bold text-primary shrink-0">{formatVND(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
