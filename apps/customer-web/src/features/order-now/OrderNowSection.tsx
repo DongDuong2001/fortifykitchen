@@ -704,9 +704,9 @@ export default function OrderNowSection({
                   )}
                   <div className="flex justify-between font-bold text-sm pt-2 border-t border-border/50">
                     <span>{t("cart_total", lang)}</span>
-                    <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount + 30000)}</span>
+                    <span className="text-primary">{formatVND(orderNowTotal - orderNowCombinedDiscountAmount)}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground">+ 30,000 ₫ phí giao hàng</div>
+                  {/* Shipping fee removed from the cart — it's calculated and collected separately, not part of this total. */}
                 </div>
               )}
             </div>
