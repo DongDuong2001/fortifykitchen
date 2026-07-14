@@ -1902,85 +1902,97 @@ export default function CustomerPortal() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
       {/* 1. HEADER */}
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
+      {/* GREEN HEADER — trial variant per request, matching the existing
+          "Thêm vào giỏ" button green (--secondary, #656B54). This green
+          gives 4.65:1 separation from the cream body (vs. the old bg-card's
+          1.07:1), which was the actual goal. Note: this mid-tone green
+          doesn't leave much contrast headroom, so unlike a dark header, a
+          dimmed/lower-opacity "inactive" text color isn't safely achievable
+          here — active vs. inactive nav state is conveyed via a color swap
+          (cream vs. peach) plus font-weight/the underline dot instead of
+          opacity. Colors are intentionally hardcoded (not the shared
+          --foreground/--primary tokens) so this stays scoped to just the
+          header and is easy to revert without touching the rest of the
+          light theme. */}
+      <header className="sticky top-0 z-40 w-full border-b border-black/10 bg-secondary/95 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
-            <img 
-              src="/logo.png" 
-              alt="Fortify Kitchen Logo" 
+            <img
+              src="/logo.png"
+              alt="Fortify Kitchen Logo"
               className="h-10 w-10 object-contain rounded-full transition-transform group-hover:scale-105"
             />
-            <span className="text-xl font-normal tracking-tight font-heading text-foreground select-none">
-              Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
+            <span className="text-xl font-normal tracking-tight font-heading text-[#F8F3E1] select-none">
+              Fortify<span className="font-sans font-light tracking-wide text-[#FFE8C7] ml-0.5">Kitchen</span>
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-secondary">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-[#F8F3E1]">
             <button
               onClick={() => setActiveTab("home")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "home" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "home" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_home")}
               {activeTab === "home" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("menu")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "menu" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "menu" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_menu")}
               {activeTab === "menu" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("calculator")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "calculator" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "calculator" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_calculator")}
               {activeTab === "calculator" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("wallet")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "wallet" ? "text-foreground font-bold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "wallet" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_wallet")}
               {activeTab === "wallet" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("subscriptions")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "subscriptions" ? "text-foreground font-bold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "subscriptions" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_sub")}
               {activeTab === "subscriptions" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             {user && (
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                  activeTab === "dashboard" ? "text-foreground font-semibold" : "text-secondary"
+                className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                  activeTab === "dashboard" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
                 }`}
               >
                 {t("nav_dashboard")}
                 {activeTab === "dashboard" && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
                 )}
               </button>
             )}
@@ -1988,22 +2000,22 @@ export default function CustomerPortal() {
 
           <div className="flex items-center gap-6">
             {/* Premium Minimal Language Switcher */}
-            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-secondary font-sans select-none shrink-0 border border-border/40 rounded-full px-3 py-1 bg-card/45">
+            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-[#F8F3E1] font-sans select-none shrink-0 border border-white/10 rounded-full px-3 py-1 bg-black/10">
               <button
                 type="button"
                 onClick={() => changeLang("vi")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "vi" ? "text-primary font-bold" : ""
+                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
+                  lang === "vi" ? "text-[#FFE8C7] font-bold" : ""
                 }`}
               >
                 VI
               </button>
-              <span className="text-border/40">|</span>
+              <span className="text-white/30">|</span>
               <button
                 type="button"
                 onClick={() => changeLang("en")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "en" ? "text-primary font-bold" : ""
+                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
+                  lang === "en" ? "text-[#FFE8C7] font-bold" : ""
                 }`}
               >
                 EN
@@ -2012,11 +2024,11 @@ export default function CustomerPortal() {
 
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-card/40"
+              className="relative p-2.5 hover:text-[#FFE8C7] text-[#F8F3E1] transition-colors cursor-pointer rounded-full hover:bg-black/10"
             >
               <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
               {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-[#FFE8C7] rounded-full" />
               )}
             </button>
 
@@ -2026,14 +2038,14 @@ export default function CustomerPortal() {
                 <div className="flex items-center gap-3">
                   <div
                     onClick={() => setActiveTab("dashboard")}
-                    className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-card/30 hover:bg-card/80 transition-all text-xs font-medium"
+                    className="flex items-center gap-2 cursor-pointer border border-white/10 rounded-full py-1.5 px-3.5 bg-black/10 hover:bg-black/20 transition-all text-xs font-medium text-[#F8F3E1]"
                   >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-[#FFE8C7]" />
                     <span>{user.firstName}</span>
                   </div>
                   <button
                     onClick={() => logout(lang)}
-                    className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
+                    className="p-2 rounded-full hover:text-[#FFE8C7] text-[#F8F3E1] transition-colors cursor-pointer"
                     title={t("btn_logout")}
                   >
                     <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
@@ -2042,9 +2054,9 @@ export default function CustomerPortal() {
               ) : (
                 <button
                   onClick={() => setAuthModal("login")}
-                  className="border border-border/60 hover:border-foreground text-foreground text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
+                  className="border border-white/20 hover:border-white/50 text-[#F8F3E1] text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
                 >
-                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-secondary" />
+                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-[#F8F3E1]" />
                   <span>{t("btn_signin")}</span>
                 </button>
               )}
