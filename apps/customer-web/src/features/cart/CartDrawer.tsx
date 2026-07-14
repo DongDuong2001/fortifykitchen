@@ -134,7 +134,7 @@ export default function CartDrawer({
     return (
       <>
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden" onClick={() => { setCartOpen(false); setCheckoutStep("cart"); }} />
-        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md md:max-w-lg bg-card shadow-2xl flex flex-col md:relative md:shadow-none md:bg-transparent">
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md md:max-w-lg bg-card shadow-2xl flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card z-10">
             <h3 className="font-semibold font-heading">{t("cart_title", lang)}</h3>
             <button onClick={() => { setCartOpen(false); setCheckoutStep("cart"); }} className="text-muted-foreground hover:text-foreground p-1">
@@ -194,8 +194,11 @@ export default function CartDrawer({
 
   return (
     <>
+      {/* Mobile backdrop */}
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setCartOpen(false)} />
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md md:max-w-lg bg-card shadow-2xl flex flex-col md:relative md:shadow-none">
+      
+      {/* Cart Drawer - Fixed sidebar on all screen sizes */}
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md md:max-w-lg bg-card shadow-2xl flex flex-col transition-transform duration-300 ease-in-out">
         <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card z-10">
           <h3 className="font-semibold font-heading">{t("cart_title", lang)} ({cartCount})</h3>
           <button onClick={() => setCartOpen(false)} className="text-muted-foreground hover:text-foreground p-1"><FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5" /></button>
