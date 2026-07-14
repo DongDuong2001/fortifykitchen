@@ -748,6 +748,12 @@ export default function CustomerPortal() {
   // default, matching the marketplace convention of always having an "All"
   // tab alongside the status-specific ones.
   const [orderHistoryGroup, setOrderHistoryGroup] = React.useState<string>("ALL");
+  // Which order origin is showing — one-off orders placed directly from the
+  // menu vs. occurrences auto-generated from a Subscription's delivery
+  // schedule. Kept as its own filter (orthogonal to the status buckets above)
+  // since the two are fundamentally different purchase flows and customers
+  // asked for them not to be mixed together in one list.
+  const [orderHistorySource, setOrderHistorySource] = React.useState<"ALL" | "ONE_OFF" | "SUBSCRIPTION">("ALL");
   const [mySubscriptions, setMySubscriptions] = React.useState<any[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = React.useState(false);
   // Sub-navigation within the private dashboard tab — Overview / Orders /
@@ -4612,12 +4618,48 @@ export default function CustomerPortal() {
                       </div>
                     ) : (
                       <div className="max-w-3xl space-y-6">
+                        {/* Source split — subscription-generated occurrences
+                            and one-off menu orders are fundamentally
+                            different purchase flows, so they get their own
+                            segmented toggle instead of being interleaved in
+                            one feed. Orthogonal to (and combined with) the
+                            status buckets below. */}
+                        <div className="flex gap-1 p-1 bg-muted/50 border border-border rounded-xl w-fit">
+                          {(
+                            [
+                              { key: "ALL" as const, vi: "Tất cả", en: "All" },
+                              { key: "ONE_OFF" as const, vi: "Đơn lẻ", en: "One-off" },
+                              { key: "SUBSCRIPTION" as const, vi: "Từ gói định kỳ", en: "From subscription" },
+                            ]
+                          ).map((s) => {
+                            const count =
+                              s.key === "ALL" ? myOrders.length : myOrders.filter((o) => o.source === s.key).length;
+                            const isActive = orderHistorySource === s.key;
+                            return (
+                              <button
+                                key={s.key}
+                                onClick={() => setOrderHistorySource(s.key)}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                                  isActive
+                                    ? "bg-card text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground/80"
+                                }`}
+                              >
+                                {lang === "vi" ? s.vi : s.en}
+                                {count > 0 && <span className="ml-1.5 opacity-60">({count})</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+
                         {/* Shopee-style status buckets — sorting through every
                             order in one long list was confusing, so this
                             groups them exactly like a marketplace app does. */}
                         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                           {ORDER_HISTORY_STATUS_GROUPS.map((group) => {
-                            const count = group.statuses === null ? myOrders.length : myOrders.filter((o) => group.statuses!.includes(o.status)).length;
+                            const sourceScoped =
+                              orderHistorySource === "ALL" ? myOrders : myOrders.filter((o) => o.source === orderHistorySource);
+                            const count = group.statuses === null ? sourceScoped.length : sourceScoped.filter((o) => group.statuses!.includes(o.status)).length;
                             const isActive = orderHistoryGroup === group.key;
                             return (
                               <button
@@ -4637,8 +4679,10 @@ export default function CustomerPortal() {
                         </div>
 
                         {(() => {
+                          const sourceScoped =
+                            orderHistorySource === "ALL" ? myOrders : myOrders.filter((o) => o.source === orderHistorySource);
                           const activeGroup = ORDER_HISTORY_STATUS_GROUPS.find((g) => g.key === orderHistoryGroup);
-                          const filteredOrders = activeGroup?.statuses === null ? myOrders : myOrders.filter((o) => activeGroup?.statuses!.includes(o.status));
+                          const filteredOrders = activeGroup?.statuses === null ? sourceScoped : sourceScoped.filter((o) => activeGroup?.statuses!.includes(o.status));
                           if (filteredOrders.length === 0) {
                             return (
                               <div className="p-8 text-center border border-dashed border-border rounded-xl">
@@ -4648,11 +4692,27 @@ export default function CustomerPortal() {
                               </div>
                             );
                           }
+                          // filteredOrders is scoped by BOTH the source toggle
+                          // (orderHistorySource) and the status group
+                          // (orderHistoryGroup) computed above.
                           return filteredOrders.map((order) => (
                           <div key={order.id} className="border border-border bg-card rounded-2xl p-6 space-y-6 shadow-sm">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
                               <div>
-                                <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="text-xs text-muted-foreground font-semibold">{t("order_id")}</div>
+                                  {/* Source badge — always visible so the origin is
+                                      clear even when both toggles are on "Tất cả". */}
+                                  {order.source === "SUBSCRIPTION" ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 whitespace-nowrap">
+                                      {lang === "vi" ? `Từ gói: ${order.packageName || "Định kỳ"}` : `From plan: ${order.packageName || "Subscription"}`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                                      {lang === "vi" ? "Đơn lẻ" : "One-off"}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
                                 {order.createdAt && (
                                   <div className="text-[11px] text-muted-foreground mt-1">
