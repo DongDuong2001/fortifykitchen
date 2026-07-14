@@ -593,6 +593,13 @@ export default function CustomerPortal() {
   // hasActivePlanDiscount below). Replaces the earlier single-use
   // plan-purchase voucher entirely.
   const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
+  // Which SubscriptionPlan tier produced the above — purely informational
+  // (also from /customers/me), shown on the Wallet page so the customer can
+  // see what plan they're on and its benefits at a glance. Stays populated
+  // even after walletBalance runs out (last plan bought), see
+  // Customer.currentPlanId doc comment.
+  const [currentPlanName, setCurrentPlanName] = React.useState<string | null>(null);
+  const [currentPlanVoucherPercent, setCurrentPlanVoucherPercent] = React.useState<number>(0);
 
   // SubscriptionPlan catalog — buying a tier opens a PENDING bank-transfer
   // top-up (see docs/plan-and-credit-design.md). Public to browse, login
@@ -856,14 +863,24 @@ export default function CustomerPortal() {
             setCheckoutAddress(result.data.address);
             setWalletBalance(result.data.walletBalance ?? 0);
             setPlanDiscountPercent(result.data.planDiscountPercent ?? 0);
+            setCurrentPlanName(result.data.currentPlanName ?? null);
+            setCurrentPlanVoucherPercent(result.data.currentPlanVoucherPercent ?? 0);
           }
         })
         .catch(console.error);
       fetchMyUpgradeRequests();
+      // Auto-display the logged-in customer's own subscription(s) — see
+      // fetchMySubscriptions — so the Subscriptions tab never makes them
+      // search for their own plan by phone.
+      fetchMySubscriptions();
     } else {
       setWalletBalance(0);
       setPlanDiscountPercent(0);
+      setCurrentPlanName(null);
+      setCurrentPlanVoucherPercent(0);
       setMyUpgradeRequests([]);
+      setMyPoolSubscriptions([]);
+      setHasLookedUp(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, API_URL]);
@@ -1212,17 +1229,59 @@ export default function CustomerPortal() {
     }
   };
 
+  // Logged-in customers see their own subscription(s) automatically — no
+  // phone typed in, so this hits the JWT-guarded /subscriptions/me route
+  // (already enriched with upcomingOrders, same shape the phone lookup
+  // returns) instead of the public phone-based one.
+  const fetchMySubscriptions = async () => {
+    setIsLookupLoading(true);
+    setLookupError(null);
+    setHasLookedUp(true);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscriptions/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setMyPoolSubscriptions(result?.data || []);
+      } else {
+        setLookupError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tải gói của bạn lúc này" : "Could not load your plan right now"),
+        );
+        setMyPoolSubscriptions([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setLookupError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+    } finally {
+      setIsLookupLoading(false);
+    }
+  };
+
   const handlePostponeMyDelivery = (orderId: string) => {
     requestConfirm(
       "Hoãn lần giao này? Số lượng sẽ được bảo lưu, lịch giao sau đó sẽ dời lại một chu kỳ.",
       async () => {
         try {
-          const res = await fetch(
-            `${API_URL}/subscriptions/public/${orderId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
-            { method: "POST" },
-          );
+          // Logged-in: JWT-guarded route, verified by account ownership, no
+          // phone needed. Guest (phone-lookup view): the public phone-based
+          // route, matching whatever number they searched with.
+          const res = user
+            ? await fetch(`${API_URL}/subscriptions/orders/${orderId}/postpone`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${localStorage.getItem("fk_token")}` },
+              })
+            : await fetch(
+                `${API_URL}/subscriptions/public/${orderId}/postpone?phone=${encodeURIComponent(lookupPhone.trim())}`,
+                { method: "POST" },
+              );
           if (res.ok) {
-            handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+            if (user) {
+              fetchMySubscriptions();
+            } else {
+              handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+            }
           } else {
             const result = await res.json().catch(() => null);
             toast({
@@ -3682,28 +3741,78 @@ export default function CustomerPortal() {
               </div>
 
               {user ? (
-                <div className="max-w-2xl mx-auto mb-8 border border-primary/20 bg-primary/5 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-primary tracking-wider flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
-                      {lang === "vi" ? "Số dư ví hiện tại" : "Current wallet balance"}
+                <div className="max-w-4xl mx-auto mb-8 grid sm:grid-cols-5 gap-4 items-stretch">
+                  {/* Balance — primary emphasis, spans more of the row. */}
+                  <div className="sm:col-span-3 border border-primary/20 bg-primary/5 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[11px] uppercase font-bold text-primary tracking-wider flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                        {lang === "vi" ? "Số dư ví hiện tại" : "Current wallet balance"}
+                      </span>
+                      <p className="text-3xl sm:text-4xl font-extrabold font-heading text-primary mt-1">{formatVND(walletBalance)}</p>
+                      {hasActivePlanDiscount && (
+                        <p className="text-[11px] text-primary mt-2 leading-relaxed">
+                          {lang === "vi"
+                            ? `Đang giảm ${planDiscountPercent}% mọi đơn — áp dụng đến khi hết số dư ví.`
+                            : `${planDiscountPercent}% off every order — applies until your wallet balance runs out.`}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowWalletPlans(true)}
+                      className="shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                      {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
+                    </button>
+                  </div>
+
+                  {/* Current plan — which SubscriptionPlan tier this balance
+                      came from and what it's worth, so the customer never
+                      has to guess what they're getting. Purely informational
+                      (see Customer.currentPlanId doc comment); the actual
+                      discount is still gated by hasActivePlanDiscount above. */}
+                  <div className="sm:col-span-2 border border-border bg-card rounded-xl p-6 flex flex-col justify-center gap-2">
+                    <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                      <FontAwesomeIcon icon={faTag} className="h-3 w-3 text-primary" />
+                      {lang === "vi" ? "Gói hiện tại" : "Current plan"}
                     </span>
-                    <p className="text-3xl sm:text-4xl font-extrabold font-heading text-primary mt-1">{formatVND(walletBalance)}</p>
-                    {hasActivePlanDiscount && (
-                      <p className="text-[11px] text-primary mt-2 leading-relaxed">
+                    {currentPlanName ? (
+                      <>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-base font-extrabold font-heading">{currentPlanName}</p>
+                          {currentPlanVoucherPercent > 0 && (
+                            <span className="text-[10px] font-black tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 whitespace-nowrap">
+                              -{currentPlanVoucherPercent}%
+                            </span>
+                          )}
+                        </div>
+                        {!hasActivePlanDiscount && (
+                          <p className="text-[11px] text-amber-600 leading-relaxed">
+                            {lang === "vi"
+                              ? "Số dư ví đã hết — ưu đãi tạm ngưng đến khi bạn nạp thêm."
+                              : "Wallet balance ran out — the discount is paused until you top up again."}
+                          </p>
+                        )}
+                        <ul className="space-y-1.5 mt-1">
+                          {getPlanBenefits(currentPlanVoucherPercent, lang)
+                            .slice(0, 2)
+                            .map((b, i) => (
+                              <li key={i} className="flex items-start gap-2 text-[11px] text-foreground/80 leading-relaxed">
+                                <FontAwesomeIcon icon={b.icon} className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                                <span>{b.text}</span>
+                              </li>
+                            ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p className="text-xs text-foreground/60 leading-relaxed">
                         {lang === "vi"
-                          ? `Đang giảm ${planDiscountPercent}% mọi đơn — áp dụng đến khi hết số dư ví · dùng cho món lẻ hoặc gói định kỳ.`
-                          : `${planDiscountPercent}% off every order — applies until your wallet balance runs out · spend on meals or a subscription.`}
+                          ? "Bạn chưa có gói nạp nào. Chọn một gói để bắt đầu nhận ưu đãi thành viên."
+                          : "You haven't bought a top-up pack yet. Pick one to start earning a member discount."}
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => setShowWalletPlans(true)}
-                    className="shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
-                    {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
-                  </button>
                 </div>
               ) : (
                 <div className="max-w-sm mx-auto mb-8 text-center py-5 px-5 border border-dashed border-border rounded-xl">
@@ -3983,30 +4092,45 @@ export default function CustomerPortal() {
                 {lang === "vi" ? "Gói giao định kỳ của bạn" : "Your meal subscriptions"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {lang === "vi"
-                  ? "Giao hàng định kỳ do đội ngũ chúng tôi thiết lập, trừ vào số dư ví của bạn. Nhập số điện thoại đã đăng ký để xem hạn mức protein còn lại và lịch giao sắp tới."
-                  : "Recurring deliveries we set up for you, paid from your wallet. Enter your registered phone number to see your remaining protein balance and upcoming deliveries."}
+                {user
+                  ? lang === "vi"
+                    ? "Giao hàng định kỳ do đội ngũ chúng tôi thiết lập, trừ vào số dư ví của bạn — hiển thị tự động bên dưới cho tài khoản đã đăng nhập."
+                    : "Recurring deliveries we set up for you, paid from your wallet — shown automatically below for your logged-in account."
+                  : lang === "vi"
+                    ? "Giao hàng định kỳ do đội ngũ chúng tôi thiết lập, trừ vào số dư ví của bạn. Nhập số điện thoại đã đăng ký để xem hạn mức protein còn lại và lịch giao sắp tới."
+                    : "Recurring deliveries we set up for you, paid from your wallet. Enter your registered phone number to see your remaining protein balance and upcoming deliveries."}
               </p>
             </div>
 
-            <form onSubmit={handleLookupSubscription} className="max-w-md mx-auto flex gap-2 mb-10">
-              <input
-                type="tel"
-                required
-                placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
-                value={lookupPhone}
-                onChange={(e) => setLookupPhone(e.target.value)}
-                className="flex-1 bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none text-foreground"
-              />
-              <button
-                type="submit"
-                disabled={isLookupLoading}
-                className="bg-primary text-primary-foreground font-bold px-5 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {isLookupLoading ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-4 w-4" />}
-                {lang === "vi" ? "Tra cứu" : "Lookup"}
-              </button>
-            </form>
+            {/* Logged-in customers never need to search — their own
+                subscription(s) auto-load via fetchMySubscriptions (see the
+                login effect above). The phone-search form is guest-only. */}
+            {!user && (
+              <form onSubmit={handleLookupSubscription} className="max-w-md mx-auto flex gap-2 mb-10">
+                <input
+                  type="tel"
+                  required
+                  placeholder={lang === "vi" ? "Số điện thoại của bạn" : "Your phone number"}
+                  value={lookupPhone}
+                  onChange={(e) => setLookupPhone(e.target.value)}
+                  className="flex-1 bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-lg outline-none text-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={isLookupLoading}
+                  className="bg-primary text-primary-foreground font-bold px-5 rounded-lg hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isLookupLoading ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" /> : <FontAwesomeIcon icon={faSearch} className="h-4 w-4" />}
+                  {lang === "vi" ? "Tra cứu" : "Lookup"}
+                </button>
+              </form>
+            )}
+
+            {user && isLookupLoading && (
+              <div className="flex justify-center py-10">
+                <FontAwesomeIcon icon={faSpinner} className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
 
             {lookupError && (
               <p className="text-center text-xs text-red-500 mb-8">{lookupError}</p>
@@ -4016,7 +4140,13 @@ export default function CustomerPortal() {
               <div className="max-w-md mx-auto text-center py-10 border border-dashed border-border rounded-xl">
                 <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  {lang === "vi" ? "Không tìm thấy gói đăng ký nào với số điện thoại này." : "No subscriptions found associated with this phone number."}
+                  {user
+                    ? lang === "vi"
+                      ? "Bạn chưa có gói giao định kỳ nào. Gửi yêu cầu bên dưới để đội ngũ tư vấn một gói phù hợp."
+                      : "You don't have a meal subscription yet. Submit a request below and our team will help set one up."
+                    : lang === "vi"
+                      ? "Không tìm thấy gói đăng ký nào với số điện thoại này."
+                      : "No subscriptions found associated with this phone number."}
                 </p>
               </div>
             )}
@@ -4042,6 +4172,34 @@ export default function CustomerPortal() {
                     >
                       {sub.status}
                     </span>
+                  </div>
+
+                  {/* Always-visible package summary — what this plan is and
+                      what it costs, regardless of payment status, so a
+                      customer never loses sight of it once it's PAID. */}
+                  <div className="grid grid-cols-3 gap-3 bg-muted/20 border border-border/50 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">
+                        {lang === "vi" ? "Bắt đầu từ" : "Started"}
+                      </p>
+                      <p className="text-xs font-bold mt-0.5">
+                        {sub.startDate ? new Date(sub.startDate).toLocaleDateString("vi-VN") : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">
+                        {lang === "vi" ? "Tổng giá trị gói" : "Package value"}
+                      </p>
+                      <p className="text-xs font-bold text-primary mt-0.5">{formatVND(sub.totalPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">
+                        {lang === "vi" ? "Thanh toán" : "Payment"}
+                      </p>
+                      <p className={`text-xs font-bold mt-0.5 ${sub.paymentStatus === "PAID" ? "text-emerald-600" : "text-amber-600"}`}>
+                        {sub.paymentStatus}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-2.5">
@@ -4072,13 +4230,6 @@ export default function CustomerPortal() {
                       + ownership-checked action. */}
                   {(sub.paymentStatus === "UNPAID" || sub.paymentStatus === "DEPOSIT") && (
                     <div className="pt-4 border-t border-border/50 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          {lang === "vi" ? "Trạng thái thanh toán: " : "Payment status: "}
-                          <span className="font-bold text-amber-600">{sub.paymentStatus}</span>
-                        </span>
-                        <span className="font-bold text-foreground">{formatVND(sub.totalPrice)}</span>
-                      </div>
                       {user ? (
                         <button
                           onClick={() => handlePayFromWallet(sub.id)}

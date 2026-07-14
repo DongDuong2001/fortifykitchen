@@ -168,6 +168,31 @@ export class SubscriptionsService {
     return this.findForCustomer(customer.id);
   }
 
+  // Same shape as PublicSubscriptionsController.lookup's phone-based result
+  // (each subscription enriched with its next few upcomingOrders) but keyed
+  // off the logged-in JWT user instead of a typed-in phone number — lets the
+  // customer-web Subscriptions tab auto-display a logged-in customer's own
+  // plan without making them search for it.
+  async findForUserWithUpcoming(userId: string) {
+    const subs = await this.findForUser(userId);
+    return Promise.all(
+      subs.map(async (sub) => ({
+        ...sub,
+        upcomingOrders: await this.ordersService.findUpcomingForSubscription(sub.id, 5),
+      })),
+    );
+  }
+
+  // Postpone action for that same logged-in view — verifies ownership via
+  // JWT userId instead of the public flow's phone query param.
+  async postponeOrderForUser(orderId: string, userId: string) {
+    const owns = await this.ordersService.verifySubscriptionOrderOwnershipByUser(orderId, userId);
+    if (!owns) {
+      throw new ForbiddenException("This delivery doesn't belong to your account.");
+    }
+    return this.ordersService.postpone(orderId);
+  }
+
   async update(id: string, dto: UpdateSubscriptionDto): Promise<Subscription> {
     await this.findOne(id);
 
