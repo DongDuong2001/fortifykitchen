@@ -3,23 +3,24 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faFlask,
-  faTruckFast,
   faFire,
-  faShieldHalved,
-  faQuoteLeft,
-  faStar,
-  faDumbbell,
-  faUtensils,
-  faArrowRight,
   faSeedling,
-  faThermometerHalf,
-  faWeightScale,
-  faPlus,
+  faDrumstickBite,
+  faTruckFast,
+  faCartShopping,
+  faBowlFood,
+  faBoxOpen,
+  faUsers,
+  faUtensils,
+  faBacon,
+  faFish,
+  faStar,
+  faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
+import Link from "next/link";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -32,257 +33,159 @@ interface HomeSectionProps {
   addToCart: (item: MenuItem, qty: number, flavorOverride?: string, lang?: "vi" | "en") => void;
 }
 
-const trustItems = [
-  { icon: faTruckFast, key: "home_trust_delivery", color: "bg-primary/10 text-primary" },
-  { icon: faWeightScale, key: "home_trust_macro", color: "bg-emerald-500/10 text-emerald-600" },
-  { icon: faThermometerHalf, key: "home_trust_sousvide", color: "bg-amber-500/10 text-amber-600" },
-  { icon: faSeedling, key: "home_trust_fresh", color: "bg-green-500/10 text-green-600" },
+const whyFortify = [
+  { icon: faFire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "16+ Hrs" },
+  { icon: faSeedling, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
+  { icon: faDrumstickBite, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
+  { icon: faTruckFast, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "30-45'" },
 ] as const;
 
-const pillars = [
-  {
-    icon: faFlask,
-    titleKey: "home_pillar_nutrition",
-    descKey: "home_pillar_nutrition_desc",
-    accent: "bg-primary/10 text-primary",
-    iconColor: "text-primary",
-  },
-  {
-    icon: faFire,
-    titleKey: "home_pillar_quality",
-    descKey: "home_pillar_quality_desc",
-    accent: "bg-amber-500/10 text-amber-600",
-    iconColor: "text-amber-600",
-  },
-  {
-    icon: faUtensils,
-    titleKey: "home_pillar_convenience",
-    descKey: "home_pillar_convenience_desc",
-    accent: "bg-emerald-500/10 text-emerald-600",
-    iconColor: "text-emerald-600",
-  },
-  {
-    icon: faDumbbell,
-    titleKey: "home_pillar_flexibility",
-    descKey: "home_pillar_flexibility_desc",
-    accent: "bg-rose-500/10 text-rose-600",
-    iconColor: "text-rose-600",
-  },
+const categories = [
+  { icon: faDrumstickBite, labelKey: "filter_CHICKEN", href: "?protein=CHICKEN", count: "12+" },
+  { icon: faBacon, labelKey: "filter_BEEF", href: "?protein=BEEF", count: "8+" },
+  { icon: faFish, labelKey: "filter_SHRIMP", href: "?protein=SHRIMP", count: "6+" },
+  { icon: faBoxOpen, labelKey: "home_cat_mealbox", href: "/meal-boxes", count: "4+" },
+  { icon: faUsers, labelKey: "home_cat_family", href: "/family-packs", count: "3+" },
+  { icon: faUtensils, labelKey: "home_cat_chef", href: "/chef-specials", count: "5+" },
 ] as const;
 
-const processSteps = [
-  { icon: faSeedling, titleKey: "home_process_step1_title", descKey: "home_process_step1_desc", number: "01" },
-  { icon: faThermometerHalf, titleKey: "home_process_step2_title", descKey: "home_process_step2_desc", number: "02" },
-  { icon: faShieldHalved, titleKey: "home_process_step3_title", descKey: "home_process_step3_desc", number: "03" },
-  { icon: faTruckFast, titleKey: "home_process_step4_title", descKey: "home_process_step4_desc", number: "04" },
-] as const;
-
-const testimonials = [
-  { textKey: "home_testimonial1", authorKey: "home_testimonial1_author", avatar: "MA" },
-  { textKey: "home_testimonial2", authorKey: "home_testimonial2_author", avatar: "TK" },
+const howItWorks = [
+  { icon: faCartShopping, titleKey: "home_how_step1", descKey: "home_how_step1_desc", number: "01" },
+  { icon: faFire, titleKey: "home_how_step2", descKey: "home_how_step2_desc", number: "02" },
+  { icon: faTruckFast, titleKey: "home_how_step3", descKey: "home_how_step3_desc", number: "03" },
+  { icon: faBowlFood, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
 ] as const;
 
 export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }: HomeSectionProps) {
   const featuredItems = menuItems.slice(0, 3);
 
   return (
-    <div className="space-y-16 sm:space-y-20 pb-20">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background rounded-3xl border border-primary/10 p-8 sm:p-12 lg:p-16">
-        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-8">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider border border-primary/20">
-            <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
-            {t("home_hero_cta_order", lang)}
-          </span>
+    <div className="space-y-0">
+      {/* 2. HERO — Large editorial layout */}
+      <section className="relative min-h-[70vh] flex items-center overflow-hidden">
+        <div className="container-design relative z-10 w-full">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Left: Copy */}
+            <div className="space-y-8 lg:pr-12">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+                <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+                {t("home_hero_badge", lang)}
+              </span>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-heading text-foreground leading-[1.1]">
-            {t("home_hero_title", lang)}
-          </h1>
+              <h1 className="headline-hero text-foreground">
+                {t("home_hero_title", lang)}
+              </h1>
 
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            {t("home_hero_subtitle", lang)}
-          </p>
+              <p className="body-text text-muted-foreground max-w-lg">
+                {t("home_hero_subtitle", lang)}
+              </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <button
-              onClick={() => setActiveTab("menu")}
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm py-4 px-8 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              {t("home_hero_cta_menu", lang)}
-              <FontAwesomeIcon icon={faArrowRight} className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setActiveTab("order-now")}
-              className="w-full sm:w-auto bg-card hover:bg-muted/50 text-foreground font-bold text-sm py-4 px-8 rounded-full tracking-widest uppercase border border-border transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              {t("home_hero_cta_order", lang)}
-            </button>
-          </div>
-
-          {/* Trust Strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 pt-8 border-t border-border/50" role="list" aria-label="Trust indicators">
-            {trustItems.map((item, i) => (
-              <div key={i} className="flex flex-col items-center gap-3 text-center" role="listitem">
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${item.color} transition-colors hover:scale-105`}>
-                  <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                </div>
-                <span className="text-xs font-semibold text-foreground leading-snug">{t(item.key, lang)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[5%] right-[5%] w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-[10%] left-[5%] w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        </div>
-      </section>
-
-      {/* Featured Products */}
-      <section className="space-y-10" aria-labelledby="featured-heading">
-        <header className="text-center space-y-4 max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider border border-primary/20">
-            <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
-            {t("home_featured_title", lang)}
-          </span>
-          <h2 id="featured-heading" className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading text-foreground">
-            {t("home_featured_title", lang)}
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">{t("home_featured_subtitle", lang)}</p>
-        </header>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {featuredItems.map((item) => (
-            <article
-              key={item.id}
-              className="group border border-border bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 flex flex-col"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden bg-muted/20">
-                <img
-                  src={item.imageUrl}
-                  alt={getMenuItemLabel(item)}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <span className="absolute top-4 right-4 bg-primary/90 text-primary-foreground font-mono text-[10px] font-bold py-1 px-2.5 rounded-full uppercase tracking-wider backdrop-blur-sm">
-                  {t(`filter_${item.protein}` as keyof Dictionary, lang)}
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </div>
-
-              <div className="p-6 space-y-4 flex-1 flex flex-col">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-base font-bold font-heading text-foreground line-clamp-1">{getMenuItemLabel(item)}</h3>
-                    <span className="text-sm font-bold text-primary shrink-0">{formatVND(item.price)}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground font-sans line-clamp-2 leading-relaxed">{item.description}</p>
-              </div>
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t border-border/50">
-                <span className="flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faDumbbell} className="h-3.5 w-3.5" />
-                  <span className="font-medium">~35g Protein</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faFire} className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="font-medium">~250 kcal</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faUtensils} className="h-3.5 w-3.5" />
-                  <span className="font-medium">{item.sizeGrams}g</span>
-                </span>
-              </div>
-
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4">
                 <button
-                  onClick={() => addToCart(item, 1, undefined, lang)}
-                  className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer group-focus-visible:ring-2 group-focus-visible:ring-primary/50"
+                  onClick={() => setActiveTab("menu")}
+                  className="btn-primary w-full sm:w-auto"
                 >
-                  <FontAwesomeIcon icon={faPlus} className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  {t("btn_add_cart", lang)}
+                  {t("home_hero_cta_menu", lang)}
+                  <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+                </button>
+                <button
+                  onClick={() => setActiveTab("order-now")}
+                  className="btn-secondary w-full sm:w-auto"
+                >
+                  {t("home_hero_cta_order", lang)}
                 </button>
               </div>
-            </article>
-          ))}
-        </div>
 
-        <div className="text-center pt-4">
-          <button
-            onClick={() => setActiveTab("menu")}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-          >
-            {t("filter_all", lang)}
-            <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5" />
-          </button>
+              {/* Trust indicators */}
+              <div className="flex flex-wrap items-center gap-6 pt-8 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faTruckFast} className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">{t("home_trust_delivery", lang)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faStar} className="h-5 w-5 text-accent" />
+                  <span className="text-sm font-medium text-foreground">{t("home_trust_macro", lang)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faFire} className="h-5 w-5 text-secondary" />
+                  <span className="text-sm font-medium text-foreground">{t("home_trust_sousvide", lang)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faSeedling} className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">{t("home_trust_fresh", lang)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Hero Image */}
+            <div className="relative">
+              <div className="relative aspect-[4/5] lg:aspect-[3/4] rounded-[40px] overflow-hidden shadow-card-hover bg-muted">
+                <img
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1200"
+                  alt={t("home_hero_image_alt", lang)}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Floating organic decorations */}
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-6 -right-6 w-20 h-20 opacity-20" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 5 C45 15 55 25 50 35 C45 25 55 15 50 5" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50 35 C45 45 55 55 50 65 C45 55 55 45 50 35" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50 65 C45 75 55 85 50 95 C45 85 55 75 50 65" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="absolute bottom-8 left-4 w-16 h-16 opacity-15 rotate-12" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="70" rx="25" ry="15" stroke="#6D4C41" strokeWidth="2"/>
+                    <path d="M25 70 Q50 40 75 70" stroke="#6D4C41" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M35 65 Q50 50 65 65" stroke="#6D4C41" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div className="absolute top-1/2 right-2 w-12 h-12 opacity-10 -rotate-6" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 15 L65 45 L35 45 Z" stroke="#F6C453" strokeWidth="3" strokeLinejoin="round"/>
+                    <circle cx="50" cy="50" r="8" stroke="#F6C453" strokeWidth="2"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Why Fortify - Value Pillars */}
-      <section className="bg-muted/20 border border-border/30 rounded-3xl p-8 sm:p-12 space-y-12" aria-labelledby="pillars-heading">
-        <header className="text-center space-y-4 max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider border border-primary/20">
-            <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3" />
-            {t("filter_all", lang)}
-          </span>
-          <h2 id="pillars-heading" className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading text-foreground">
-            {t("menu_title", lang)}
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">{t("menu_subtitle", lang)}</p>
-        </header>
+      {/* 3. WHY FORTIFY KITCHEN — Four feature cards */}
+      <section className="section bg-background" aria-labelledby="why-heading">
+        <div className="container-design">
+          <header className="text-center max-w-2xl mx-auto mb-20 space-y-4">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+              <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
+              {t("home_why_label", lang)}
+            </span>
+            <h2 id="why-heading" className="headline-section text-foreground">
+              {t("home_why_title", lang)}
+            </h2>
+            <p className="body-text text-muted-foreground">
+              {t("home_why_subtitle", lang)}
+            </p>
+          </header>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {pillars.map((pillar, i) => (
-            <article
-              key={i}
-              className="group bg-card border border-border/50 rounded-2xl p-6 space-y-5 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
-            >
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${pillar.accent} ${pillar.iconColor} transition-all duration-300 group-hover:scale-110`}>
-                <FontAwesomeIcon icon={pillar.icon} className="h-5 w-5" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground">{t(pillar.titleKey, lang)}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{t(pillar.descKey, lang)}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* How It Works - Process */}
-      <section className="space-y-12" aria-labelledby="process-heading">
-        <header className="text-center space-y-4 max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider border border-primary/20">
-            <FontAwesomeIcon icon={faFlask} className="h-3 w-3" />
-            {t("home_process_title", lang)}
-          </span>
-          <h2 id="process-heading" className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading text-foreground">
-            {t("home_process_title", lang)}
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">{t("home_process_subtitle", lang)}</p>
-        </header>
-
-        <div className="relative">
-          {/* Connecting line */}
-          <div className="hidden lg:block absolute top-10 left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-transparent via-border/50 to-transparent" />
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {processSteps.map((step, i) => (
+          <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {whyFortify.map((item, i) => (
               <article
                 key={i}
-                className="relative text-center space-y-5"
+                className="group relative p-8 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 text-center space-y-5"
               >
-                <div className="relative z-10 mx-auto">
-                  <div className="h-20 w-20 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center transition-all duration-300 group-hover:border-primary/30 group-hover:shadow-lg mx-auto">
-                    <span className="text-[10px] font-bold text-primary/50 uppercase tracking-wider mb-2">{step.number}</span>
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                      <FontAwesomeIcon icon={step.icon} className="h-5 w-5" />
-                    </div>
-                  </div>
+                <div className="relative w-16 h-16 mx-auto rounded-[20px] bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110">
+                  <FontAwesomeIcon icon={item.icon} className="h-7 w-7" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-sm font-bold text-foreground">{t(step.titleKey, lang)}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{t(step.descKey, lang)}</p>
+                  <h3 className="headline-card text-foreground">{t(item.titleKey, lang)}</h3>
+                  <p className="body-sm">{t(item.descKey, lang)}</p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <span className="text-2xl font-bold text-primary font-heading tabular-nums">{item.number}</span>
                 </div>
               </article>
             ))}
@@ -290,66 +193,190 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
         </div>
       </section>
 
-      {/* Social Proof / Testimonials */}
-      <section className="bg-[#D4EFE4]/30 border border-[#D4EFE4]/70 rounded-3xl p-8 sm:p-12 space-y-10 max-w-5xl mx-auto" aria-labelledby="testimonial-heading">
-        <header className="text-center space-y-4">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-700 text-[11px] font-bold uppercase tracking-wider border border-emerald-500/20">
-            <FontAwesomeIcon icon={faQuoteLeft} className="h-3 w-3" />
-            {t("home_testimonial_title", lang)}
-          </span>
-          <h2 id="testimonial-heading" className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading text-[#2F4A3C]">
-            {t("home_testimonial_title", lang)}
-          </h2>
-        </header>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {testimonials.map((testimonial, i) => (
-            <article
-              key={i}
-              className="bg-white/70 backdrop-blur-sm border border-[#D4EFE4]/50 rounded-2xl p-8 space-y-6 text-left hover:border-emerald-300 transition-colors"
+      {/* 4. BEST SELLERS — Three-column layout */}
+      <section className="section bg-background" aria-labelledby="bestsellers-heading">
+        <div className="container-design">
+          <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-16">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+                <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+                {t("home_bestsellers_label", lang)}
+              </span>
+              <h2 id="bestsellers-heading" className="headline-section text-foreground">
+                {t("home_bestsellers_title", lang)}
+              </h2>
+            </div>
+            <button
+              onClick={() => setActiveTab("menu")}
+              className="btn-secondary self-end whitespace-nowrap"
             >
-              <div className="flex items-center gap-1">
-                <FontAwesomeIcon icon={faQuoteLeft} className="h-5 w-5 text-emerald-500/50" />
-              </div>
-              <p className="text-base sm:text-lg font-light italic leading-relaxed text-[#2F4A3C] font-heading">
-                {t(testimonial.textKey, lang)}
-              </p>
-              <div className="flex items-center gap-4 pt-4 border-t border-[#D4EFE4]/50">
-                <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
-                  {testimonial.avatar}
+              {t("home_bestsellers_cta", lang)}
+              <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+            </button>
+          </header>
+
+          <div className="card-grid">
+            {featuredItems.map((item) => (
+              <article
+                key={item.id}
+                className="product-card group relative bg-card border border-border rounded-[28px] overflow-hidden"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={item.imageUrl}
+                    alt={getMenuItemLabel(item)}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <span className="absolute top-4 left-4 px-3 py-1 rounded-input bg-primary/90 text-primary-foreground text-[11px] font-bold uppercase tracking-wider backdrop-blur-sm">
+                    {t(`filter_${item.protein}` as keyof Dictionary, lang)}
+                  </span>
+                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm" aria-label="Add to favorites">
+                      <FontAwesomeIcon icon={faStar} className="h-5 w-5" />
+                    </button>
+                    <button className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm" aria-label="Quick view">
+                      <FontAwesomeIcon icon={faUtensils} className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-[#2F4A3C]">{t(testimonial.authorKey, lang)}</p>
+
+                <div className="p-6 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="headline-card text-foreground">{getMenuItemLabel(item)}</h3>
+                      <p className="body-sm mt-1 line-clamp-2">{item.description}</p>
+                    </div>
+                    <span className="text-2xl font-bold text-primary font-heading shrink-0 tabular-nums">{formatVND(item.price)}</span>
+                  </div>
+
+<div className="flex items-center gap-4 pt-3 border-t border-border/50 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faDrumstickBite} className="h-4 w-4" />
+                        ~35g Protein
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faFire} className="h-4 w-4 text-accent" />
+                        ~250 kcal
+                      </span>
+                      <span className="flex items-center gap-1.5 ml-auto">
+                        <FontAwesomeIcon icon={faUtensils} className="h-4 w-4" />
+                        {item.sizeGrams}g
+                      </span>
+                    </div>
+
+                  <button
+                    onClick={() => addToCart(item, 1, undefined, lang)}
+                    className="w-full btn-primary py-3"
+                  >
+                    {t("btn_add_cart", lang)}
+                    <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
+                  </button>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/80 to-primary/60 rounded-3xl p-8 sm:p-12 lg:p-16 text-center space-y-8 text-primary-foreground">
-        <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight font-heading">
-            {t("home_cta_title", lang)}
-          </h2>
-          <p className="text-sm sm:text-base opacity-90 max-w-lg mx-auto leading-relaxed">
-            {t("home_cta_subtitle", lang)}
-          </p>
-          <button
-            onClick={() => setActiveTab("menu")}
-            className="inline-flex items-center gap-2 bg-primary-foreground hover:bg-primary-foreground/90 text-primary font-bold text-xs py-4 px-9 rounded-full tracking-widest uppercase transition-all duration-300 shadow-lg hover:shadow-xl active:scale-[0.98]"
-          >
-            {t("home_cta_button", lang)}
-            <FontAwesomeIcon icon={faArrowRight} className="h-4 w-4" />
-          </button>
-        </div>
+      {/* 5. CATEGORIES */}
+      <section className="section bg-background" aria-labelledby="categories-heading">
+        <div className="container-design">
+          <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+              <FontAwesomeIcon icon={faBoxOpen} className="h-3 w-3" />
+              {t("home_cat_label", lang)}
+            </span>
+            <h2 id="categories-heading" className="headline-section text-foreground">
+              {t("home_cat_title", lang)}
+            </h2>
+            <p className="body-text text-muted-foreground">
+              {t("home_cat_subtitle", lang)}
+            </p>
+          </header>
 
-        {/* Decorative elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[10%] left-[5%] w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-[10%] right-[5%] w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
+          <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+            {categories.map((cat, i) => (
+              <Link
+                key={i}
+                href={cat.href}
+                className="group relative p-6 rounded-[24px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 text-center space-y-4 text-left"
+              >
+                <div className="relative w-14 h-14 mx-auto rounded-[16px] bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110">
+                  <FontAwesomeIcon icon={cat.icon} className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-foreground">{t(cat.labelKey, lang)}</h3>
+                  <p className="text-sm text-muted-foreground">{cat.count} {t("home_cat_items", lang)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 6. HOW IT WORKS — Three-step process */}
+      <section className="section bg-background" aria-labelledby="how-heading">
+        <div className="container-design">
+          <header className="text-center max-w-2xl mx-auto mb-20 space-y-4">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+              <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
+              {t("home_how_label", lang)}
+            </span>
+            <h2 id="how-heading" className="headline-section text-foreground">
+              {t("home_how_title", lang)}
+            </h2>
+            <p className="body-text text-muted-foreground">
+              {t("home_how_subtitle", lang)}
+            </p>
+          </header>
+
+          <div className="relative">
+            <div className="hidden lg:block absolute top-[80px] left-[6%] right-[6%] h-[2px] bg-gradient-to-r from-transparent via-border/50 to-transparent" aria-hidden="true" />
+
+            <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
+              {howItWorks.map((step, i) => (
+                <article
+                  key={i}
+                  className="relative text-center space-y-6 p-6"
+                >
+                  <div className="relative">
+                    <span className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[11px] font-bold uppercase tracking-wider font-heading">
+                      {step.number}
+                    </span>
+                    <div className="relative w-16 h-16 mx-auto rounded-[16px] bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110">
+                      <FontAwesomeIcon icon={step.icon} className="h-7 w-7" />
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-4">
+                    <h3 className="headline-card text-foreground">{t(step.titleKey, lang)}</h3>
+                    <p className="body-sm">{t(step.descKey, lang)}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Band */}
+      <section className="section bg-primary relative overflow-hidden" aria-labelledby="cta-heading">
+        <div className="container-design relative z-10">
+          <div className="max-w-3xl mx-auto text-center space-y-8 py-8">
+            <h2 id="cta-heading" className="headline-section text-primary-foreground">
+              {t("home_cta_title", lang)}
+            </h2>
+            <p className="body-text text-primary-foreground/80">
+              {t("home_cta_subtitle", lang)}
+            </p>
+            <button
+              onClick={() => setActiveTab("menu")}
+              className="btn-secondary bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
+            >
+              {t("home_cta_button", lang)}
+              <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+            </button>
+          </div>
         </div>
       </section>
     </div>
