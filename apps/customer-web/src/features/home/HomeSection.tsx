@@ -16,6 +16,7 @@ import {
   faFish,
   faStar,
   faChevronRight,
+  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, formatVND } from "@fortifykitchen/shared";
@@ -359,10 +360,130 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
         </div>
       </section>
 
-      {/* Final CTA Band */}
-      <section className="section bg-primary relative overflow-hidden" aria-labelledby="cta-heading">
+      {/* Subscription Plans — Price Cards */}
+      <section className="section bg-background" aria-labelledby="plans-heading">
+        <div className="container-design">
+          <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+              <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+              {t("home_plans_label", lang)}
+            </span>
+            <h2 id="plans-heading" className="headline-section text-foreground">
+              {t("home_plans_title", lang)}
+            </h2>
+            <p className="body-text text-muted-foreground">
+              {t("home_plans_subtitle", lang)}
+            </p>
+          </header>
+
+          <div className="card-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Pro Plan */}
+            <article className="relative p-6 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                {t("home_plan_pro_tag", lang)}
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold text-foreground">{t("home_plan_pro_name", lang)}</h3>
+                <div className="space-y-1">
+                  <span className="text-4xl font-bold text-primary font-heading tabular-nums">{t("home_plan_pro_price", lang)}</span>
+                  <span className="text-sm text-muted-foreground">{t("home_plan_pro_period", lang)}</span>
+                </div>
+                <ul className="space-y-3 flex-1">
+                  {t("home_plan_pro_features", lang).split("|").map((feat, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                      <FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button className="w-full btn-secondary mt-4" onClick={() => setActiveTab("wallet")}>
+                  {t("home_plan_cta", lang)}
+                </button>
+              </div>
+            </article>
+
+            {/* Max Plan */}
+            <article className="relative p-6 rounded-[28px] bg-primary text-primary-foreground border border-primary hover:shadow-card-hover transition-all duration-500 flex flex-col">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary-foreground/10 text-primary-foreground text-[10px] font-bold uppercase tracking-wider border border-primary-foreground/30">
+                {t("home_plan_max_tag", lang)}
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold">{t("home_plan_max_name", lang)}</h3>
+                <div className="space-y-1">
+                  <span className="text-4xl font-bold font-heading tabular-nums">{t("home_plan_max_price", lang)}</span>
+                  <span className="text-sm opacity-80">{t("home_plan_max_period", lang)}</span>
+                </div>
+                <ul className="space-y-3 flex-1">
+                  {t("home_plan_max_features", lang).split("|").map((feat, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm opacity-90">
+                      <FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold text-sm py-3 px-4 rounded-lg transition-colors mt-4" onClick={() => setActiveTab("wallet")}>
+                  {t("home_plan_cta", lang)}
+                </button>
+              </div>
+            </article>
+
+            {/* Pro Max Plan */}
+            <article className="relative p-6 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold uppercase tracking-wider border border-amber-500/30">
+                {t("home_plan_promax_tag", lang)}
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold text-foreground">{t("home_plan_promax_name", lang)}</h3>
+                <div className="space-y-1">
+                  <span className="text-4xl font-bold text-amber-600 font-heading tabular-nums">{t("home_plan_promax_price", lang)}</span>
+                  <span className="text-sm text-muted-foreground">{t("home_plan_promax_period", lang)}</span>
+                </div>
+                <ul className="space-y-3 flex-1">
+                  {t("home_plan_promax_features", lang).split("|").map((feat, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                      <FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button className="w-full btn-secondary mt-4 border-amber-500 text-amber-600 hover:bg-amber-500 hover:text-white" onClick={() => setActiveTab("wallet")}>
+                  {t("home_plan_cta", lang)}
+                </button>
+              </div>
+            </article>
+
+            {/* Ultra Plan */}
+            <article className="relative p-6 rounded-[28px] bg-[linear-gradient(135deg,#1E2016_0%,#2E7D32_100%)] text-white border border-transparent hover:shadow-card-hover transition-all duration-500 flex flex-col">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider border border-amber-500/40">
+                {t("home_plan_ultra_tag", lang)}
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold">{t("home_plan_ultra_name", lang)}</h3>
+                <div className="space-y-1">
+                  <span className="text-4xl font-bold font-heading tabular-nums">{t("home_plan_ultra_price", lang)}</span>
+                  <span className="text-sm opacity-70">{t("home_plan_ultra_period", lang)}</span>
+                </div>
+                <ul className="space-y-3 flex-1">
+                  {t("home_plan_ultra_features", lang).split("|").map((feat, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm opacity-90">
+                      <FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button className="w-full bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm py-3 px-4 rounded-lg transition-colors mt-4" onClick={() => setActiveTab("wallet")}>
+                  {t("home_plan_cta", lang)}
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Band — rounded */}
+      <section className="section bg-primary relative overflow-hidden rounded-[40px] mx-4 md:mx-0" aria-labelledby="cta-heading">
         <div className="container-design relative z-10">
-          <div className="max-w-3xl mx-auto text-center space-y-8 py-8">
+          <div className="max-w-3xl mx-auto text-center space-y-8 py-12 px-6">
             <h2 id="cta-heading" className="headline-section text-primary-foreground">
               {t("home_cta_title", lang)}
             </h2>
