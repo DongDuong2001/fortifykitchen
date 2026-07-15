@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap');
 @import "tailwindcss";
 
 /*
- * FortifyKitchen Design System — Anthropic Brand Guidelines adaptation
+ * FortifyKitchen Design System — Premium Sweetgreen / CAVA / Apple style adaptation
  */
 @theme {
   --color-background: var(--background);
@@ -25,58 +24,58 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Fraunces", "Inter", serif;
+  --font-heading: var(--font-heading), "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-body), "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* DESIGN.md radius scale */
+  /* Premium rounded radius scale */
   --radius-xs: 4px;
   --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 28px;
-  --radius-2xl: 32px;
-  --radius-3xl: 40px;
-  --radius-4xl: 48px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+  --radius-4xl: 32px;
 
-  /* DESIGN.md shadows */
-  --shadow-card: 0 16px 40px rgba(20,20,19,.04);
-  --shadow-card-hover: 0 24px 60px rgba(20,20,19,.08);
-  --shadow-xs: 0 1px 2px rgba(20,20,19,.02);
-  --shadow-sm: 0 2px 4px rgba(20,20,19,.03);
-  --shadow-md: 0 4px 8px -1px rgba(20,20,19,.04), 0 2px 4px -1px rgba(20,20,19,.02);
-  --shadow-lg: 0 10px 15px -3px rgba(20,20,19,.04), 0 4px 6px -2px rgba(20,20,19,.02);
-  --shadow-xl: 0 20px 25px -5px rgba(20,20,19,.06), 0 10px 10px -5px rgba(20,20,19,.02);
-  --shadow-2xl: 0 25px 50px -12px rgba(20,20,19,.12);
+  /* Soft and deep luxury shadows */
+  --shadow-card: 0 16px 40px rgba(46, 42, 39, .03);
+  --shadow-card-hover: 0 24px 60px rgba(46, 42, 39, .06);
+  --shadow-xs: 0 1px 2px rgba(46, 42, 39, .01);
+  --shadow-sm: 0 2px 4px rgba(46, 42, 39, .02);
+  --shadow-md: 0 4px 8px -1px rgba(46, 42, 39, .03), 0 2px 4px -1px rgba(46, 42, 39, .01);
+  --shadow-lg: 0 10px 15px -3px rgba(46, 42, 39, .03), 0 4px 6px -2px rgba(46, 42, 39, .01);
+  --shadow-xl: 0 20px 25px -5px rgba(46, 42, 39, .04), 0 10px 10px -5px rgba(46, 42, 39, .01);
+  --shadow-2xl: 0 25px 50px -12px rgba(46, 42, 39, .08);
 
   /* Container & spacing */
   --container-max: 1280px;
   --content-max: 1200px;
-  --section-padding: 120px;
-  --card-gap: 32px;
+  --section-padding: 64px;
+  --card-gap: 24px;
 }
 
 :root {
-  /* Anthropic Brand Color Palette */
-  --background: #faf9f5;        /* Light Cream background */
-  --foreground: #141413;        /* Dark brown/charcoal text */
-  --primary: #d97757;           /* Orange Accent as primary brand accent */
-  --primary-foreground: #faf9f5;
-  --secondary: #6a9bcc;         /* Blue Accent as secondary */
-  --secondary-foreground: #faf9f5;
-  --muted: #e8e6dc;             /* Light Gray background / border */
-  --muted-foreground: #b0aea5;   /* Mid Gray */
-  --accent: #788c5d;            /* Green Accent as tertiary accent */
-  --accent-foreground: #faf9f5;
-  --destructive: #C62828;
+  /* Sweetgreen/CAVA Warm Premium Color Palette */
+  --background: #FAF7F2;        /* Warm background */
+  --foreground: #2E2A27;        /* Charcoal text */
+  --primary: #8B5E3C;           /* Warm Brown primary */
+  --primary-foreground: #FAF7F2;
+  --secondary: #A67C52;         /* Light warm brown */
+  --secondary-foreground: #FAF7F2;
+  --muted: #EFECE6;             /* Clean warm border / bg */
+  --muted-foreground: #706B67;   /* Secondary gray text */
+  --accent: #D97B42;            /* Vibrant warm orange accent */
+  --accent-foreground: #FAF7F2;
+  --destructive: #A94442;
   --destructive-foreground: #FFFFFF;
-  --border: #e8e6dc;
-  --input: #faf9f5;
-  --ring: #d97757;
-  --card: #faf9f5;              /* Cream white card */
-  --card-foreground: #141413;
-  --popover: #faf9f5;
-  --popover-foreground: #141413;
+  --border: #EFECE6;
+  --input: #FAF7F2;
+  --ring: #8B5E3C;
+  --card: #FFFFFF;              /* Premium clean white card surface */
+  --card-foreground: #2E2A27;
+  --popover: #FFFFFF;
+  --popover-foreground: #2E2A27;
 }
 
 body {
@@ -90,7 +89,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   line-height: 1.15;
 }
 
@@ -191,30 +190,30 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary {
   background: var(--primary);
   color: var(--primary-foreground);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  border-radius: 18px;
-  padding: 16px 32px;
+  border-radius: var(--radius-lg);
+  padding: 12px 28px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .btn-primary:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  background: #256b28;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background: #6F4A2F;
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--primary);
   border: 2px solid var(--primary);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  border-radius: 18px;
-  padding: 14px 30px;
+  border-radius: var(--radius-lg);
+  padding: 10px 26px;
   transition: all 0.2s ease;
 }
 .btn-secondary:hover {

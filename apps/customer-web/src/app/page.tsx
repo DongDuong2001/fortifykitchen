@@ -1021,9 +1021,9 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
               ) : (
                 <button
                   onClick={() => setAuthModal("login")}
-                  className="border border-white/20 hover:border-white/50 text-[#F8F3E1] text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
+                  className="border border-border/80 hover:border-primary/60 text-foreground hover:text-primary text-xs font-semibold py-1.5 px-4.5 rounded-full bg-card hover:bg-muted/30 transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
                 >
-                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-secondary" />
+                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
                   <span>{t("btn_signin", lang)}</span>
                 </button>
               )}

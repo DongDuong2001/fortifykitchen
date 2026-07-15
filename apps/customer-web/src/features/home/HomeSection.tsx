@@ -76,7 +76,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
   return (
     <div className="space-y-0">
       {/* 2. HERO — Centered editorial layout with image below */}
-      <section className="relative py-12 md:py-20 overflow-hidden bg-background">
+      <section className="relative pt-4 pb-12 md:pt-6 md:pb-16 overflow-hidden bg-background">
         <div className="container-design relative z-10 w-full text-center">
           <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 flex flex-col items-center">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
@@ -131,7 +131,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
 
           {/* Big horizontal dynamic visual below the text content */}
           <div className="mt-12 md:mt-16 max-w-5xl mx-auto relative px-4">
-            <div className="relative aspect-[16/9] md:aspect-[2.39/1] rounded-3xl overflow-hidden shadow-2xl bg-muted border border-border">
+            <div className="relative aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl bg-card border border-border">
               {hasFrames ? (
                 <div className="w-full h-full relative transition-all duration-700">
                   {currentFrame.linkUrl ? (
@@ -139,14 +139,14 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                       <img
                         src={currentFrame.imageUrl}
                         alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-102"
+                        className="w-full h-full object-contain md:object-cover transition-transform duration-500 hover:scale-102"
                       />
                     </a>
                   ) : (
                     <img
                       src={currentFrame.imageUrl}
                       alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain md:object-cover"
                     />
                   )}
                   {/* Slider Indicators */}
@@ -174,21 +174,6 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               )}
             </div>
 
-            {/* Floating organic decorations */}
-            <div className="pointer-events-none absolute inset-0 -z-10">
-              <div className="absolute -top-10 left-0 w-24 h-24 opacity-15" aria-hidden="true">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M50 5 C45 15 55 25 50 35 C45 25 55 15 50 5" stroke="#d97757" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M50 35 C45 45 55 55 50 65 C45 55 55 45 50 35" stroke="#d97757" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div className="absolute -bottom-10 right-0 w-20 h-20 opacity-15 rotate-45" aria-hidden="true">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <ellipse cx="50" cy="70" rx="25" ry="15" stroke="#6a9bcc" strokeWidth="2"/>
-                  <path d="M25 70 Q50 40 75 70" stroke="#6a9bcc" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -196,15 +181,15 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
       {/* 3. WHY FORTIFY KITCHEN — Four feature cards */}
       <section className="section bg-background" aria-labelledby="why-heading">
         <div className="container-design">
-          <header className="text-center max-w-2xl mx-auto mb-20 space-y-4">
+          <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
               <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
               {t("home_why_label", lang)}
             </span>
-            <h2 id="why-heading" className="headline-section text-foreground">
+            <h2 id="why-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
               {t("home_why_title", lang)}
             </h2>
-            <p className="body-text text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {t("home_why_subtitle", lang)}
             </p>
           </header>
@@ -361,35 +346,35 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         </div>
       </section>
 
-      {/* 5. CATEGORIES */}
+      {/* 5. CATEGORIES — Horizontal pills scroll layout */}
       <section className="section bg-background" aria-labelledby="categories-heading">
         <div className="container-design">
-          <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+          <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
               <FontAwesomeIcon icon={faBoxOpen} className="h-3 w-3" />
               {t("home_cat_label", lang)}
             </span>
-            <h2 id="categories-heading" className="headline-section text-foreground">
+            <h2 id="categories-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
               {t("home_cat_title", lang)}
             </h2>
-            <p className="body-text text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {t("home_cat_subtitle", lang)}
             </p>
           </header>
 
-          <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
             {categories.map((cat, i) => (
               <Link
                 key={i}
                 href={cat.href}
-                className="group relative p-6 rounded-[24px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 text-center space-y-4 text-left"
+                className="group flex items-center gap-3.5 px-6 py-3.5 rounded-full bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 select-none"
               >
-                <div className="relative w-14 h-14 mx-auto rounded-[16px] bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110">
-                  <FontAwesomeIcon icon={cat.icon} className="h-6 w-6" />
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                  <FontAwesomeIcon icon={cat.icon} className="h-3.5 w-3.5" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-foreground">{t(cat.labelKey, lang)}</h3>
-                  <p className="text-sm text-muted-foreground">{cat.count} {t("home_cat_items", lang)}</p>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-foreground leading-tight group-hover:text-primary transition-colors duration-300">{t(cat.labelKey, lang)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{cat.count} {t("home_cat_items", lang)}</p>
                 </div>
               </Link>
             ))}
@@ -397,65 +382,45 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         </div>
       </section>
 
-      {/* 6. HOW IT WORKS — Three-step process */}
-      <section className="section bg-background" aria-labelledby="how-heading">
+      {/* 6. HOW IT WORKS — Interactive Timeline Card Grid */}
+      <section className="section bg-background border-t border-border/30" aria-labelledby="how-heading">
         <div className="container-design">
-          <header className="text-center max-w-2xl mx-auto mb-20 space-y-4">
+          <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
               <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
               {t("home_how_label", lang)}
             </span>
-            <h2 id="how-heading" className="headline-section text-foreground">
+            <h2 id="how-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
               {t("home_how_title", lang)}
             </h2>
-            <p className="body-text text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {t("home_how_subtitle", lang)}
             </p>
           </header>
 
-          <div className="relative">
-            <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 relative z-10 gap-8">
+          <div className="max-w-4xl mx-auto relative">
+            {/* Visual connector line */}
+            <div className="hidden md:block absolute left-[31px] top-10 bottom-10 w-[2px] bg-gradient-to-b from-primary/35 via-border to-transparent" />
+
+            <div className="space-y-8">
               {howItWorks.map((step, i) => (
                 <article
                   key={i}
-                  className="group relative bg-card border border-border/80 hover:border-primary/50 hover:shadow-card-hover transition-all duration-300 rounded-2xl p-8 text-center space-y-6 flex flex-col justify-between"
+                  className="group flex flex-col md:flex-row gap-6 items-start relative z-10 p-6 md:p-8 rounded-3xl bg-card border border-border/60 hover:border-primary/40 hover:shadow-card-hover transition-all duration-300"
                 >
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold uppercase tracking-wider font-heading">
-                        {step.number}
-                      </span>
-                      <div className="relative w-16 h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                        <FontAwesomeIcon icon={step.icon} className="h-6 w-6" />
-                      </div>
-                    </div>
-                    <h3 className="text-base font-bold text-foreground font-heading pt-2">{t(step.titleKey, lang)}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed font-sans">{t(step.descKey, lang)}</p>
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 relative transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
+                    <FontAwesomeIcon icon={step.icon} className="h-6 w-6" />
+                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-background border border-border/80 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                      {step.number}
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-left pt-1">
+                    <h3 className="text-base md:text-lg font-bold text-foreground font-heading">{t(step.titleKey, lang)}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed font-sans max-w-xl">{t(step.descKey, lang)}</p>
                   </div>
                 </article>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA Band — rounded & reduced size */}
-      <section className="py-12 bg-primary relative overflow-hidden rounded-[24px] mx-4 md:mx-0 shadow-md" aria-labelledby="cta-heading">
-        <div className="container-design relative z-10">
-          <div className="max-w-2xl mx-auto text-center space-y-5 px-6">
-            <h2 id="cta-heading" className="text-xl sm:text-2xl font-bold uppercase tracking-wide text-primary-foreground font-heading">
-              {t("home_cta_title", lang)}
-            </h2>
-            <p className="text-xs sm:text-sm text-primary-foreground/80 leading-relaxed font-sans max-w-md mx-auto">
-              {t("home_cta_subtitle", lang)}
-            </p>
-            <button
-              onClick={() => setActiveTab("menu")}
-              className="btn-secondary bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary py-2.5 px-6 text-sm rounded-lg"
-            >
-              {t("home_cta_button", lang)}
-              <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4 ml-1.5 inline-block align-middle" />
-            </button>
           </div>
         </div>
       </section>

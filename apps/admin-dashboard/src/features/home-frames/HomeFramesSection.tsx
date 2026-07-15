@@ -156,9 +156,9 @@ export default function HomeFramesSection({
     <div className="space-y-6 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold font-heading">Quản lý Banners/Khung ảnh Trang chủ</h2>
+          <h2 className="text-xl font-bold font-heading">Thay đổi hình ảnh Hero Section Trang chủ (Banners)</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Cập nhật và sắp xếp các khung hình quảng cáo sẽ xuất hiện trên trang chủ khách hàng.
+            Cập nhật, thay đổi và sắp xếp các hình ảnh lớn chạy slide xuất hiện ngay dưới tiêu đề chính của trang chủ khách hàng.
           </p>
         </div>
         <button
@@ -322,64 +322,80 @@ export default function HomeFramesSection({
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                   {lang === 'vi' ? 'Hình ảnh Banner' : 'Banner Image'}
                 </label>
 
-                <div className="flex gap-4 items-start">
-                  <div className="relative h-28 w-48 border border-border rounded-xl bg-background overflow-hidden flex items-center justify-center shrink-0">
+                <div className="flex flex-col gap-4">
+                  {/* Interactive Drag & Drop Area */}
+                  <label
+                    className={`relative border-2 border-dashed border-border/80 hover:border-primary/60 bg-muted/20 hover:bg-muted/40 transition-all duration-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer group select-none min-h-[140px] ${
+                      isHomeFrameUploading ? 'pointer-events-none' : ''
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleHomeFrameImageUpload(file);
+                      }}
+                    />
+                    
                     {homeFrameImagePreview ? (
-                      <>
+                      <div className="relative w-full max-w-sm aspect-[2.39/1] rounded-lg overflow-hidden border border-border shadow-sm">
                         <img src={homeFrameImagePreview} alt="Preview" className="h-full w-full object-cover" />
-                        {isHomeFrameUploading && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                        {isHomeFrameUploading ? (
+                          <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center text-white gap-2">
                             <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin" />
+                            <span className="text-[10px] font-bold tracking-wider uppercase">Uploading...</span>
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white">
+                            <span className="text-xs font-bold bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+                              {lang === 'vi' ? 'Thay đổi ảnh' : 'Change Image'}
+                            </span>
                           </div>
                         )}
-                      </>
+                      </div>
                     ) : (
-                      <span className="text-[10px] text-muted-foreground/60 text-center px-4">
-                        Chưa chọn ảnh (hoặc điền link trực tiếp bên dưới)
-                      </span>
+                      <div className="space-y-2 py-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300">
+                          <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">
+                            {lang === 'vi' ? 'Nhấn để tải hình ảnh lên' : 'Click to upload image'}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
+                            {lang === 'vi' 
+                              ? 'Chấp nhận PNG, JPG, GIF tối đa 5MB. Tự động đồng bộ lên Cloudinary.' 
+                              : 'Accepts PNG, JPG, GIF up to 5MB. Auto-synced to Cloudinary.'}
+                          </p>
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </label>
 
-                  <div className="flex-1 space-y-2">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-border hover:bg-muted text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-sm bg-background select-none">
-                      <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5 text-muted-foreground" />
-                      {lang === 'vi' ? 'Tải ảnh lên' : 'Upload Image'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleHomeFrameImageUpload(file);
-                        }}
-                      />
+                  {/* Direct URL input fallback */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-muted-foreground/80 block uppercase">
+                      {lang === 'vi' ? 'Hoặc nhập đường dẫn URL trực tiếp' : 'Or enter direct image URL'}
                     </label>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      Chấp nhận PNG, JPG, GIF. Dung lượng tối đa 5MB. Ảnh sẽ được tự động đồng bộ lên Cloudinary.
-                    </p>
+                    <input
+                      type="text"
+                      required
+                      placeholder="https://..."
+                      value={homeFrameImageUrl}
+                      onChange={(e) => {
+                        setHomeFrameImageUrl(e.target.value);
+                        setHomeFrameImagePreview(e.target.value);
+                      }}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none font-medium"
+                    />
                   </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-muted-foreground/80 block uppercase">
-                    {lang === 'vi' ? 'Hoặc dán URL trực tiếp' : 'Or paste direct URL'}
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    placeholder="https://..."
-                    value={homeFrameImageUrl}
-                    onChange={(e) => {
-                      setHomeFrameImageUrl(e.target.value);
-                      setHomeFrameImagePreview(e.target.value);
-                    }}
-                    className="w-full bg-background border border-border focus:border-primary text-xs py-2 px-3 rounded-lg outline-none"
-                  />
                 </div>
               </div>
 
