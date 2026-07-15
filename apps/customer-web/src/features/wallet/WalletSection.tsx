@@ -55,7 +55,9 @@ export default function WalletSection({
   handleSubmitUpgradeRequest,
   myUpgradeRequests,
 }: WalletSectionProps) {
-  const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
+  const [showActivePlanWarningModal, setShowActivePlanWarningModal] = React.useState(false);
+  void planDiscountEndsAt;
+  const hasActivePlanDiscount = walletBalance > 0 && planDiscountPercent > 0;
 
   const formatVND = (num: number) => `${num.toLocaleString()} ₫`;
 
@@ -91,7 +93,13 @@ export default function WalletSection({
             </p>
           )}
           <button
-            onClick={() => setShowWalletPlans(true)}
+            onClick={() => {
+              if (hasActivePlanDiscount) {
+                setShowActivePlanWarningModal(true);
+              } else {
+                setShowWalletPlans(true);
+              }
+            }}
             className="mt-4 shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
           >
             <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
@@ -404,6 +412,41 @@ export default function WalletSection({
             >
               {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
             </button>
+          </div>
+        </div>
+      )}
+      {showActivePlanWarningModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowActivePlanWarningModal(false)} />
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+              <FontAwesomeIcon icon={faClock} className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold font-heading text-foreground">
+              {lang === "vi" ? "Bạn đã có gói nạp hoạt động!" : "Active plan discount in effect!"}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === "vi"
+                ? `Bạn đang có một gói nạp hoạt động trong ví với số dư ${formatVND(walletBalance)}. Việc mua một gói nạp mới đè lên sẽ không được thực hiện trực tiếp để tránh mất ưu đãi. Thay vào đó, bạn có thể gửi yêu cầu nâng cấp gói.`
+                : `You currently have an active top-up pack with a balance of ${formatVND(walletBalance)}. Purchasing a new top-up directly is locked to protect your current discount. Instead, you may submit an upgrade request.`}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowActivePlanWarningModal(false)}
+                className="flex-1 bg-secondary text-secondary-foreground hover:bg-muted text-xs font-bold py-2.5 rounded-xl cursor-pointer border border-border transition-colors font-heading"
+              >
+                {lang === "vi" ? "Đóng / Hủy bỏ" : "Close / Cancel"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowActivePlanWarningModal(false);
+                  setShowWalletPlans(true);
+                }}
+                className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-colors font-heading"
+              >
+                {lang === "vi" ? "Tiếp tục Nâng cấp" : "Continue to Upgrade"}
+              </button>
+            </div>
           </div>
         </div>
       )}

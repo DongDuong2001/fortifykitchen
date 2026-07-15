@@ -56,10 +56,10 @@
 }
 
 :root {
-  /* Sweetgreen/CAVA Warm Premium Color Palette */
+  /* Sweetgreen/CAVA Warm Premium Color Palette with Forest Green Identity */
   --background: #FAF7F2;        /* Warm background */
   --foreground: #2E2A27;        /* Charcoal text */
-  --primary: #8B5E3C;           /* Warm Brown primary */
+  --primary: #283828;           /* Deep Forest Green (Logo Identity) */
   --primary-foreground: #FAF7F2;
   --secondary: #A67C52;         /* Light warm brown */
   --secondary-foreground: #FAF7F2;
@@ -71,7 +71,7 @@
   --destructive-foreground: #FFFFFF;
   --border: #EFECE6;
   --input: #FAF7F2;
-  --ring: #8B5E3C;
+  --ring: #283828;
   --card: #FFFFFF;              /* Premium clean white card surface */
   --card-foreground: #2E2A27;
   --popover: #FFFFFF;
@@ -201,7 +201,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  background: #6F4A2F;
+  background: #1d2a1d;
 }
 
 .btn-secondary {
