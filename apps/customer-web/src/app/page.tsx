@@ -891,99 +891,99 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
               alt="Fortify Kitchen Logo"
               className="h-10 w-10 object-contain rounded-full transition-transform group-hover:scale-105"
             />
-            <span className="text-xl font-normal tracking-tight font-heading text-[#F8F3E1] select-none">
-              Fortify<span className="font-sans font-light tracking-wide text-[#FFE8C7] ml-0.5">Kitchen</span>
+            <span className="text-xl font-normal tracking-tight font-heading text-foreground select-none">
+              Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-[#F8F3E1]">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-muted-foreground">
             <button
               onClick={() => setActiveTab("home")}
-              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                activeTab === "home" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "home" ? "text-foreground font-bold" : "text-muted-foreground"
               }`}
             >
               {t("nav_home", lang)}
               {activeTab === "home" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("menu")}
-              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                activeTab === "menu" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "menu" ? "text-foreground font-bold" : "text-muted-foreground"
               }`}
             >
               {t("nav_menu", lang)}
               {activeTab === "menu" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("calculator")}
-              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                activeTab === "calculator" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "calculator" ? "text-foreground font-bold" : "text-muted-foreground"
               }`}
             >
               {t("nav_calculator", lang)}
               {activeTab === "calculator" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("wallet")}
-              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                activeTab === "wallet" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "wallet" ? "text-foreground font-bold" : "text-muted-foreground"
               }`}
             >
               {t("nav_wallet", lang)}
               {activeTab === "wallet" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("subscriptions")}
-              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                activeTab === "subscriptions" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "subscriptions" ? "text-foreground font-bold" : "text-muted-foreground"
               }`}
             >
               {t("nav_sub", lang)}
               {activeTab === "subscriptions" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
             {user && (
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
-                  activeTab === "dashboard" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
+                className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                  activeTab === "dashboard" ? "text-foreground font-bold" : "text-muted-foreground"
                 }`}
               >
                 {t("nav_dashboard", lang)}
                 {activeTab === "dashboard" && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
                 )}
               </button>
             )}
           </nav>
 
           <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-secondary font-sans select-none shrink-0 border border-border/40 rounded-full px-3 py-1 bg-card/45">
+            <div className="hidden md:flex items-center gap-2 text-[9px] tracking-[0.2em] font-medium text-muted-foreground font-sans select-none shrink-0 border border-border/40 rounded-full px-3 py-1 bg-card/45">
               <button
                 type="button"
                 onClick={() => changeLang("vi")}
-                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
-                  lang === "vi" ? "text-[#FFE8C7] font-bold" : ""
+                className={`hover:text-foreground transition-colors cursor-pointer ${
+                  lang === "vi" ? "text-primary font-bold" : ""
                 }`}
               >
                 VI
               </button>
-              <span className="text-white/30">|</span>
+              <span className="text-border/40">|</span>
               <button
                 type="button"
                 onClick={() => changeLang("en")}
-                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
-                  lang === "en" ? "text-[#FFE8C7] font-bold" : ""
+                className={`hover:text-foreground transition-colors cursor-pointer ${
+                  lang === "en" ? "text-primary font-bold" : ""
                 }`}
               >
                 EN
@@ -992,11 +992,11 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
 
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-[#FFE8C7] text-[#F8F3E1] transition-colors cursor-pointer rounded-full hover:bg-black/10"
+              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-black/5"
             >
               <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
               {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-[#FFE8C7] rounded-full" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
               )}
             </button>
 
@@ -1005,14 +1005,14 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
                 <div className="flex items-center gap-3">
                   <div
                     onClick={() => setActiveTab("dashboard")}
-                    className="flex items-center gap-2 cursor-pointer border border-white/10 rounded-full py-1.5 px-3.5 bg-black/10 hover:bg-black/20 transition-all text-xs font-medium text-[#F8F3E1]"
+                    className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-black/5 hover:bg-black/10 transition-all text-xs font-medium text-foreground"
                   >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-[#FFE8C7]" />
+                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
                     <span>{user.firstName}</span>
                   </div>
                   <button
                     onClick={() => logout(lang)}
-                    className="p-2 rounded-full hover:text-primary text-secondary transition-colors cursor-pointer"
+                    className="p-2 rounded-full hover:text-primary text-muted-foreground transition-colors cursor-pointer"
                     title={t("btn_logout", lang)}
                   >
                     <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
