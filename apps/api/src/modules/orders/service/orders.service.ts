@@ -641,6 +641,16 @@ export class OrdersService {
     return normalizePhone(order.subscription.customer?.phone ?? "") === normalizePhone(phone);
   }
 
+  // Same check, for a logged-in customer (JWT userId) rather than the
+  // phone-based public flow — used by SubscriptionsService.postponeOrderForUser.
+  async verifySubscriptionOrderOwnershipByUser(orderId: string, userId: string): Promise<boolean> {
+    const order = await this.db.client.order.findUnique({
+      where: { id: orderId },
+      include: { subscription: { include: { customer: true } } },
+    });
+    return order?.subscription?.customer?.userId === userId;
+  }
+
   // Edits resend the full form and get repriced from scratch — old line
   // items are dropped and replaced rather than diffed, since orders are
   // small (a handful of line items) and this keeps the pricing engine as

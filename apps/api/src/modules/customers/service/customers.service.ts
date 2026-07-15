@@ -15,6 +15,7 @@ export class CustomersService {
     const { skip, take } = parsePagination(page, limit);
     const list = await this.db.client.customer.findMany({
       orderBy: { createdAt: "desc" },
+      include: { currentPlan: true },
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
@@ -24,6 +25,7 @@ export class CustomersService {
   async findOne(id: string): Promise<Customer> {
     const customer = await this.db.client.customer.findUnique({
       where: { id },
+      include: { currentPlan: true },
     });
 
     if (!customer) {
@@ -44,6 +46,7 @@ export class CustomersService {
         address: dto.address,
         notes: dto.notes,
       },
+      include: { currentPlan: true },
     });
 
     return this.mapCustomer(customer);
@@ -61,6 +64,7 @@ export class CustomersService {
         address: dto.address,
         notes: dto.notes,
       },
+      include: { currentPlan: true },
     });
 
     return this.mapCustomer(customer);
@@ -86,6 +90,7 @@ export class CustomersService {
   async findByUserId(userId: string): Promise<Customer> {
     const customer = await this.db.client.customer.findFirst({
       where: { userId },
+      include: { currentPlan: true },
     });
     if (!customer) {
       throw new NotFoundException(`Customer for user ID ${userId} not found`);
@@ -121,6 +126,7 @@ export class CustomersService {
       return tx.customer.update({
         where: { id },
         data: { walletBalance: { increment: amount } },
+        include: { currentPlan: true },
       });
     });
 
@@ -137,6 +143,8 @@ export class CustomersService {
     notes: string | null;
     walletBalance: number;
     planDiscountPercent: number;
+    currentPlanId: string | null;
+    currentPlan: { id: string; name: string; voucherPercent: number } | null;
     createdAt: Date;
     updatedAt: Date;
   }): Customer {
@@ -150,6 +158,9 @@ export class CustomersService {
       notes: customer.notes ?? undefined,
       walletBalance: customer.walletBalance,
       planDiscountPercent: customer.planDiscountPercent,
+      currentPlanId: customer.currentPlanId ?? undefined,
+      currentPlanName: customer.currentPlan?.name,
+      currentPlanVoucherPercent: customer.currentPlan?.voucherPercent,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };

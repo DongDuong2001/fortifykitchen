@@ -191,6 +191,16 @@ model Customer {
   // price — see SubscriptionPlansService.approveUpgradeRequest).
   planDiscountPercent Int @default(0)
 
+  // Which SubscriptionPlan tier produced the discount/balance above — purely
+  // informational (so the wallet page can show "you're on the Gói 3 triệu
+  // plan" and its benefits), never read for any gating/pricing logic, which
+  // stays keyed off planDiscountPercent/walletBalance directly. Set by
+  // SubscriptionPlansService.confirmPurchase whenever it sets a discount;
+  // left in place (not cleared) once walletBalance hits 0 — still useful as
+  // "your last plan" until the customer buys a new one and it's overwritten.
+  currentPlanId String?
+  currentPlan   SubscriptionPlan? @relation(fields: [currentPlanId], references: [id], onDelete: SetNull)
+
   orders              Order[]
   subscriptions       Subscription[]
   customPlanRequests  CustomPlanRequest[]
@@ -515,6 +525,8 @@ model SubscriptionPlan {
   updatedAt      DateTime @updatedAt
 
   upgradeRequests PlanUpgradeRequest[]
+  // Customers currently "on" this tier — see Customer.currentPlanId.
+  customers       Customer[]
 
   @@index([isActive])
 }

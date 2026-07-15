@@ -168,8 +168,14 @@ export class SubscriptionPlansService {
         data: { status: PaymentStatus.COMPLETED },
       });
 
-      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number } = {
+      const customerUpdate: { walletBalance: { increment: number }; planDiscountPercent?: number; currentPlanId: string } = {
         walletBalance: { increment: amount },
+        // Purely informational (see Customer.currentPlanId doc comment) —
+        // tracks which tier this balance came from so the wallet page can
+        // show its name/benefits. Always overwritten here regardless of
+        // voucherPercent, since even a 0%-voucher tier is still "the plan
+        // they bought."
+        currentPlanId: plan.id,
       };
 
       // Sets (not stacks/accumulates) the recurring discount — a fresh

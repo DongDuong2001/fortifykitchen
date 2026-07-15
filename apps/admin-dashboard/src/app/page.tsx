@@ -3403,13 +3403,14 @@ export default function AdminDashboard() {
                             })}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                          <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px] text-muted-foreground">
                             <div>
                               Giao {formatGrams(sub.deliveryAmountGrams)} / {formatIntervalLabel(sub.deliveryIntervalDays)}
                             </div>
                             <div className="text-right font-bold text-primary">{formatVND(sub.totalPrice)}</div>
-                            <div>Thanh toán: {sub.paymentStatus}</div>
-                            <div className="text-right">
+                            <div>Bắt đầu: {sub.startDate ? new Date(sub.startDate).toLocaleDateString("vi-VN") : "—"}</div>
+                            <div className="text-right">Thanh toán: {sub.paymentStatus}</div>
+                            <div className="col-span-2 text-right">
                               {sub.postponedCount > 0 ? `Đã hoãn ${sub.postponedCount} lần` : `${pct}% còn lại`}
                             </div>
                           </div>

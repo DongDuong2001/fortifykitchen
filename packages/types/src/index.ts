@@ -34,6 +34,13 @@ export interface Customer {
   // only hold one plan's discount at a time (see
   // SubscriptionPlansService.purchase's guard, keyed off walletBalance > 0).
   planDiscountPercent: number;
+  // Purely informational — which SubscriptionPlan tier produced the above,
+  // so the wallet page can show "you're on the Gói 3 triệu plan" and its
+  // benefits. Never used for gating/pricing (that stays keyed off
+  // planDiscountPercent/walletBalance). See CustomersService.mapCustomer.
+  currentPlanId?: string;
+  currentPlanName?: string;
+  currentPlanVoucherPercent?: number;
   createdAt: Date;
   updatedAt: Date;
 }

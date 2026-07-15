@@ -571,6 +571,36 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
     }
   };
 
+  // Logged-in customers see their own subscription(s) automatically — no
+  // phone typed in, so this hits the JWT-guarded /subscriptions/me route
+  // (already enriched with upcomingOrders, same shape the phone lookup
+  // returns) instead of the public phone-based one.
+  const fetchMySubscriptions = async () => {
+    setIsLookupLoading(true);
+    setLookupError(null);
+    setHasLookedUp(true);
+    try {
+      const token = localStorage.getItem("fk_token");
+      const res = await fetch(`${API_URL}/subscriptions/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok) {
+        setMyPoolSubscriptions(result?.data || []);
+      } else {
+        setLookupError(
+          translateApiError(result?.message, lang, lang === "vi" ? "Không thể tải gói của bạn lúc này" : "Could not load your plan right now"),
+        );
+        setMyPoolSubscriptions([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setLookupError(lang === "vi" ? "Lỗi kết nối — vui lòng thử lại" : "Connection error — please try again");
+    } finally {
+      setIsLookupLoading(false);
+    }
+  };
+
   const handlePostponeMyDelivery = (orderId: string) => {
     const confirmed = window.confirm(
       lang === "vi"
@@ -586,7 +616,11 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
             { method: "POST" },
           );
           if (res.ok) {
-            handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+            if (user) {
+              fetchMySubscriptions();
+            } else {
+              handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
+            }
           } else {
             const result = await res.json().catch(() => null);
             toast({
@@ -852,82 +886,82 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
-            <img 
-              src="/logo.png" 
-              alt="Fortify Kitchen Logo" 
+            <img
+              src="/logo.png"
+              alt="Fortify Kitchen Logo"
               className="h-10 w-10 object-contain rounded-full transition-transform group-hover:scale-105"
             />
-            <span className="text-xl font-normal tracking-tight font-heading text-foreground select-none">
-              Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
+            <span className="text-xl font-normal tracking-tight font-heading text-[#F8F3E1] select-none">
+              Fortify<span className="font-sans font-light tracking-wide text-[#FFE8C7] ml-0.5">Kitchen</span>
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-secondary">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold tracking-[0.1em] uppercase text-[#F8F3E1]">
             <button
               onClick={() => setActiveTab("home")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "home" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "home" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_home", lang)}
               {activeTab === "home" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("menu")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "menu" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "menu" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_menu", lang)}
               {activeTab === "menu" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("calculator")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "calculator" ? "text-foreground font-semibold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "calculator" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_calculator", lang)}
               {activeTab === "calculator" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("wallet")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "wallet" ? "text-foreground font-bold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "wallet" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_wallet", lang)}
               {activeTab === "wallet" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("subscriptions")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "subscriptions" ? "text-foreground font-bold" : "text-secondary"
+              className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                activeTab === "subscriptions" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
               }`}
             >
               {t("nav_sub", lang)}
               {activeTab === "subscriptions" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
               )}
             </button>
             {user && (
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                  activeTab === "dashboard" ? "text-foreground font-semibold" : "text-secondary"
+                className={`hover:text-[#FFE8C7] transition-colors py-2 relative cursor-pointer ${
+                  activeTab === "dashboard" ? "text-[#FFE8C7] font-bold" : "text-[#F8F3E1]"
                 }`}
               >
                 {t("nav_dashboard", lang)}
                 {activeTab === "dashboard" && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-[#FFE8C7] rounded-full" />
                 )}
               </button>
             )}
@@ -938,18 +972,18 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
               <button
                 type="button"
                 onClick={() => changeLang("vi")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "vi" ? "text-primary font-bold" : ""
+                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
+                  lang === "vi" ? "text-[#FFE8C7] font-bold" : ""
                 }`}
               >
                 VI
               </button>
-              <span className="text-border/40">|</span>
+              <span className="text-white/30">|</span>
               <button
                 type="button"
                 onClick={() => changeLang("en")}
-                className={`hover:text-foreground transition-colors cursor-pointer ${
-                  lang === "en" ? "text-primary font-bold" : ""
+                className={`hover:text-[#FFE8C7] transition-colors cursor-pointer ${
+                  lang === "en" ? "text-[#FFE8C7] font-bold" : ""
                 }`}
               >
                 EN
@@ -958,11 +992,11 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
 
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-card/40"
+              className="relative p-2.5 hover:text-[#FFE8C7] text-[#F8F3E1] transition-colors cursor-pointer rounded-full hover:bg-black/10"
             >
               <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
               {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-[#FFE8C7] rounded-full" />
               )}
             </button>
 
@@ -971,9 +1005,9 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
                 <div className="flex items-center gap-3">
                   <div
                     onClick={() => setActiveTab("dashboard")}
-                    className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-card/30 hover:bg-card/80 transition-all text-xs font-medium"
+                    className="flex items-center gap-2 cursor-pointer border border-white/10 rounded-full py-1.5 px-3.5 bg-black/10 hover:bg-black/20 transition-all text-xs font-medium text-[#F8F3E1]"
                   >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-[#FFE8C7]" />
                     <span>{user.firstName}</span>
                   </div>
                   <button
@@ -987,7 +1021,7 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
               ) : (
                 <button
                   onClick={() => setAuthModal("login")}
-                  className="border border-border/60 hover:border-foreground text-foreground text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
+                  className="border border-white/20 hover:border-white/50 text-[#F8F3E1] text-xs font-semibold py-1.5 px-4.5 rounded-full bg-transparent transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
                 >
                   <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-secondary" />
                   <span>{t("btn_signin", lang)}</span>
