@@ -2,14 +2,15 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faCheck, faTimes, faChevronDown, faChevronUp, faBox, faTruck, faCalendarAlt, faUtensils, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { PROTEIN_LABELS, formatGrams, formatVND, formatIntervalLabel, ORDER_STATUS_LABELS, PAYMENT_STATE_OPTIONS, DELIVERY_AMOUNT_PRESETS_GRAMS, DELIVERY_FREQUENCY_PRESETS, calculatePoolPricing } from '@fortifykitchen/shared';
+import { faPlus, faTrashAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { PROTEIN_LABELS, formatGrams, formatVND, formatIntervalLabel, ORDER_STATUS_LABELS, DELIVERY_AMOUNT_PRESETS_GRAMS, DELIVERY_FREQUENCY_PRESETS, calculatePoolPricing } from '@fortifykitchen/shared';
 import type { Protein, PaymentState } from '@fortifykitchen/types';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage } from '@/lib/menu-utils';
 
 const CARD_PAGE_SIZE = 8;
+const PAYMENT_STATE_OPTIONS = ["UNPAID", "DEPOSIT", "PAID"] as const;
 
 interface Props {
   token: string | null;
@@ -34,14 +35,14 @@ export default function SubscriptionsSection({
   subscriptions,
   customers,
   menuItems,
-  lang,
+  lang: _lang,
   section,
-  setSubscriptions,
-  setCustomers,
-  setMenuItems,
+  setSubscriptions: _setSubscriptions,
+  setCustomers: _setCustomers,
+  setMenuItems: _setMenuItems,
   loadData,
-  handleUnauthorized,
-  checkOffline,
+  handleUnauthorized: _handleUnauthorized,
+  checkOffline: _checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();
@@ -208,6 +209,7 @@ export default function SubscriptionsSection({
   const handleTopUpPool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topUpModal) return;
+    setProcessingTopUpId(topUpModal.subId);
     try {
       const res = await fetch(`${API_URL}/subscriptions/${topUpModal.subId}/top-up`, {
         method: 'POST',
@@ -223,6 +225,8 @@ export default function SubscriptionsSection({
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setProcessingTopUpId(null);
     }
   };
 
@@ -348,7 +352,7 @@ export default function SubscriptionsSection({
               <h3 className="text-lg font-bold font-heading">Tạo gói đăng ký</h3>
               {subLinkedCustomPlanRequestId && (
                 <p className="text-[11px] text-primary font-semibold mt-1">
-                  Đang tạo từ yêu cầu tư vấn gói riêng — sẽ tự động đánh dấu "Đã ghép gói" khi lưu
+                  Đang tạo từ yêu cầu tư vấn gói riêng — sẽ tự động đánh dấu &ldquo;Đã ghép gói&rdquo; khi lưu
                 </p>
               )}
             </div>

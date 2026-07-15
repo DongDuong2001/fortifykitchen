@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import { faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 import { formatVND } from '@fortifykitchen/shared';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
@@ -14,12 +14,8 @@ interface Props {
   token: string | null;
   API_URL: string;
   discounts: any[];
-  lang: 'vi' | 'en';
   section: string;
-  setDiscounts: React.Dispatch<React.SetStateAction<any[]>>;
   loadData: () => void;
-  handleUnauthorized: (responses: any[]) => boolean;
-  checkOffline: (responses: any[]) => boolean;
   requestConfirm: (message: string, onConfirm: () => void, opts?: { title?: string; confirmLabel?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -27,12 +23,8 @@ export default function DiscountsSection({
   token,
   API_URL,
   discounts,
-  lang,
   section,
-  setDiscounts,
   loadData,
-  handleUnauthorized,
-  checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();

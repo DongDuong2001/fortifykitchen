@@ -26,8 +26,8 @@ interface Props {
 }
 
 export default function PrepListSection({
-  token,
-  API_URL,
+  token: _token,
+  API_URL: _API_URL,
   prepDate,
   setPrepDate,
   prepData,
@@ -35,9 +35,9 @@ export default function PrepListSection({
   prepError,
   lang,
   section,
-  loadData,
-  handleUnauthorized,
-  checkOffline,
+  loadData: _loadData,
+  handleUnauthorized: _handleUnauthorized,
+  checkOffline: _checkOffline,
 }: Props) {
   if (section !== 'prep-list') return null;
 

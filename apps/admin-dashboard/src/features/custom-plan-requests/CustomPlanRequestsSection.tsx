@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faCheck, faTimes, faSave } from '@fortawesome/free-solid-svg-icons';
-import { PROTEIN_LABELS, formatGrams, formatVND, formatIntervalLabel, CUSTOM_PLAN_REQUEST_STATUS_OPTIONS, CUSTOM_PLAN_REQUEST_STATUS_LABELS, CUSTOM_PLAN_REQUEST_STATUS_BADGE_CLASS } from '@fortifykitchen/shared';
+import { faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import { PROTEIN_LABELS, formatGrams, formatVND, formatIntervalLabel } from '@fortifykitchen/shared';
+import { CUSTOM_PLAN_REQUEST_STATUS_OPTIONS, CUSTOM_PLAN_REQUEST_STATUS_LABELS, CUSTOM_PLAN_REQUEST_STATUS_BADGE_CLASS } from '@/constants/custom-plan-status';
 import type { Protein, CustomPlanRequestStatus } from '@fortifykitchen/types';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
@@ -15,14 +16,9 @@ interface Props {
   token: string | null;
   API_URL: string;
   customPlanRequests: any[];
-  customers: any[];
-  menuItems: any[];
   lang: 'vi' | 'en';
   section: string;
-  setCustomPlanRequests: React.Dispatch<React.SetStateAction<any[]>>;
   loadData: () => void;
-  handleUnauthorized: (responses: any[]) => boolean;
-  checkOffline: (responses: any[]) => boolean;
   requestConfirm: (message: string, onConfirm: () => void, opts?: { title?: string; confirmLabel?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -30,14 +26,9 @@ export default function CustomPlanRequestsSection({
   token,
   API_URL,
   customPlanRequests,
-  customers,
-  menuItems,
   lang,
   section,
-  setCustomPlanRequests,
   loadData,
-  handleUnauthorized,
-  checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();
@@ -158,7 +149,7 @@ export default function CustomPlanRequestsSection({
                   </div>
                 )}
                 {r.notes && (
-                  <div className="pt-1 border-t border-border/40 text-primary italic">"{r.notes}"</div>
+                  <div className="pt-1 border-t border-border/40 text-primary italic">&ldquo;{r.notes}&rdquo;</div>
                 )}
               </div>
 

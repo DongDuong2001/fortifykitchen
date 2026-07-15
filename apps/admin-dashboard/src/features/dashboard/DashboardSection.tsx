@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShoppingBag, faBox, faCalendarAlt, faUtensils, faTruck, faWallet } from '@fortawesome/free-solid-svg-icons';
 import { PROTEIN_LABELS, formatGrams, ORDER_STATUS_LABELS } from '@fortifykitchen/shared';
 import type { Protein, OrderStatus } from '@fortifykitchen/types';
-import { ORDER_STATUS_BADGE_CLASS } from '@/constants/order-status';
+
 
 interface Props {
   lang: 'vi' | 'en';

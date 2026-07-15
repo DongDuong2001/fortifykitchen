@@ -31,6 +31,7 @@ interface HomeSectionProps {
   menuItems: MenuItem[];
   setActiveTab: (tab: string) => void;
   addToCart: (item: MenuItem, qty: number, flavorOverride?: string, lang?: "vi" | "en") => void;
+  homeFrames?: any[];
 }
 
 const whyFortify = [
@@ -56,8 +57,21 @@ const howItWorks = [
   { icon: faBowlFood, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
 ] as const;
 
-export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }: HomeSectionProps) {
+export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, homeFrames = [] }: HomeSectionProps) {
   const featuredItems = menuItems.slice(0, 3);
+  const [currentFrameIndex, setCurrentFrameIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (homeFrames.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setCurrentFrameIndex((prev) => (prev + 1) % homeFrames.length);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [homeFrames]);
+
+  // Determine active banner details
+  const hasFrames = homeFrames.length > 0;
+  const currentFrame = hasFrames ? homeFrames[currentFrameIndex] : null;
 
   return (
     <div className="space-y-0">
@@ -69,7 +83,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
             <div className="space-y-8 lg:pr-12">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
                 <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
-                {t("home_hero_badge", lang)}
+                {currentFrame?.title || t("home_hero_badge", lang)}
               </span>
 
               <h1 className="headline-hero text-foreground">
@@ -80,17 +94,17 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
                 {t("home_hero_subtitle", lang)}
               </p>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4">
+              <div className="flex flex-wrap items-center gap-4 pt-4 w-full">
                 <button
                   onClick={() => setActiveTab("menu")}
-                  className="btn-primary w-full sm:w-auto"
+                  className="btn-primary flex-1 sm:flex-none text-center justify-center inline-flex items-center min-w-[160px] py-3.5 px-6 text-sm"
                 >
-                  {t("home_hero_cta_menu", lang)}
-                  <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+                  <span className="whitespace-nowrap">{t("home_hero_cta_menu", lang)}</span>
+                  <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4 ml-2 shrink-0" />
                 </button>
                 <button
                   onClick={() => setActiveTab("order-now")}
-                  className="btn-secondary w-full sm:w-auto"
+                  className="btn-secondary flex-1 sm:flex-none text-center justify-center inline-flex items-center min-w-[160px] py-3.5 px-6 text-sm whitespace-nowrap"
                 >
                   {t("home_hero_cta_order", lang)}
                 </button>
@@ -119,34 +133,69 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
 
             {/* Right: Hero Image */}
             <div className="relative">
-              <div className="relative aspect-[4/5] lg:aspect-[3/4] rounded-[40px] overflow-hidden shadow-card-hover bg-muted">
-                <img
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1200"
-                  alt={t("home_hero_image_alt", lang)}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {hasFrames ? (
+                <div className="relative aspect-[4/5] lg:aspect-[3/4] rounded-[40px] overflow-hidden shadow-card-hover bg-muted transition-all duration-700">
+                  {currentFrame.linkUrl ? (
+                    <a href={currentFrame.linkUrl} className="block w-full h-full">
+                      <img
+                        src={currentFrame.imageUrl}
+                        alt={currentFrame.title || t("home_hero_image_alt", lang)}
+                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                      />
+                    </a>
+                  ) : (
+                    <img
+                      src={currentFrame.imageUrl}
+                      alt={currentFrame.title || t("home_hero_image_alt", lang)}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {/* Slider Indicators */}
+                  {homeFrames.length > 1 && (
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                      {homeFrames.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentFrameIndex(idx)}
+                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                            idx === currentFrameIndex ? "bg-primary w-6" : "bg-white/50 hover:bg-white"
+                          }`}
+                          aria-label={`Go to slide ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="relative aspect-[4/5] lg:aspect-[3/4] rounded-[40px] overflow-hidden shadow-card-hover bg-muted">
+                  <img
+                    src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1200"
+                    alt={t("home_hero_image_alt", lang)}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
 
               {/* Floating organic decorations */}
               <div className="pointer-events-none absolute inset-0">
                 <div className="absolute -top-6 -right-6 w-20 h-20 opacity-20" aria-hidden="true">
                   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M50 5 C45 15 55 25 50 35 C45 25 55 15 50 5" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M50 35 C45 45 55 55 50 65 C45 55 55 45 50 35" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M50 65 C45 75 55 85 50 95 C45 85 55 75 50 65" stroke="#2E7D32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50 5 C45 15 55 25 50 35 C45 25 55 15 50 5" stroke="#d97757" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50 35 C45 45 55 55 50 65 C45 55 55 45 50 35" stroke="#d97757" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50 65 C45 75 55 85 50 95 C45 85 55 75 50 65" stroke="#d97757" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
                 <div className="absolute bottom-8 left-4 w-16 h-16 opacity-15 rotate-12" aria-hidden="true">
                   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <ellipse cx="50" cy="70" rx="25" ry="15" stroke="#6D4C41" strokeWidth="2"/>
-                    <path d="M25 70 Q50 40 75 70" stroke="#6D4C41" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M35 65 Q50 50 65 65" stroke="#6D4C41" strokeWidth="1.5" strokeLinecap="round"/>
+                    <ellipse cx="50" cy="70" rx="25" ry="15" stroke="#6a9bcc" strokeWidth="2"/>
+                    <path d="M25 70 Q50 40 75 70" stroke="#6a9bcc" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M35 65 Q50 50 65 65" stroke="#6a9bcc" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <div className="absolute top-1/2 right-2 w-12 h-12 opacity-10 -rotate-6" aria-hidden="true">
                   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M50 15 L65 45 L35 45 Z" stroke="#F6C453" strokeWidth="3" strokeLinejoin="round"/>
-                    <circle cx="50" cy="50" r="8" stroke="#F6C453" strokeWidth="2"/>
+                    <path d="M50 15 L65 45 L35 45 Z" stroke="#788c5d" strokeWidth="3" strokeLinejoin="round"/>
+                    <circle cx="50" cy="50" r="8" stroke="#788c5d" strokeWidth="2"/>
                   </svg>
                 </div>
               </div>
@@ -332,25 +381,23 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
           </header>
 
           <div className="relative">
-            <div className="hidden lg:block absolute top-[80px] left-[6%] right-[6%] h-[2px] bg-gradient-to-r from-transparent via-border/50 to-transparent" aria-hidden="true" />
-
-            <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
+            <div className="card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 relative z-10 gap-8">
               {howItWorks.map((step, i) => (
                 <article
                   key={i}
-                  className="relative text-center space-y-6 p-6"
+                  className="group relative bg-card border border-border/80 hover:border-primary/50 hover:shadow-card-hover transition-all duration-300 rounded-2xl p-8 text-center space-y-6 flex flex-col justify-between"
                 >
-                  <div className="relative">
-                    <span className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[11px] font-bold uppercase tracking-wider font-heading">
-                      {step.number}
-                    </span>
-                    <div className="relative w-16 h-16 mx-auto rounded-[16px] bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110">
-                      <FontAwesomeIcon icon={step.icon} className="h-7 w-7" />
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold uppercase tracking-wider font-heading">
+                        {step.number}
+                      </span>
+                      <div className="relative w-16 h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
+                        <FontAwesomeIcon icon={step.icon} className="h-6 w-6" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2 pt-4">
-                    <h3 className="headline-card text-foreground">{t(step.titleKey, lang)}</h3>
-                    <p className="body-sm">{t(step.descKey, lang)}</p>
+                    <h3 className="text-base font-bold text-foreground font-heading pt-2">{t(step.titleKey, lang)}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed font-sans">{t(step.descKey, lang)}</p>
                   </div>
                 </article>
               ))}
@@ -359,22 +406,22 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart }
         </div>
       </section>
 
-      {/* Final CTA Band — rounded */}
-      <section className="section bg-primary relative overflow-hidden rounded-[40px] mx-4 md:mx-0" aria-labelledby="cta-heading">
+      {/* Final CTA Band — rounded & reduced size */}
+      <section className="py-12 bg-primary relative overflow-hidden rounded-[24px] mx-4 md:mx-0 shadow-md" aria-labelledby="cta-heading">
         <div className="container-design relative z-10">
-          <div className="max-w-3xl mx-auto text-center space-y-8 py-12 px-6">
-            <h2 id="cta-heading" className="headline-section text-primary-foreground">
+          <div className="max-w-2xl mx-auto text-center space-y-5 px-6">
+            <h2 id="cta-heading" className="text-xl sm:text-2xl font-bold uppercase tracking-wide text-primary-foreground font-heading">
               {t("home_cta_title", lang)}
             </h2>
-            <p className="body-text text-primary-foreground/80">
+            <p className="text-xs sm:text-sm text-primary-foreground/80 leading-relaxed font-sans max-w-md mx-auto">
               {t("home_cta_subtitle", lang)}
             </p>
             <button
               onClick={() => setActiveTab("menu")}
-              className="btn-secondary bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
+              className="btn-secondary bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary py-2.5 px-6 text-sm rounded-lg"
             >
               {t("home_cta_button", lang)}
-              <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+              <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4 ml-1.5 inline-block align-middle" />
             </button>
           </div>
         </div>

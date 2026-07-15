@@ -5,13 +5,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faThLarge,
   faShoppingBag,
-  faUsers,
   faSignOutAlt,
   faUtensils,
   faPlus,
   faTrashAlt,
   faEdit,
-  faDollarSign,
   faCalendarAlt,
   faTag,
   faSpinner,
@@ -493,7 +491,6 @@ export default function AdminDashboard() {
   // and into the Completed tab. Cancelled orders get their own tab too so
   // they don't linger in either working view.
   const [orderViewTab, setOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
-  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
   // Typeable date filter — a plain "YYYY-MM-DD" string that drives an
@@ -510,7 +507,6 @@ export default function AdminDashboard() {
   // filters, separate from the one-off Orders filters above — filtering or
   // switching tabs on one table no longer touches the other.
   const [subOrderViewTab, setSubOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
-  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
   const [subOrderSearch, setSubOrderSearch] = React.useState("");
   const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(""); // status tabs show all dates by default
   const [subOrderDateMode, setSubOrderDateMode] = React.useState<"date" | "upcoming">("date");
@@ -519,11 +515,11 @@ export default function AdminDashboard() {
   // leave the paginated table showing a stale, filter-mismatched page.
   React.useEffect(() => {
     setOrdersPage(1);
-  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
+  }, [orderViewTab, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
 
   React.useEffect(() => {
     setSubOrdersPage(1);
-  }, [subOrderViewTab, subOrderStatusFilter, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
+  }, [subOrderViewTab, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
 
   React.useEffect(() => {
     setCustomPlanRequestsPage(1);

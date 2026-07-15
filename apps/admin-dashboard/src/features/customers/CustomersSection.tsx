@@ -3,8 +3,6 @@
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrashAlt, faWallet } from '@fortawesome/free-solid-svg-icons';
-import { formatVND } from '@fortifykitchen/shared';
-import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage } from '@/lib/menu-utils';
 

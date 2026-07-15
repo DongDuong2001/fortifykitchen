@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faCheck, faTimes, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTrashAlt, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { formatVND } from '@fortifykitchen/shared';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
@@ -30,13 +30,13 @@ export default function SubscriptionPlansSection({
   API_URL,
   subscriptionPlans,
   pendingTopUps,
-  lang,
+  lang: _lang,
   section,
-  setSubscriptionPlans,
-  setPendingTopUps,
+  setSubscriptionPlans: _setSubscriptionPlans,
+  setPendingTopUps: _setPendingTopUps,
   loadData,
-  handleUnauthorized,
-  checkOffline,
+  handleUnauthorized: _handleUnauthorized,
+  checkOffline: _checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();

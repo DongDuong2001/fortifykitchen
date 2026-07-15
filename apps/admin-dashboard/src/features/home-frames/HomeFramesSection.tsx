@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faSpinner, faImage } from '@fortawesome/free-solid-svg-icons';
-import { formatVND } from '@fortifykitchen/shared';
+import { faPlus, faEdit, faTrashAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
+
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage } from '@/lib/menu-utils';
@@ -16,10 +16,7 @@ interface Props {
   homeFrames: any[];
   lang: 'vi' | 'en';
   section: string;
-  setHomeFrames: React.Dispatch<React.SetStateAction<any[]>>;
   loadData: () => void;
-  handleUnauthorized: (responses: any[]) => boolean;
-  checkOffline: (responses: any[]) => boolean;
   requestConfirm: (message: string, onConfirm: () => void, opts?: { title?: string; confirmLabel?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -29,10 +26,7 @@ export default function HomeFramesSection({
   homeFrames,
   lang,
   section,
-  setHomeFrames,
   loadData,
-  handleUnauthorized,
-  checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();
@@ -196,7 +190,7 @@ export default function HomeFramesSection({
               {homeFrames.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Chưa có banner nào được tạo. Nhấn "Thêm Banner Mới" để bắt đầu.
+                    Chưa có banner nào được tạo. Nhấn &ldquo;Thêm Banner Mới&rdquo; để bắt đầu.
                   </td>
                 </tr>
               ) : (

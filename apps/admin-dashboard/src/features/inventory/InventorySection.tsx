@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrashAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { PROTEIN_LABELS, formatGrams } from '@fortifykitchen/shared';
+import { faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { PROTEIN_LABELS } from '@fortifykitchen/shared';
 import type { Protein } from '@fortifykitchen/types';
-import { useToast } from '@fortifykitchen/ui';
+
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage } from '@/lib/menu-utils';
 
@@ -25,12 +25,9 @@ interface Props {
   setAddStockQty: (qty: number) => void;
   isAddingStock: boolean;
   adjustingStockId: string | null;
-  setAdjustingStockId: (id: string | null) => void;
   handleAdjustStock: (itemId: string, delta: number) => void;
   handleAddStock: (e: React.FormEvent) => void;
   lang: 'vi' | 'en';
-  token: string | null;
-  API_URL: string;
 }
 
 export default function InventorySection({
@@ -47,28 +44,16 @@ export default function InventorySection({
   setAddStockQty,
   isAddingStock,
   adjustingStockId,
-  setAdjustingStockId,
   handleAdjustStock,
   handleAddStock,
   lang,
-  token,
-  API_URL,
 }: Props) {
-  const { toast } = useToast();
+
 
   const [localPages, setLocalPages] = React.useState<Record<string, number>>({});
 
-  const authHeaders = React.useCallback(() => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }), [token]);
-
   const inStockItems = menuItems.filter((m) => (m.stockQuantity ?? 0) > 0);
-  const allItemsByProtein = menuItems.reduce((acc, item) => {
-    if (!acc[item.protein]) acc[item.protein] = [];
-    acc[item.protein].push(item);
-    return acc;
-  }, {} as Record<Protein, any[]>);
+
 
   if (inventorySubTab === 'monitor') {
     if (inStockItems.length === 0) {

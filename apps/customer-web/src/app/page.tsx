@@ -81,7 +81,6 @@ export default function CustomerPortal() {
     token,
     cart,
     cartCount,
-    cartTotal: _cartTotal,
     isCartOpen,
     setCartOpen,
     login,
@@ -103,7 +102,7 @@ export default function CustomerPortal() {
   const [orderNowAddress, setOrderNowAddress] = React.useState("");
   const [orderNowNotes, setOrderNowNotes] = React.useState("");
   const [isSubmittingOrderNow, setIsSubmittingOrderNow] = React.useState(false);
-  const [orderNowResult, setOrderNowResult] = React.useState<any | null>(null);
+  const [orderNowResult, setOrderNowResult] = React.useState<{ id: string; total: number; paymentMethod: string; deliveryDate: string; fulfillmentType: string; systemNotes?: string; items: any[] } | null>(null);
   const [orderNowError, setOrderNowError] = React.useState<string | null>(null);
 
   const [orderNowProvince, setOrderNowProvince] = React.useState("");
@@ -128,14 +127,14 @@ export default function CustomerPortal() {
   const [checkoutProvince, setCheckoutProvince] = React.useState("79");
   const [checkoutStreet, setCheckoutStreet] = React.useState("");
   const [checkoutAgreeTerms, setCheckoutAgreeTerms] = React.useState(false);
-  const [checkoutResult, setCheckoutResult] = React.useState<any | null>(null);
+  const [checkoutResult, setCheckoutResult] = React.useState<{ id: string; total: number; paymentMethod: string; deliveryDate: string } | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
 
   const [showWalletPlans, setShowWalletPlans] = React.useState(false);
   const [selectedUpgradePlanId, setSelectedUpgradePlanId] = React.useState<string | null>(null);
   const [upgradeRequestNotes, setUpgradeRequestNotes] = React.useState("");
   const [isSubmittingUpgradeRequest, setIsSubmittingUpgradeRequest] = React.useState(false);
-  const [myUpgradeRequests] = React.useState<any[]>([]);
+  const [myUpgradeRequests] = React.useState<{ id: string; status: string; requestedPlanName?: string }[]>([]);
   const [payFromWalletError, setPayFromWalletError] = React.useState<{ id: string; title: string; description?: string } | null>(null);
 
   const [lang, setLang] = React.useState<"vi" | "en">("vi");
@@ -302,6 +301,7 @@ export default function CustomerPortal() {
   const [isLoadingPlans, setIsLoadingPlans] = React.useState(false);
   const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
   const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
+  const [homeFrames, setHomeFrames] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     async function loadPlans() {
@@ -318,7 +318,20 @@ export default function CustomerPortal() {
         setIsLoadingPlans(false);
       }
     }
+    async function loadHomeFrames() {
+      try {
+        const res = await fetch(`${API_URL}/home-frames`).catch(() => null);
+        if (res && res.ok) {
+          const result = await res.json().catch(() => null);
+          // Only show active banners
+          setHomeFrames((result?.data || []).filter((f: any) => f.isActive));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
     loadPlans();
+    loadHomeFrames();
   }, [API_URL]);
 
   const [notifications, setNotifications] = React.useState<any | null>(null);
@@ -1032,7 +1045,7 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         )}
 
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {activeTab === "home" && <HomeSection lang={lang} menuItems={menuItems} setActiveTab={handleSetActiveTab} addToCart={addToCart} />}
+        {activeTab === "home" && <HomeSection lang={lang} menuItems={menuItems} setActiveTab={handleSetActiveTab} addToCart={addToCart} homeFrames={homeFrames} />}
         {activeTab === "menu" && <MenuSection lang={lang} menuItems={menuItems} isLoadingMenu={isLoadingMenu} selectedProtein={selectedProtein} setSelectedProtein={setSelectedProtein} addToCart={addToCart} />}
         {activeTab === "calculator" && <CalculatorSection lang={lang} />}
         {activeTab === "order-now" && (
@@ -1206,7 +1219,7 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
       <PrivacyModal lang={lang} showPrivacyModal={showPrivacyModal} setShowPrivacyModal={setShowPrivacyModal} />
       <VietQRModal lang={lang} checkoutResult={checkoutResult} setCheckoutResult={setCheckoutResult} setCartOpen={setCartOpen} setActiveTab={handleSetActiveTab} clearCart={clearCart} setDiscountCode={setDiscountCode} />
       <MobileNav lang={lang} activeTab={activeTab} setActiveTab={handleSetActiveTab} user={user} setAuthModal={setAuthModal} />
-      <Footer lang={lang} />
+      <Footer lang={lang} setShowPrivacyModal={setShowPrivacyModal} />
     </div>
   );
 }

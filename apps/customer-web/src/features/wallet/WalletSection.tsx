@@ -59,58 +59,60 @@ export default function WalletSection({
 
   const formatVND = (num: number) => `${num.toLocaleString()} ₫`;
 
-  if (!user) {
-    return (
-      <div className="space-y-6">
-        <div className="max-w-sm mx-auto mb-8 text-center py-5 px-5 border border-dashed border-border rounded-xl">
-          <p className="text-xs text-foreground/70">
-            {lang === "vi" ? "Đăng nhập để xem số dư ví và nạp ví." : "Log in to see your wallet balance and top up."}
-          </p>
-          <button
-            onClick={() => setShowWalletPlans(true)}
-            className="mt-3 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-xs px-5 py-2 rounded-lg transition-all cursor-pointer"
-          >
-            {t("btn_signin", lang)}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const pendingUpgradeRequest = myUpgradeRequests.find((r: any) => r.status === "PENDING");
+  const pendingUpgradeRequest = user ? myUpgradeRequests.find((r: any) => r.status === "PENDING") : null;
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-br from-primary/10 via-card to-primary/5 border border-primary/20 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/20 text-primary"><FontAwesomeIcon icon={faWallet} className="h-5 w-5" /></div>
-            <h3 className="text-sm font-bold font-heading">{t("dash_balance", lang)}</h3>
+      {user ? (
+        <div className="bg-gradient-to-br from-primary/10 via-card to-primary/5 border border-primary/20 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/20 text-primary"><FontAwesomeIcon icon={faWallet} className="h-5 w-5" /></div>
+              <h3 className="text-sm font-bold font-heading">{t("dash_balance", lang)}</h3>
+            </div>
+            {hasActivePlanDiscount && (
+              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                {lang === "vi" ? "Đang giảm giá" : "Discount active"}
+              </span>
+            )}
           </div>
-          {hasActivePlanDiscount && (
-            <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-              {lang === "vi" ? "Đang giảm giá" : "Discount active"}
-            </span>
+          <div className="text-4xl font-bold font-heading text-foreground mb-2">{formatVND(walletBalance)}</div>
+          {hasActivePlanDiscount ? (
+            <p className="text-[11px] text-primary mt-2 leading-relaxed">
+              {lang === "vi"
+                ? `Đang giảm ${planDiscountPercent}% mọi đơn — áp dụng đến khi hết số dư ví · dùng cho món lẻ hoặc gói định kỳ.`
+                : `${planDiscountPercent}% off every order — applies until your wallet balance runs out · spend on meals or a subscription.`}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {lang === "vi"
+                ? "Nạp một gói nạp dưới đây để nhận ưu đãi giảm giá tự động."
+                : "Purchase a top-up pack below to unlock automatic discounts."}
+            </p>
           )}
+          <button
+            onClick={() => setShowWalletPlans(true)}
+            className="mt-4 shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+          >
+            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+            {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
+          </button>
         </div>
-        <div className="text-4xl font-bold font-heading text-foreground mb-2">{formatVND(walletBalance)}</div>
-        {hasActivePlanDiscount ? (
-          <p className="text-[11px] text-primary mt-2 leading-relaxed">
+      ) : (
+        <div className="max-w-md mx-auto mb-8 text-center py-8 px-6 border border-dashed border-border rounded-2xl bg-card/50">
+          <div className="p-3 rounded-full bg-primary/10 text-primary w-12 h-12 mx-auto flex items-center justify-center mb-4">
+            <FontAwesomeIcon icon={faWallet} className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-bold font-heading mb-2">
+            {lang === "vi" ? "Xem các gói nạp ưu đãi" : "View wallet top-up plans"}
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed mb-4">
             {lang === "vi"
-              ? `Đang giảm ${planDiscountPercent}% mọi đơn — áp dụng đến khi hết số dư ví · dùng cho món lẻ hoặc gói định kỳ.`
-              : `${planDiscountPercent}% off every order — applies until your wallet balance runs out · spend on meals or a subscription.`}
+              ? "Hãy đăng nhập để xem số dư tài khoản của bạn và thực hiện nạp ví."
+              : "Please sign in to view your current account balance and make top-ups."}
           </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">{t("filter_all", lang)}</p>
-        )}
-        <button
-          onClick={() => setShowWalletPlans(true)}
-          className="mt-4 shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
-        >
-          <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
-          {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
-        </button>
-      </div>
+        </div>
+      )}
 
       {!user && hasActivePlanDiscount && (
         <div className="max-w-lg mx-auto mb-6 text-center py-3 px-5 border border-amber-200 bg-amber-50 rounded-xl">
@@ -359,8 +361,14 @@ export default function WalletSection({
           <div className="absolute inset-0 cursor-pointer" onClick={() => setPlanPurchaseResult(null)} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
             <FontAwesomeIcon icon={faCreditCard} className="h-10 w-10 mx-auto text-primary" />
-            <h3 className="text-sm font-bold font-heading">{t("filter_all", lang)}</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">{t("filter_all", lang)}</p>
+            <h3 className="text-sm font-bold font-heading">
+              {lang === "vi" ? "Yêu cầu mua gói thành công!" : "Plan Purchase Requested!"}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === "vi"
+                ? "Vui lòng quét mã QR dưới đây hoặc chuyển khoản thủ công để hoàn tất nạp ví."
+                : "Please scan the QR code below or transfer manually to complete your wallet top-up."}
+            </p>
             <div className="bg-white p-2.5 rounded-lg border border-border w-48 h-48 mx-auto flex items-center justify-center">
               <img
                 src={`https://img.vietqr.io/image/MB-19035678901234-compact.png?amount=${planPurchaseResult.amount}&addInfo=${planPurchaseResult.memo}&accountName=FORTIFY%20KITCHEN`}
@@ -369,13 +377,33 @@ export default function WalletSection({
               />
             </div>
             <div className="border border-border bg-muted/20 rounded-xl p-3 space-y-1 text-xs text-left">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("filter_all", lang)}</span><span className="font-semibold">MB Bank</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("filter_all", lang)}</span><span className="font-semibold font-mono">19035678901234</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("filter_all", lang)}</span><span className="font-semibold">FORTIFY KITCHEN</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("filter_all", lang)}</span><span className="font-bold text-primary">{formatVND(planPurchaseResult.amount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("filter_all", lang)}</span><span className="font-mono text-muted-foreground">{planPurchaseResult.memo}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{lang === "vi" ? "Ngân hàng" : "Bank"}</span>
+                <span className="font-semibold">MB Bank</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{lang === "vi" ? "Số tài khoản" : "Account Number"}</span>
+                <span className="font-semibold font-mono">19035678901234</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{lang === "vi" ? "Chủ tài khoản" : "Account Holder"}</span>
+                <span className="font-semibold uppercase">FORTIFY KITCHEN</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{lang === "vi" ? "Số tiền" : "Amount"}</span>
+                <span className="font-bold text-primary">{formatVND(planPurchaseResult.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{lang === "vi" ? "Nội dung chuyển khoản" : "Transfer Reference"}</span>
+                <span className="font-mono text-primary font-bold">{planPurchaseResult.memo}</span>
+              </div>
             </div>
-            <button onClick={() => setPlanPurchaseResult(null)} className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all">{t("btn_done", lang)}</button>
+            <button
+              onClick={() => setPlanPurchaseResult(null)}
+              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/10"
+            >
+              {lang === "vi" ? "Tôi đã chuyển khoản / Đóng" : "I have transferred / Close"}
+            </button>
           </div>
         </div>
       )}

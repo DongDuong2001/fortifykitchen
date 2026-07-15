@@ -2,15 +2,15 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faSpinner, faBox, faChevronDown, faChevronUp, faImage } from '@fortawesome/free-solid-svg-icons';
-import { PROTEIN_LABELS, getMenuItemLabel, formatVND, PROTEIN_OPTIONS } from '@fortifykitchen/shared';
+import { faPlus, faEdit, faTrashAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { PROTEIN_LABELS, formatVND } from '@fortifykitchen/shared';
 import type { Protein } from '@fortifykitchen/types';
 import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
 import { paginate, clampPage, groupMenuByFlavor } from '@/lib/menu-utils';
 
-const PAGE_SIZE = 10;
 const CARD_PAGE_SIZE = 8;
+const PROTEIN_OPTIONS: Protein[] = ['CHICKEN', 'BEEF', 'SHRIMP'];
 
 interface Props {
   token: string | null;
@@ -19,11 +19,7 @@ interface Props {
   categories: any[];
   lang: 'vi' | 'en';
   section: string;
-  setMenuItems: React.Dispatch<React.SetStateAction<any[]>>;
-  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
   loadData: () => void;
-  handleUnauthorized: (responses: any[]) => boolean;
-  checkOffline: (responses: any[]) => boolean;
   requestConfirm: (message: string, onConfirm: () => void, opts?: { title?: string; confirmLabel?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -34,11 +30,7 @@ export default function MenuSection({
   categories,
   lang,
   section,
-  setMenuItems,
-  setCategories,
   loadData,
-  handleUnauthorized,
-  checkOffline,
   requestConfirm,
 }: Props) {
   const { toast } = useToast();
@@ -55,14 +47,10 @@ export default function MenuSection({
   const [menuItemCatId, setMenuItemCatId] = React.useState('');
   const [menuItemAvailable, setMenuItemAvailable] = React.useState(true);
   const [menuItemStock, setMenuItemStock] = React.useState(0);
-  const [adjustingStockId, setAdjustingStockId] = React.useState<string | null>(null);
+
   const [menuSelectedSizeByDish, setMenuSelectedSizeByDish] = React.useState<Record<string, string>>({});
   const [menuPageByProtein, setMenuPageByProtein] = React.useState<Record<string, number>>({});
 
-  const authHeaders = React.useCallback(() => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }), [token]);
 
   const handleSaveMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,22 +182,7 @@ export default function MenuSection({
     }
   };
 
-  const handleAdjustStock = async (itemId: string, delta: number) => {
-    if (adjustingStockId === itemId) return;
-    setAdjustingStockId(itemId);
-    try {
-      const res = await fetch(`${API_URL}/menu/${itemId}/stock`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ delta }),
-      });
-      if (res.ok) loadData();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAdjustingStockId(null);
-    }
-  };
+
 
   const groupedDishes = groupMenuByFlavor(menuItems.filter((m) => m.isAvailable));
 

@@ -2,16 +2,23 @@
 
 import * as React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrashAlt, faSearch, faFilter, faChevronDown, faSpinner, faTruck, faUtensils, faCalendarAlt, faClock, faBox } from '@fortawesome/free-solid-svg-icons';
-import { PROTEIN_LABELS, getMenuItemLabel, formatVND, calculateOrderTotal, ORDER_STATUS_LABELS, ORDER_STATUS_OPTIONS, PAYMENT_STATE_OPTIONS, DELIVERY_FREQUENCY_PRESETS, formatIntervalLabel, ORDER_FULFILLMENT_TYPE_LABELS } from '@fortifykitchen/shared';
+import { faPlus, faEdit, faTrashAlt, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { PROTEIN_LABELS, getMenuItemLabel, formatVND, calculateOrderTotal, ORDER_STATUS_LABELS } from '@fortifykitchen/shared';
 import type { Protein, OrderStatus, OrderFulfillmentType } from '@fortifykitchen/types';
-import { useToast } from '@fortifykitchen/ui';
 import PaginationControls from '@/features/shared/PaginationControls';
-import { paginate, clampPage, groupMenuByFlavor } from '@/lib/menu-utils';
-import { getLocalDateString, isToday, groupEntriesByDate, formatGroupKeyLabel } from '@/lib/date-utils';
+import { paginate, clampPage } from '@/lib/menu-utils';
+import { getLocalDateString, isToday } from '@/lib/date-utils';
 
 const PAGE_SIZE = 10;
-const CARD_PAGE_SIZE = 8;
+const PAYMENT_STATE_OPTIONS = ['UNPAID', 'DEPOSIT', 'PAID'] as const;
+const ORDER_STATUS_OPTIONS = [
+  "PENDING_CONFIRMATION",
+  "CONFIRMED",
+  "PREPARING",
+  "OUT_FOR_DELIVERY",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
 
 const ORDER_STATUS_BADGE_CLASS: Record<OrderStatus, string> = {
   PENDING_CONFIRMATION: "bg-amber-50 text-amber-700 border-amber-200",
@@ -47,15 +54,15 @@ export default function OrdersSection({
   orders,
   customers,
   menuItems,
-  categories,
+  categories: _categories,
   lang,
   section,
-  setOrders,
-  setCustomers,
-  setMenuItems,
+  setOrders: _setOrders,
+  setCustomers: _setCustomers,
+  setMenuItems: _setMenuItems,
   loadData,
-  handleUnauthorized,
-  checkOffline,
+  handleUnauthorized: _handleUnauthorized,
+  checkOffline: _checkOffline,
   requestConfirm,
   toast,
 }: Props) {
@@ -77,7 +84,6 @@ export default function OrdersSection({
   const [orderModal, setOrderModal] = React.useState<'create' | 'edit' | null>(null);
   const [editingOrderId, setEditingOrderId] = React.useState<string | null>(null);
   const [orderDetailView, setOrderDetailView] = React.useState<any | null>(null);
-  const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
   const [orderCustomerId, setOrderCustomerId] = React.useState('');
   const [orderDeliveryDate, setOrderDeliveryDate] = React.useState(getLocalDateString());
   const [orderPaymentStatus, setOrderPaymentStatus] = React.useState<'UNPAID' | 'DEPOSIT' | 'PAID'>('UNPAID');
@@ -98,6 +104,7 @@ export default function OrdersSection({
     Authorization: `Bearer ${token}`,
   }), [token]);
 
+  /*
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
       const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
@@ -142,6 +149,7 @@ export default function OrdersSection({
       console.error(e);
     }
   };
+  */
 
   const handleDeleteOrder = (orderId: string) => {
     requestConfirm(
@@ -792,7 +800,7 @@ export default function OrdersSection({
             </div>
 
             {orderDetailView.notes && (
-              <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">"{orderDetailView.notes}"</p>
+              <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">&ldquo;{orderDetailView.notes}&rdquo;</p>
             )}
 
             {orderDetailView.systemNotes && (
