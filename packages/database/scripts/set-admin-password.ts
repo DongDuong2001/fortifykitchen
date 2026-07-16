@@ -5,9 +5,9 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Password: 12345678
+// Password: fortifykitchen123
 const NEW_PASSWORD_HASH =
-  "$argon2id$v=19$m=65536,t=3,p=4$jMThqRchRki+GTBfIcCK8w$WAm/zGL/n4oAGu+/RFRiBt4+7ACEBkXXegZ5UcoWAEs";
+  "$argon2id$v=19$m=65536,t=3,p=4$fkpyszf0pM/vhcfYk4wqaA$oFHOiD2+QyDl9Z3c+H9L0X9Vn7TtvSicIOnaW+CVWfI";
 
 async function main() {
   const admin = await prisma.user.update({

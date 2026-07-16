@@ -6,9 +6,9 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Seed default admin
-  // Password: 12345678
+  // Password: fortifykitchen123
   const adminPasswordHash =
-    "$argon2id$v=19$m=65536,t=3,p=4$jMThqRchRki+GTBfIcCK8w$WAm/zGL/n4oAGu+/RFRiBt4+7ACEBkXXegZ5UcoWAEs";
+    "$argon2id$v=19$m=65536,t=3,p=4$fkpyszf0pM/vhcfYk4wqaA$oFHOiD2+QyDl9Z3c+H9L0X9Vn7TtvSicIOnaW+CVWfI";
   const admin = await prisma.user.upsert({
     where: { email: "admin@fortifykitchen.com" },
     // update the hash too (not just {}) so re-running the seed after a
