@@ -201,7 +201,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                     <div className="px-6 pb-6 pt-3">
                       <button
                         onClick={() => addToCart(selected, 1, undefined, lang)}
-                        className="w-full bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground text-xs font-bold py-3 px-4 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full btn-primary py-3 text-xs tracking-wider uppercase font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
                         {t("btn_add_cart", lang)}
