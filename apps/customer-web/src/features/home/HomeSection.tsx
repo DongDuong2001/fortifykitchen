@@ -9,18 +9,12 @@ import {
   faTruckFast,
   faCartShopping,
   faBowlFood,
-  faBoxOpen,
-  faUsers,
-  faUtensils,
-  faBacon,
-  faFish,
   faStar,
   faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
-import Link from "next/link";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -40,15 +34,6 @@ const whyFortify = [
   { icon: faSeedling, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
   { icon: faDrumstickBite, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
   { icon: faTruckFast, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "30-45'" },
-] as const;
-
-const categories = [
-  { icon: faDrumstickBite, labelKey: "filter_CHICKEN", href: "?protein=CHICKEN", count: "12+" },
-  { icon: faBacon, labelKey: "filter_BEEF", href: "?protein=BEEF", count: "8+" },
-  { icon: faFish, labelKey: "filter_SHRIMP", href: "?protein=SHRIMP", count: "6+" },
-  { icon: faBoxOpen, labelKey: "home_cat_mealbox", href: "/meal-boxes", count: "4+" },
-  { icon: faUsers, labelKey: "home_cat_family", href: "/family-packs", count: "3+" },
-  { icon: faUtensils, labelKey: "home_cat_chef", href: "/chef-specials", count: "5+" },
 ] as const;
 
 const howItWorks = [
@@ -367,44 +352,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         </div>
       </section>
 
-      {/* 5. CATEGORIES — Horizontal pills scroll layout */}
-      <section className="section bg-background" aria-labelledby="categories-heading">
-        <div className="container-design">
-          <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-              <FontAwesomeIcon icon={faBoxOpen} className="h-3 w-3" />
-              {t("home_cat_label", lang)}
-            </span>
-            <h2 id="categories-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
-              {t("home_cat_title", lang)}
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {t("home_cat_subtitle", lang)}
-            </p>
-          </header>
-
-          {/* Horizontally scrollable list on mobile, wraps on desktop */}
-          <div className="flex overflow-x-auto pb-4 md:pb-0 md:flex-wrap md:justify-center gap-4 max-w-4xl mx-auto scrollbar-none snap-x snap-mandatory px-4">
-            {categories.map((cat, i) => (
-              <Link
-                key={i}
-                href={cat.href}
-                className="group flex items-center gap-3 px-5 py-3 rounded-full bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 select-none shrink-0 snap-center"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
-                  <FontAwesomeIcon icon={cat.icon} className="h-3.5 w-3.5" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-bold text-foreground leading-tight group-hover:text-primary transition-colors duration-300 whitespace-nowrap">{t(cat.labelKey, lang)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">{cat.count} {t("home_cat_items", lang)}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 6. HOW IT WORKS — Interactive Timeline Card Grid */}
+      {/* 5. HOW IT WORKS — Interactive Timeline Card Grid */}
       <section className="section bg-background border-t border-border/30" aria-labelledby="how-heading">
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -443,6 +391,68 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                 </article>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. FAQ — Interactive Accordion replacing Categories, placed below How It Works */}
+      <section className="section bg-background border-t border-border/30" aria-labelledby="faq-heading">
+        <div className="container-design">
+          <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
+              <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+              FAQ
+            </span>
+            <h2 id="faq-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
+              {lang === "vi" ? "Câu hỏi thường gặp" : "Frequently Asked Questions"}
+            </h2>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              {lang === "vi" ? "Giải đáp thắc mắc về thực đơn, giao hàng và các gói hội viên" : "Answers to common questions about menu, delivery, and plans"}
+            </p>
+          </header>
+
+          <div className="max-w-3xl mx-auto space-y-4">
+            {[
+              {
+                q: lang === "vi" ? "Làm thế nào để đặt hàng giao ngay?" : "How do I place a quick delivery order?",
+                a: lang === "vi" ? "Bạn chỉ cần chọn tab 'Giao ngay' trên thanh điều hướng, lựa chọn món ăn và nhập thông tin địa chỉ để chúng tôi giao bữa ăn nóng hổi trong 30-45 phút mà không cần đăng ký tài khoản." : "Simply switch to the 'Ready Now' tab, pick your meals, and fill in your delivery details. We will deliver hot meals in 30-45 minutes without requiring an account."
+              },
+              {
+                q: lang === "vi" ? "Gói hội viên Protein hoạt động như thế nào?" : "How do subscription packages work?",
+                a: lang === "vi" ? "Khi mua gói hội viên, bạn sẽ nhận được một lượng hạn mức Protein tương ứng. Bạn có thể sử dụng hạn mức này để thiết lập và nhận cơm văn phòng theo tuần/tháng tự động qua ví mà không cần thanh toán lẻ từng bữa." : "By purchasing a subscription, you receive a specific Protein credit. You can use this credit to schedule and receive weekly or monthly meals automatically without manual payment each time."
+              },
+              {
+                q: lang === "vi" ? "Tôi có thể thay đổi lịch giao hàng hoặc món ăn không?" : "Can I change my delivery schedule or meals?",
+                a: lang === "vi" ? "Hoàn toàn được. Đối với đơn hàng định kỳ, quản trị viên sẽ hỗ trợ bạn điều chỉnh món ăn hoặc hoãn lịch giao nếu bạn báo trước ít nhất 1 ngày qua hotline hoặc cổng hỗ trợ." : "Yes. For subscription orders, our support team can help you modify your dishes or pause delivery schedules if you notify us at least 1 day in advance via our hotline."
+              },
+              {
+                q: lang === "vi" ? "Bữa ăn của Fortify Kitchen được chế biến như thế nào?" : "How are Fortify Kitchen meals prepared?",
+                a: lang === "vi" ? "Tất cả thịt (ức gà, thăn bò, tôm) của chúng tôi đều được nấu bằng kỹ thuật Sous-vide (nấu chậm chân không) giữ trọn vẹn vị ngọt, sự mềm mọng nguyên bản cùng hàm lượng protein chuẩn xác ghi trên nhãn." : "All proteins (chicken breast, beef, shrimp) are cooked using the Sous-vide technique (slow low-temperature vacuum cooking) to retain juices, flavor, and exact nutritional macros."
+              }
+            ].map((item, idx) => {
+              const FAQItem = () => {
+                const [isOpen, setIsOpen] = React.useState(false);
+                return (
+                  <div className="border border-border/80 rounded-2xl bg-card transition-all duration-300">
+                    <button
+                      onClick={() => setIsOpen(!isOpen)}
+                      className="w-full px-6 py-4.5 text-left flex justify-between items-center gap-4 font-bold text-xs md:text-sm text-foreground cursor-pointer bg-transparent border-0 outline-none"
+                    >
+                      <span>{item.q}</span>
+                      <span className={`text-primary transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}>
+                        <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5" />
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-6 pb-4.5 text-xs text-muted-foreground leading-relaxed border-t border-border/20 pt-3">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              };
+              return <FAQItem key={idx} />;
+            })}
           </div>
         </div>
       </section>

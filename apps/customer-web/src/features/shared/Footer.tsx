@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { faMapMarkerAlt, faPhone, faEnvelope } from "@fortawesome/free-solid-svg-icons";
 import { DICTIONARY } from "@/constants/dictionary";
 
@@ -27,14 +26,15 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
                 Fortify<span className="font-sans font-light tracking-wide text-primary ml-0.5">Kitchen</span>
               </span>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">{t("order_subtitle", lang)}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === 'vi' 
+                ? "Dịch vụ cung cấp bữa ăn dinh dưỡng định lượng protein chuẩn xác. Chỉ giao hàng trong khu vực Thành Phố Hồ Chí Minh." 
+                : "Nutritional meal provider with precise protein metrics. Delivery only within Ho Chi Minh City."}
+            </p>
             <div className="flex gap-4">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Facebook">
-                <FontAwesomeIcon icon={faFacebook} className="h-4 w-4" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Instagram">
-                <FontAwesomeIcon icon={faInstagram} className="h-4 w-4" />
-              </a>
+              <span className="text-[10px] text-muted-foreground/60 italic">
+                {lang === 'vi' ? "(Mạng xã hội cấu hình bởi Admin)" : "(Social links configured by Admin)"}
+              </span>
             </div>
           </div>
           <div className="space-y-3">
@@ -55,7 +55,7 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
               </li>
               <li className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faPhone} className="h-3.5 w-3.5 shrink-0" />
-                <span>090 123 4567</span>
+                <span>{lang === 'vi' ? "(Hotline cấu hình bởi Admin)" : "(Hotline configured by Admin)"}</span>
               </li>
               <li className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faEnvelope} className="h-3.5 w-3.5 shrink-0" />
