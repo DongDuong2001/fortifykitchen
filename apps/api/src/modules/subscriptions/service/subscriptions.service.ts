@@ -76,7 +76,7 @@ export class SubscriptionsService {
     }
     const totalPrice = dto.totalPrice ?? Math.round(pricing.finalTotal);
 
-    const subscription = await this.db.client.$transaction(async (tx) => {
+    const subscription = await this.db.client.$transaction(async (tx: any) => {
       const created = await tx.subscription.create({
         data: {
           customerId: customer.id,
@@ -129,7 +129,7 @@ export class SubscriptionsService {
       include: { pools: true },
       orderBy: { startDate: "desc" },
     });
-    return list.map((s) => this.mapSubscription(s));
+    return list.map((s: any) => this.mapSubscription(s));
   }
 
   async findOne(id: string): Promise<Subscription> {
@@ -149,7 +149,7 @@ export class SubscriptionsService {
       include: { pools: true },
       orderBy: { startDate: "desc" },
     });
-    return list.map((s) => this.mapSubscription(s));
+    return list.map((s: any) => this.mapSubscription(s));
   }
 
   // Phone-based lookup for the customer-web self-service view — there's no
@@ -253,7 +253,7 @@ export class SubscriptionsService {
       throw new NotFoundException(`Subscription with ID ${id} not found`);
     }
 
-    const existingPool = sub.pools.find((p) => p.protein === dto.protein);
+    const existingPool = sub.pools.find((p: any) => p.protein === dto.protein);
     if (existingPool) {
       await this.db.client.subscriptionPool.update({
         where: { id: existingPool.id },
@@ -318,7 +318,7 @@ export class SubscriptionsService {
       }
     }
 
-    await this.db.client.$transaction(async (tx) => {
+    await this.db.client.$transaction(async (tx: any) => {
       const result = await tx.customer.updateMany({
         where: { id: sub.customerId!, walletBalance: { gte: sub.totalPrice } },
         data: { walletBalance: { decrement: sub.totalPrice } },
@@ -414,7 +414,7 @@ export class SubscriptionsService {
 
       let lastDate =
         sub.orders.length > 0
-          ? sub.orders.reduce((max, o) => (o.deliveryDate > max ? o.deliveryDate : max), sub.orders[0].deliveryDate)
+          ? sub.orders.reduce((max: Date, o: any) => (o.deliveryDate > max ? o.deliveryDate : max), sub.orders[0].deliveryDate)
           : null;
       let nextDate = lastDate ? addDays(lastDate, sub.deliveryIntervalDays) : new Date(sub.startDate);
 
