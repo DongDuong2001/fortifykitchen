@@ -27,8 +27,18 @@ async function bootstrap() {
   // Security Middlewares
   app.use(helmet());
   app.use(cookieParser());
+  
+  // CORS Configuration supporting development & multiple production frontends
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL, // Customer Web
+    "https://fortifykitchen.onrender.com", // Admin Dashboard on Render
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:4000",
+  ].filter(Boolean) as string[];
+
   app.enableCors({
-    origin: true, // In production, replace with specific domains
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
     credentials: true,
   });
 
