@@ -18,16 +18,16 @@ export class DiscountsService {
     // plan vouchers, or a hand-created one-off), do a single follow-up
     // lookup and attach the name so the admin list can show "Linked to
     // <customer name>" instead of a bare, meaningless customerId.
-    const customerIds = [...new Set(list.map((d) => d.customerId).filter((id): id is string => !!id))];
+    const customerIds = [...new Set(list.map((d: any) => d.customerId).filter((id: any): id is string => !!id))];
     const customers = customerIds.length
       ? await this.db.client.customer.findMany({
           where: { id: { in: customerIds } },
           select: { id: true, name: true },
         })
       : [];
-    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
+    const customerNameById = new Map(customers.map((c: any) => [c.id, c.name]));
 
-    return list.map((item) => ({
+    return list.map((item: any) => ({
       ...item,
       amount: Number(item.amount),
       customerName: item.customerId ? (customerNameById.get(item.customerId) ?? null) : null,

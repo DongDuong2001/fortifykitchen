@@ -15,7 +15,7 @@ export class MenuService {
       orderBy: [{ protein: "asc" }, { flavor: "asc" }, { sizeGrams: "asc" }],
     });
 
-    return items.map((item) => this.mapMenuItem(item));
+    return items.map((item: any) => this.mapMenuItem(item));
   }
 
   async findAllAdmin(page?: string, limit?: string): Promise<MenuItem[]> {
@@ -26,7 +26,7 @@ export class MenuService {
       ...(take !== undefined ? { take } : {}),
     });
 
-    return items.map((item) => this.mapMenuItem(item));
+    return items.map((item: any) => this.mapMenuItem(item));
   }
 
   async findOne(id: string): Promise<MenuItem> {

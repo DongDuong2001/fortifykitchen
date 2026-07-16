@@ -27,7 +27,7 @@ export class NotificationsService {
     });
 
     return pools
-      .map((pool) => {
+      .map((pool: any) => {
         const sub = pool.subscription;
         const share = sub.totalGrams > 0 ? pool.totalGrams / sub.totalGrams : 0;
         const perDeliveryGrams = sub.deliveryAmountGrams * share;
@@ -41,7 +41,7 @@ export class NotificationsService {
           threshold,
         };
       })
-      .filter((p) => p.threshold > 0 && p.remainingGrams < p.threshold);
+      .filter((p: any) => p.threshold > 0 && p.remainingGrams < p.threshold);
   }
 
   // Customers whose walletBalance is under ~3 typical one-off orders' worth.
@@ -59,7 +59,7 @@ export class NotificationsService {
       select: { customerId: true },
       distinct: ["customerId"],
     });
-    const walletCustomerIds = topUps.map((p) => p.customerId).filter((id): id is string => !!id);
+    const walletCustomerIds = topUps.map((p: any) => p.customerId).filter((id: any): id is string => !!id);
     if (walletCustomerIds.length === 0) return [];
 
     const walletCustomers = await this.db.client.customer.findMany({
@@ -77,7 +77,7 @@ export class NotificationsService {
       });
       if (recentOrders.length === 0) continue;
 
-      const avgOrderTotal = recentOrders.reduce((sum, o) => sum + o.total, 0) / recentOrders.length;
+      const avgOrderTotal = recentOrders.reduce((sum: number, o: any) => sum + o.total, 0) / recentOrders.length;
       const threshold = Math.round(avgOrderTotal * LOOKAHEAD_OCCURRENCES);
       if (threshold > 0 && customer.walletBalance < threshold) {
         results.push({ customerId: customer.id, customerName: customer.name, walletBalance: customer.walletBalance, threshold });
@@ -105,11 +105,11 @@ export class NotificationsService {
     }
 
     const [walletsLow, allPoolsLow] = await Promise.all([this.getWalletsLow(), this.getPoolsLow()]);
-    const walletFlag = walletsLow.find((w) => w.customerId === customer.id);
+    const walletFlag = walletsLow.find((w: any) => w.customerId === customer.id);
 
     const subs = await this.db.client.subscription.findMany({ where: { customerId: customer.id }, select: { id: true } });
-    const subIds = new Set(subs.map((s) => s.id));
-    const poolsLow = allPoolsLow.filter((p) => subIds.has(p.subscriptionId));
+    const subIds = new Set(subs.map((s: any) => s.id));
+    const poolsLow = allPoolsLow.filter((p: any) => subIds.has(p.subscriptionId));
 
     return {
       walletBalance: customer.walletBalance,

@@ -115,7 +115,7 @@ export class DashboardService {
       include: { items: true },
     });
     const gramsDeliveredThisMonth = completedThisMonth.reduce(
-      (sum, o) => sum + o.items.reduce((s, i) => s + i.qty * i.sizeGrams, 0),
+      (sum: number, o: any) => sum + o.items.reduce((s: number, i: any) => s + i.qty * i.sizeGrams, 0),
       0,
     );
 
