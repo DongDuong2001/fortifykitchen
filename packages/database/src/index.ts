@@ -39,7 +39,7 @@ function createPrismaClient(): PrismaClient {
 
   return base.$extends({
     query: {
-      async $allOperations({ args, query }) {
+      async $allOperations({ args, query }: { args: any; query: any }) {
         try {
           return await query(args);
         } catch (err) {
