@@ -12,6 +12,7 @@ import {
   OrderSource,
   PaymentState,
   OrderFulfillmentType,
+  OrderType,
   PaymentMethod,
   PaymentStatus,
   Decimal,
@@ -161,7 +162,15 @@ export class OrdersService {
   private async resolveDiscount(
     code: string,
     customerId: string,
-  ): Promise<{ id: string; code: string; type: string; amount: Decimal; customerId: string | null }> {
+  ): Promise<{
+    id: string;
+    code: string;
+    type: string;
+    amount: Decimal;
+    customerId: string | null;
+    usageLimit: number | null;
+    usageCount: number;
+  }> {
     const normalized = code.trim().toUpperCase();
     const discount = await this.db.client.discount.findUnique({ where: { code: normalized } });
     if (!discount) {
@@ -176,6 +185,13 @@ export class OrdersService {
     }
     if (discount.customerId && discount.customerId !== customerId) {
       throw new BadRequestException(`Discount code "${code}" is not valid for your account`);
+    }
+    // Fast, non-atomic early-out for the common case — the real,
+    // race-safe enforcement is the conditional updateMany inside the
+    // order-creation transaction below, same reasoning as the
+    // one-redemption-per-customer check.
+    if (discount.usageLimit !== null && discount.usageCount >= discount.usageLimit) {
+      throw new BadRequestException(`Discount code "${code}" has reached its usage limit.`);
     }
     return discount;
   }
@@ -230,6 +246,7 @@ export class OrdersService {
       dto.paymentMethod,
       dto.deliveryAddress ?? customer.address ?? undefined,
       dto.discountCode,
+      dto.type,
     );
   }
 
@@ -264,6 +281,7 @@ export class OrdersService {
       dto.paymentMethod,
       dto.address,
       dto.discountCode,
+      dto.type,
     );
   }
 
@@ -281,7 +299,7 @@ export class OrdersService {
   }
 
   private async createForCustomer(
-    customer: { id: string; name: string; planDiscountPercent?: number; planDiscountEndsAt?: Date | null },
+    customer: { id: string; name: string; walletBalance: number; planDiscountPercent?: number },
     items: any[],
     deliveryDateInput: string,
     paymentStatus: PaymentState | undefined,
@@ -289,12 +307,24 @@ export class OrdersService {
     paymentMethod?: PaymentMethod,
     deliveryAddress?: string,
     discountCodeInput?: string,
+    orderTypeInput?: OrderType,
   ): Promise<Order> {
     const lineItems = await this.buildLineItems(items);
     const pricing = calculateOrderTotal(lineItems);
     const { fulfillmentType, requiredByMenuItem } = await this.resolveFulfillment(items);
 
-    const deliveryDate = fulfillmentType === OrderFulfillmentType.IMMEDIATE ? new Date() : new Date(deliveryDateInput);
+    const orderType = orderTypeInput ?? (deliveryDateInput ? OrderType.PRE_ORDER : OrderType.IMMEDIATE_DELIVERY);
+    const baseDate = orderType === OrderType.IMMEDIATE_DELIVERY ? new Date() : new Date(deliveryDateInput);
+    let calculatedDeliveryDate = this.getNearestDeliveryDate(baseDate);
+    let systemNotes: string | null = null;
+
+    if (fulfillmentType === OrderFulfillmentType.SCHEDULED) {
+      calculatedDeliveryDate = this.getNextDeliveryDate(calculatedDeliveryDate);
+      systemNotes = "Sản phẩm hết hàng, đơn tự động dời sang ngày giao kế tiếp / Product out of stock, order automatically rescheduled to the next delivery day.";
+      console.log(`[Notification Alert] Sent out-of-stock preorder notification to customer ${customer.name} for rescheduled date: ${calculatedDeliveryDate.toISOString().split("T")[0]}`);
+    }
+
+    const deliveryDate = calculatedDeliveryDate;
 
     // Resolved here (read-only) so validation errors surface before we open
     // a transaction; the actual one-redemption-per-customer CLAIM still
@@ -306,7 +336,11 @@ export class OrdersService {
     // A customer's recurring plan discount (set directly on Customer by
     // SubscriptionPlansService.confirmPurchase, replacing the earlier
     // single-use voucher) applies automatically here too — no code needed.
-    const hasActivePlanDiscount = !!(customer.planDiscountPercent && customer.planDiscountEndsAt && customer.planDiscountEndsAt > new Date());
+    // Indefinite by design: no expiry date, it just stays in effect for as
+    // long as walletBalance (fetched before this order's own wallet
+    // deduction below, if paying by WALLET) is still > 0 — i.e. the credit
+    // from that plan purchase hasn't been fully spent yet.
+    const hasActivePlanDiscount = !!(customer.planDiscountPercent && customer.walletBalance > 0);
     const planDiscountAmount = hasActivePlanDiscount ? (pricing.lineSubtotal * customer.planDiscountPercent!) / 100 : 0;
 
     // Stacking, per business decision: a discount code and the recurring
@@ -349,6 +383,8 @@ export class OrdersService {
           paymentStatus: resolvedPaymentStatus,
           status: OrderStatus.PENDING_CONFIRMATION,
           fulfillmentType,
+          type: orderType,
+          systemNotes,
           paymentMethod: paymentMethod ?? "CASH_ON_DELIVERY",
           deliveryAddress,
           subtotal: Math.round(pricing.lineSubtotal),
@@ -391,6 +427,24 @@ export class OrdersService {
       // this code for this customer, rolling back everything above
       // (stock, wallet, order) along with it.
       if (discount) {
+        // Claim one slot against the total usage cap (separate from the
+        // per-customer check below), if one is set. A conditional
+        // updateMany rather than a plain read-then-write — Postgres takes
+        // a row lock on the matched row inside this transaction, so a
+        // second concurrent claim re-evaluates the WHERE clause against
+        // the just-incremented count instead of a stale read, which is
+        // what actually prevents two concurrent orders from both slipping
+        // past a "19 of 20 used" check.
+        if (discount.usageLimit !== null) {
+          const claim = await tx.discount.updateMany({
+            where: { id: discount.id, usageCount: { lt: discount.usageLimit } },
+            data: { usageCount: { increment: 1 } },
+          });
+          if (claim.count === 0) {
+            throw new BadRequestException(`Discount code "${discount.code}" has reached its usage limit.`);
+          }
+        }
+
         try {
           await tx.discountRedemption.create({
             data: { discountId: discount.id, customerId: customer.id, orderId: created.id },
@@ -485,9 +539,11 @@ export class OrdersService {
         deliveryDate: filters?.date ? new Date(filters.date) : undefined,
       },
       include: { items: true, subscription: { select: { packageName: true } } },
-      // Oldest first — matches the admin Orders tab, which lists orders
-      // chronologically so the oldest still-open ones surface first.
-      orderBy: { deliveryDate: "asc" },
+      // Newest-placed first, same as the customer's own order history
+      // (findForUser below) — staff want to see what just came in at the
+      // top, matching the customer-facing view instead of the previous
+      // oldest-delivery-date-first ordering.
+      orderBy: { createdAt: "desc" },
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
@@ -583,6 +639,16 @@ export class OrdersService {
     });
     if (!order?.subscription) return false;
     return normalizePhone(order.subscription.customer?.phone ?? "") === normalizePhone(phone);
+  }
+
+  // Same check, for a logged-in customer (JWT userId) rather than the
+  // phone-based public flow — used by SubscriptionsService.postponeOrderForUser.
+  async verifySubscriptionOrderOwnershipByUser(orderId: string, userId: string): Promise<boolean> {
+    const order = await this.db.client.order.findUnique({
+      where: { id: orderId },
+      include: { subscription: { include: { customer: true } } },
+    });
+    return order?.subscription?.customer?.userId === userId;
   }
 
   // Edits resend the full form and get repriced from scratch — old line
@@ -845,6 +911,29 @@ export class OrdersService {
     });
   }
 
+  private getNearestDeliveryDate(baseDate: Date): Date {
+    const date = new Date(baseDate.getTime());
+    // Reset time to 00:00:00.000 for date-only consistency
+    date.setHours(0, 0, 0, 0);
+
+    // Valid days of the week: Monday (1), Wednesday (3), Friday (5), Saturday (6)
+    const validDays = [1, 3, 5, 6];
+    for (let i = 0; i < 7; i++) {
+      const currentDay = date.getDay();
+      if (validDays.includes(currentDay)) {
+        return date;
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return date;
+  }
+
+  private getNextDeliveryDate(baseDate: Date): Date {
+    const date = new Date(baseDate.getTime());
+    date.setDate(date.getDate() + 1); // skip current valid day
+    return this.getNearestDeliveryDate(date);
+  }
+
   private mapOrder(order: OrderWithItemsAndSub): Order {
     return {
       id: order.id,
@@ -854,6 +943,8 @@ export class OrdersService {
       paymentStatus: order.paymentStatus as Order["paymentStatus"],
       status: order.status as Order["status"],
       fulfillmentType: order.fulfillmentType as Order["fulfillmentType"],
+      type: order.type as Order["type"],
+      systemNotes: order.systemNotes ?? undefined,
       paymentMethod: order.paymentMethod as Order["paymentMethod"],
       deliveryAddress: order.deliveryAddress ?? undefined,
       subtotal: order.subtotal,

@@ -11,9 +11,26 @@ export class DiscountsService {
     const list = await this.db.client.discount.findMany({
       orderBy: { startsAt: "desc" },
     });
+
+    // Discount.customerId is a plain scalar, not a Prisma relation (kept
+    // loose deliberately — see the model comment), so we can't `include` a
+    // customer here. For any legacy customer-scoped rows (pre-migration
+    // plan vouchers, or a hand-created one-off), do a single follow-up
+    // lookup and attach the name so the admin list can show "Linked to
+    // <customer name>" instead of a bare, meaningless customerId.
+    const customerIds = [...new Set(list.map((d) => d.customerId).filter((id): id is string => !!id))];
+    const customers = customerIds.length
+      ? await this.db.client.customer.findMany({
+          where: { id: { in: customerIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
+
     return list.map((item) => ({
       ...item,
       amount: Number(item.amount),
+      customerName: item.customerId ? (customerNameById.get(item.customerId) ?? null) : null,
     }));
   }
 
@@ -34,6 +51,8 @@ export class DiscountsService {
         isActive: dto.isActive,
         startsAt: new Date(dto.startsAt),
         endsAt: new Date(dto.endsAt),
+        description: dto.description?.trim() || null,
+        usageLimit: dto.usageLimit ?? null,
       },
     });
 
@@ -70,6 +89,14 @@ export class DiscountsService {
 
     if (now > discount.endsAt) {
       throw new BadRequestException("Discount code has expired");
+    }
+
+    // Preview-only check — the real, race-safe claim happens atomically
+    // inside OrdersService.create's transaction. This just lets the
+    // customer-web live-preview widget say "out of uses" immediately while
+    // typing, instead of only discovering it after a failed checkout.
+    if (discount.usageLimit !== null && discount.usageCount >= discount.usageLimit) {
+      throw new BadRequestException(`Discount code "${code}" has reached its usage limit.`);
     }
 
     if (userId) {

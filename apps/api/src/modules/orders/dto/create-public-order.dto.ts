@@ -13,7 +13,7 @@ import {
   IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { PaymentMethod } from "@fortifykitchen/database";
+import { PaymentMethod, OrderType } from "@fortifykitchen/database";
 
 class PublicOrderItemDto {
   @ApiProperty({ example: "f9b69b61-2ad0-4d57-8fb6-787db87eb098", required: false })
@@ -101,4 +101,9 @@ export class CreatePublicOrderDto {
   @IsString()
   @IsOptional()
   discountCode?: string;
+
+  @ApiProperty({ enum: OrderType, example: "IMMEDIATE_DELIVERY", required: false })
+  @IsEnum(OrderType)
+  @IsOptional()
+  type?: OrderType;
 }

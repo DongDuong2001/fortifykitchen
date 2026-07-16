@@ -10,6 +10,10 @@
 // English-speaking users see the raw backend message as-is (no locale
 // mismatch for them), so this only changes behavior when lang === "vi".
 const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
+  {
+    match: /wallet balance is insufficient to cover this subscription/i,
+    vi: "Số dư Ví của bạn không đủ để thanh toán trọn gói đăng ký này. Vui lòng nạp thêm vào ví rồi thử lại.",
+  },
   { match: /wallet balance is insufficient/i, vi: "Số dư Ví của bạn không đủ để thanh toán khoản này." },
   { match: /invalid email or password/i, vi: "Email hoặc mật khẩu không đúng." },
   { match: /email already registered/i, vi: "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng email khác." },
@@ -23,9 +27,14 @@ const KNOWN_ERROR_TRANSLATIONS: { match: RegExp; vi: string }[] = [
   { match: /discount code ".*" is not valid at this time/i, vi: "Mã giảm giá này chưa hoặc đã hết hạn sử dụng." },
   { match: /discount code ".*" is not valid for your account/i, vi: "Mã giảm giá này không áp dụng cho tài khoản của bạn." },
   { match: /discount code ".*" has already been used/i, vi: "Bạn đã sử dụng mã giảm giá này rồi." },
+  { match: /discount code ".*" has reached its usage limit/i, vi: "Mã giảm giá này đã hết lượt sử dụng." },
   {
     match: /you already have an active plan discount/i,
-    vi: "Bạn đang có ưu đãi từ gói hiện tại. Vui lòng liên hệ đội ngũ Fortify Kitchen để nâng cấp gói.",
+    vi: "Bạn đang có ưu đãi từ gói hiện tại. Vào tab Ví để gửi yêu cầu nâng cấp gói, đội ngũ chúng tôi sẽ xem xét.",
+  },
+  {
+    match: /you already have a pending plan upgrade request/i,
+    vi: "Bạn đã có một yêu cầu nâng cấp gói đang chờ duyệt. Vui lòng đợi đội ngũ Fortify Kitchen xem xét.",
   },
 ];
 

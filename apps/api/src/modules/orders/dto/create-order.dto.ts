@@ -12,7 +12,7 @@ import {
   ArrayMinSize,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { PaymentState, PaymentMethod } from "@fortifykitchen/database";
+import { PaymentState, PaymentMethod, OrderType } from "@fortifykitchen/database";
 
 // Orders are created by staff on behalf of a customer — there is no
 // customer self-checkout. Only menuItemId + qty are accepted per line; the
@@ -71,4 +71,9 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   discountCode?: string;
+
+  @ApiProperty({ enum: OrderType, example: "IMMEDIATE_DELIVERY", required: false })
+  @IsEnum(OrderType)
+  @IsOptional()
+  type?: OrderType;
 }

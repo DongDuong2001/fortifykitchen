@@ -5,13 +5,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faThLarge,
   faShoppingBag,
-  faUsers,
   faSignOutAlt,
   faUtensils,
   faPlus,
   faTrashAlt,
   faEdit,
-  faDollarSign,
   faCalendarAlt,
   faTag,
   faSpinner,
@@ -293,6 +291,7 @@ export default function AdminDashboard() {
     | "subscription-plans"
     | "prep-list"
     | "home-frames"
+    | "system-settings"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -344,6 +343,7 @@ export default function AdminDashboard() {
     marketing: [
       { id: "discounts", label: lang === "vi" ? "Mã khuyến mãi" : "Promotional Codes" },
       { id: "home-frames", label: lang === "vi" ? "Banner trang chủ" : "Home Banners" },
+      { id: "system-settings", label: lang === "vi" ? "Cấu hình chung" : "System Settings" },
     ],
   }), [lang]);
 
@@ -417,6 +417,17 @@ export default function AdminDashboard() {
   // Row id currently mid-flight on Confirm/Reject, so a double-click can't
   // double-fire the request while it's in progress.
   const [processingTopUpId, setProcessingTopUpId] = React.useState<string | null>(null);
+  // Customer-submitted "move me to a higher tier" requests — approving one
+  // only opens a PENDING Payment (shows up in pendingTopUps above once
+  // reloaded), it does NOT credit the wallet directly. See
+  // SubscriptionPlansService.approveUpgradeRequest.
+  const [pendingUpgradeRequests, setPendingUpgradeRequests] = React.useState<any[]>([]);
+  const [processingUpgradeRequestId, setProcessingUpgradeRequestId] = React.useState<string | null>(null);
+  // --- Admin direct wallet top-up (customer list/edit modal) ---
+  const [topUpCustomerId, setTopUpCustomerId] = React.useState<string | null>(null);
+  const [topUpAmount, setTopUpAmount] = React.useState("");
+  const [topUpNote, setTopUpNote] = React.useState("");
+  const [isSubmittingTopUp, setIsSubmittingTopUp] = React.useState(false);
   // Staff-wide low-balance summary (wallet + subscription pool) shown as a
   // Dashboard alert widget — same shape as the inventory alerts above it.
   const [lowBalance, setLowBalance] = React.useState<any>({ poolsLow: [], walletsLow: [], totalCount: 0 });
@@ -433,6 +444,12 @@ export default function AdminDashboard() {
   const [isSavingHomeFrame, setIsSavingHomeFrame] = React.useState(false);
   const [homeFrameImagePreview, setHomeFrameImagePreview] = React.useState<string>("");
   const [isHomeFrameUploading, setIsHomeFrameUploading] = React.useState(false);
+
+  // --- General System Settings State ---
+  const [settingsFacebook, setSettingsFacebook] = React.useState("");
+  const [settingsInstagram, setSettingsInstagram] = React.useState("");
+  const [settingsHotline, setSettingsHotline] = React.useState("");
+  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
 
   // --- Pagination state — one page counter per list view. Every list here
   // is small-ish and already loaded in full for client-side tab/search
@@ -481,15 +498,14 @@ export default function AdminDashboard() {
   // OUT_FOR_DELIVERY); moving an order to COMPLETED drops it out of Current
   // and into the Completed tab. Cancelled orders get their own tab too so
   // they don't linger in either working view.
-  const [orderViewTab, setOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
-  const [orderStatusFilter, setOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
+  const [orderViewTab, setOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<"ALL" | "IMMEDIATE" | "SCHEDULED">("ALL");
   const [orderSearch, setOrderSearch] = React.useState("");
   // Typeable date filter — a plain "YYYY-MM-DD" string that drives an
   // <input type="date">. Defaults to today so the Orders view opens showing
   // just what's due today; typing/picking any other date narrows to that
   // exact day; clearing it (via the "Tất cả" button) shows every date.
-  const [orderDateFilter, setOrderDateFilter] = React.useState(getLocalDateString());
+  const [orderDateFilter, setOrderDateFilter] = React.useState(""); // status tabs show all dates by default
   // Extra quick mode alongside the date input — "Sắp tới" (upcoming) shows
   // everything that isn't today (future or overdue), ignoring the specific
   // date picked above. Picking a date (or "Tất cả") switches back to "date".
@@ -498,21 +514,20 @@ export default function AdminDashboard() {
   // --- Orders from Subscriptions: its own independent workflow view +
   // filters, separate from the one-off Orders filters above — filtering or
   // switching tabs on one table no longer touches the other.
-  const [subOrderViewTab, setSubOrderViewTab] = React.useState<"current" | "completed" | "cancelled">("current");
-  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("ALL");
+  const [subOrderViewTab, setSubOrderViewTab] = React.useState<"ALL" | (typeof ORDER_STATUS_OPTIONS)[number]>("PENDING_CONFIRMATION");
   const [subOrderSearch, setSubOrderSearch] = React.useState("");
-  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(getLocalDateString());
+  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState(""); // status tabs show all dates by default
   const [subOrderDateMode, setSubOrderDateMode] = React.useState<"date" | "upcoming">("date");
 
   // Jump back to page 1 whenever a filter/tab/search change would otherwise
   // leave the paginated table showing a stale, filter-mismatched page.
   React.useEffect(() => {
     setOrdersPage(1);
-  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
+  }, [orderViewTab, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
 
   React.useEffect(() => {
     setSubOrdersPage(1);
-  }, [subOrderViewTab, subOrderStatusFilter, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
+  }, [subOrderViewTab, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
 
   React.useEffect(() => {
     setCustomPlanRequestsPage(1);
@@ -569,6 +584,14 @@ export default function AdminDashboard() {
   const [discountAmount, setDiscountAmount] = React.useState(10);
   const [discountStarts, setDiscountStarts] = React.useState("2026-07-04T00:00:00Z");
   const [discountEnds, setDiscountEnds] = React.useState("2026-12-31T23:59:59Z");
+  // Admin-only note on why this code exists — never shown to the customer,
+  // just so staff can tell codes apart in the list below (e.g. "Tết 2026
+  // campaign, public" vs "Goodwill code for customer X after late delivery").
+  const [discountDescription, setDiscountDescription] = React.useState("");
+  // Blank = unlimited. When set, e.g. "20", only the first 20 total
+  // redemptions across all customers succeed — separate from the existing
+  // one-use-per-customer rule, which always applies regardless.
+  const [discountUsageLimit, setDiscountUsageLimit] = React.useState("");
 
   // --- Subscription Plan (wallet top-up tier) form state — one form does
   // double duty for create and edit, same as the Promotional Codes form,
@@ -724,14 +747,16 @@ export default function AdminDashboard() {
           setDiscounts(result.data || []);
         }
       } else if (section === "subscription-plans") {
-        const [resPlans, resPending] = await Promise.all([
+        const [resPlans, resPending, resUpgradeRequests] = await Promise.all([
           fetch(`${API_URL}/subscription-plans`, { headers }).catch(() => null),
           fetch(`${API_URL}/subscription-plan-purchases/pending`, { headers }).catch(() => null),
+          fetch(`${API_URL}/plan-upgrade-requests/pending`, { headers }).catch(() => null),
         ]);
-        if (checkOffline([resPlans, resPending])) return;
-        if (handleUnauthorized([resPlans, resPending])) return;
+        if (checkOffline([resPlans, resPending, resUpgradeRequests])) return;
+        if (handleUnauthorized([resPlans, resPending, resUpgradeRequests])) return;
         if (resPlans && resPlans.ok) setSubscriptionPlans((await resPlans.json()).data || []);
         if (resPending && resPending.ok) setPendingTopUps((await resPending.json()).data || []);
+        if (resUpgradeRequests && resUpgradeRequests.ok) setPendingUpgradeRequests((await resUpgradeRequests.json()).data || []);
       } else if (section === "home-frames") {
         const res = await fetch(`${API_URL}/home-frames/admin`, { headers }).catch(() => null);
         if (checkOffline([res])) return;
@@ -739,6 +764,13 @@ export default function AdminDashboard() {
         if (res && res.ok) {
           const result = await res.json();
           setHomeFrames(result.data || []);
+        }
+      } else if (section === "system-settings") {
+        // Load settings from localStorage to match simple file-free setup
+        if (typeof window !== "undefined") {
+          setSettingsFacebook(localStorage.getItem("settings_facebook") || "https://facebook.com/fortifykitchen");
+          setSettingsInstagram(localStorage.getItem("settings_instagram") || "https://instagram.com/fortifykitchen");
+          setSettingsHotline(localStorage.getItem("settings_hotline") || "090 123 4567");
         }
       }
     } catch (e) {
@@ -970,6 +1002,9 @@ export default function AdminDashboard() {
     setCustomerZalo("");
     setCustomerAddress("");
     setCustomerNotes("");
+    setTopUpCustomerId(null);
+    setTopUpAmount("");
+    setTopUpNote("");
   };
 
   const handleEditCustomerTrigger = (c: any) => {
@@ -979,6 +1014,9 @@ export default function AdminDashboard() {
     setCustomerZalo(c.zalo || "");
     setCustomerAddress(c.address || "");
     setCustomerNotes(c.notes || "");
+    setTopUpCustomerId(c.id);
+    setTopUpAmount("");
+    setTopUpNote("");
     setCustomerModal("edit");
   };
 
@@ -1654,12 +1692,16 @@ export default function AdminDashboard() {
           isActive: true,
           startsAt: new Date(discountStarts).toISOString(),
           endsAt: new Date(discountEnds).toISOString(),
+          description: discountDescription.trim() || undefined,
+          usageLimit: discountUsageLimit.trim() ? Number(discountUsageLimit) : undefined,
         }),
       });
 
       if (res.ok) {
         setDiscountCode("");
         setDiscountAmount(10);
+        setDiscountDescription("");
+        setDiscountUsageLimit("");
         loadData();
       } else {
         const error = await res.json();
@@ -1820,6 +1862,95 @@ export default function AdminDashboard() {
     );
   };
 
+  // --- Plan upgrade requests queue ---
+  const handleApproveUpgradeRequest = async (id: string) => {
+    try {
+      setProcessingUpgradeRequestId(id);
+      const res = await fetch(`${API_URL}/plan-upgrade-requests/${id}/approve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast({
+          title: "Đã duyệt yêu cầu nâng cấp — đã mở giao dịch chờ chuyển khoản trong danh sách bên dưới",
+          type: "success",
+        });
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể duyệt yêu cầu", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi duyệt yêu cầu", type: "error" });
+    } finally {
+      setProcessingUpgradeRequestId(null);
+    }
+  };
+
+  const handleDeclineUpgradeRequest = (id: string) => {
+    requestConfirm(
+      "Từ chối yêu cầu nâng cấp gói này?",
+      async () => {
+        try {
+          setProcessingUpgradeRequestId(id);
+          const res = await fetch(`${API_URL}/plan-upgrade-requests/${id}/decline`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({}),
+          });
+          if (res.ok) {
+            toast({ title: "Đã từ chối yêu cầu nâng cấp", type: "default" });
+            loadData();
+          } else {
+            const error = await res.json().catch(() => ({}));
+            toast({ title: error.message || "Không thể từ chối yêu cầu", type: "error" });
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setProcessingUpgradeRequestId(null);
+        }
+      },
+      { variant: "destructive" },
+    );
+  };
+
+  // --- Admin direct wallet top-up — staff crediting a customer's wallet
+  // straight from the dashboard, no bank-transfer reconciliation step (see
+  // CustomersService.topUpWallet). Opened from the customer edit modal.
+  const handleSubmitWalletTopUp = async () => {
+    if (!topUpCustomerId) return;
+    const amount = Number(topUpAmount);
+    if (!amount || amount <= 0) {
+      toast({ title: "Số tiền nạp phải lớn hơn 0", type: "error" });
+      return;
+    }
+    setIsSubmittingTopUp(true);
+    try {
+      const res = await fetch(`${API_URL}/customers/${topUpCustomerId}/wallet-topup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount, note: topUpNote || undefined }),
+      });
+      if (res.ok) {
+        toast({ title: `Đã cộng ${amount.toLocaleString()} ₫ vào ví khách hàng`, type: "success" });
+        setTopUpAmount("");
+        setTopUpNote("");
+        setTopUpCustomerId(null);
+        loadData();
+      } else {
+        const error = await res.json().catch(() => ({}));
+        toast({ title: error.message || "Không thể nạp tiền vào ví", type: "error" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Lỗi kết nối khi nạp ví", type: "error" });
+    } finally {
+      setIsSubmittingTopUp(false);
+    }
+  };
+
   const formatVND = (num: number) => {
     return `${num.toLocaleString()} ₫`;
   };
@@ -1829,19 +1960,21 @@ export default function AdminDashboard() {
   // every Order row (both source: ONE_OFF and source: SUBSCRIPTION, per the
   // unified model) so this list narrows to ONE_OFF; subscription-sourced
   // rows are shown separately below in "Orders from Subscriptions".
-  const filteredOrders = orders
-    .filter((o) => o.source !== "SUBSCRIPTION")
+  const oneOffOrders = orders.filter((o) => o.source !== "SUBSCRIPTION");
+  // Count per status for the tab badges (over all one-off orders).
+  const orderStatusCounts = ORDER_STATUS_OPTIONS.reduce(
+    (acc, s) => ({ ...acc, [s]: oneOffOrders.filter((o) => o.status === s).length }),
+    {} as Record<string, number>,
+  );
+  // One tab per status is the primary filter — an order jumps to its status's
+  // tab the instant staff advance it (handleUpdateOrderStatus refetches).
+  const filteredOrders = oneOffOrders
     .filter((o) => {
-      if (orderViewTab === "completed") return o.status === "COMPLETED";
-      if (orderViewTab === "cancelled") return o.status === "CANCELLED";
-      if (o.status === "COMPLETED" || o.status === "CANCELLED") return false;
-      if (orderStatusFilter !== "ALL" && o.status !== orderStatusFilter) return false;
+      if (orderViewTab !== "ALL" && o.status !== orderViewTab) return false;
       if (orderFulfillmentFilter !== "ALL" && o.fulfillmentType !== orderFulfillmentFilter) return false;
       if (orderSearch.trim() && !o.customerName?.toLowerCase().includes(orderSearch.trim().toLowerCase())) return false;
-      // "Sắp tới" (upcoming) mode ignores the date input and shows
-      // everything not today (future or overdue); otherwise fall back to
-      // the typeable date filter — empty string means "Tất cả" (no date
-      // narrowing), any other value matches only that exact calendar day.
+      // Optional secondary date narrowing (off by default): "upcoming" hides
+      // today; a typed date matches that calendar day only.
       if (orderDateMode === "upcoming") {
         if (isToday(o.deliveryDate)) return false;
       } else if (orderDateFilter && getLocalDateString(new Date(o.deliveryDate)) !== orderDateFilter) {
@@ -1862,12 +1995,13 @@ export default function AdminDashboard() {
   // separate from the one-off Orders filters above. Derived from the same
   // `orders` state, narrowed to source: SUBSCRIPTION.
   const subscriptionOrders = orders.filter((o) => o.source === "SUBSCRIPTION");
+  const subOrderStatusCounts = ORDER_STATUS_OPTIONS.reduce(
+    (acc, s) => ({ ...acc, [s]: subscriptionOrders.filter((o) => o.status === s).length }),
+    {} as Record<string, number>,
+  );
   const filteredSubscriptionOrders = subscriptionOrders
     .filter((d) => {
-      if (subOrderViewTab === "completed") return d.status === "COMPLETED";
-      if (subOrderViewTab === "cancelled") return d.status === "CANCELLED";
-      if (d.status === "COMPLETED" || d.status === "CANCELLED") return false;
-      if (subOrderStatusFilter !== "ALL" && d.status !== subOrderStatusFilter) return false;
+      if (subOrderViewTab !== "ALL" && d.status !== subOrderViewTab) return false;
       if (subOrderSearch.trim() && !d.customerName?.toLowerCase().includes(subOrderSearch.trim().toLowerCase())) return false;
       if (subOrderDateMode === "upcoming") {
         if (isToday(d.deliveryDate)) return false;
@@ -2095,118 +2229,88 @@ export default function AdminDashboard() {
               {/* SECTION A: DASHBOARD OVERVIEW */}
               {section === "dashboard" && (
                 <div className="space-y-8 animate-in fade-in duration-200">
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: lang === "vi" ? "Tổng doanh thu (VND)" : "Total Revenue (VND)", value: formatVND(stats.totalRevenue), icon: faDollarSign },
-                      { label: lang === "vi" ? "Gói hoạt động" : "Active Subscriptions", value: stats.activeSubscriptions, icon: faCalendarAlt },
-                      { label: lang === "vi" ? "Tổng khách hàng" : "Total Customers", value: stats.totalCustomers, icon: faUsers },
-                      { label: lang === "vi" ? "Tổng đơn món" : "Total Food Orders", value: stats.totalOrders, icon: faShoppingBag },
-                    ].map((item, idx) => (
-                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
-                        </div>
-                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </div>
-                    ))}
+                  {/* 1. NEEDS ATTENTION — urgent, actionable, dominant */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Cần xử lý ngay" : "Needs attention now"}
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      {[
+                        { label: lang === "vi" ? "Đơn chờ duyệt" : "Awaiting acceptance", value: stats.ordersAwaitingAcceptance || 0, icon: faShoppingBag, sectionId: "orders", cta: lang === "vi" ? "Duyệt đơn" : "Review orders" },
+                        { label: lang === "vi" ? "Món hết hàng" : "Out of stock", value: (stats.outOfStockItems || []).length, icon: faBox, sectionId: "inventory", cta: lang === "vi" ? "Kiểm kho" : "Check stock" },
+                        { label: lang === "vi" ? "Cảnh báo số dư thấp" : "Low balance alerts", value: lowBalance.totalCount || 0, icon: faCalendarAlt, sectionId: "subscriptions", cta: lang === "vi" ? "Xem gói" : "View plans" },
+                      ].map((item, idx) => {
+                        const urgent = item.value > 0;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setSection(item.sectionId as any)}
+                            className={`text-left rounded-xl p-5 border-2 transition-smooth hover:opacity-95 cursor-pointer flex flex-col justify-between min-h-[120px] ${
+                              urgent ? "border-red-300 bg-red-50" : "border-border bg-card"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <span className={`text-[11px] font-bold uppercase tracking-wider ${urgent ? "text-red-700" : "text-muted-foreground"}`}>{item.label}</span>
+                              <FontAwesomeIcon icon={item.icon} className={`h-4 w-4 ${urgent ? "text-red-500" : "text-muted-foreground/50"}`} />
+                            </div>
+                            <div className="mt-2">
+                              <div className={`text-3xl font-bold font-heading ${urgent ? "text-red-700" : "text-foreground"}`}>{item.value}</div>
+                              <span className={`text-[11px] font-bold ${urgent ? "text-red-600" : "text-primary"}`}>{item.cta} →</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Order-workflow KPIs — needs-attention counters, click through to Orders */}
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      {
-                        label: lang === "vi" ? "Chờ duyệt" : "Awaiting Acceptance",
-                        value: stats.ordersAwaitingAcceptance || 0,
-                        icon: faShoppingBag,
-                        urgent: (stats.ordersAwaitingAcceptance || 0) > 0,
-                        sectionId: "orders",
-                      },
-                      {
-                        label: lang === "vi" ? "Đang chuẩn bị" : "In Preparation",
-                        value: stats.ordersInPreparation || 0,
-                        icon: faUtensils,
-                        sectionId: "orders",
-                      },
-                      {
-                        label: lang === "vi" ? "Món hết hàng" : "Out of Stock Dishes",
-                        value: (stats.outOfStockItems || []).length,
-                        icon: faBox,
-                        urgent: (stats.outOfStockItems || []).length > 0,
-                        sectionId: "inventory",
-                      },
-                      {
-                        label: lang === "vi" ? "Món sắp hết" : "Low Stock Dishes",
-                        value: (stats.lowStockItems || []).length,
-                        icon: faBox,
-                        sectionId: "inventory",
-                      },
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSection(item.sectionId as any)}
-                        className={`text-left border rounded-lg p-6 flex items-center justify-between transition-smooth hover:opacity-90 cursor-pointer ${
-                          item.urgent ? "border-amber-300 bg-amber-50" : "border-border bg-card"
-                        }`}
-                      >
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
-                        </div>
-                        <div
-                          className={`p-3 rounded-md border ${
-                            item.urgent
-                              ? "border-amber-300 bg-amber-100 text-amber-700"
-                              : "border-primary/20 bg-primary/10 text-primary"
-                          }`}
+                  {/* 2. OPERATIONS — today & this week */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Vận hành hôm nay & tuần này" : "Operations — today & this week"}
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {[
+                        { label: lang === "vi" ? "Đang chuẩn bị" : "In preparation", value: stats.ordersInPreparation || 0, icon: faUtensils, sectionId: "orders" },
+                        { label: lang === "vi" ? "Món sắp hết" : "Low stock dishes", value: (stats.lowStockItems || []).length, icon: faBox, sectionId: "inventory" },
+                        { label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries this week", value: stats.deliveriesThisWeek || 0, icon: faTruck, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding volume (kg)", value: formatGrams(stats.outstandingVolumeGrams || 0), icon: faTruck, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing depletion", value: stats.subscriptionsNearingDepletion || 0, icon: faUtensils, sectionId: "subscriptions" },
+                        { label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes ready now", value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length, icon: faUtensils, sectionId: "inventory" },
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSection(item.sectionId as any)}
+                          className="text-left border border-border bg-card rounded-lg p-4 flex items-center justify-between transition-smooth hover:bg-muted/20 cursor-pointer"
                         >
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</span>
+                            <div className="text-lg font-semibold font-heading">{item.value}</div>
+                          </div>
+                          <FontAwesomeIcon icon={item.icon} className="h-4 w-4 text-muted-foreground/40" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Volume-subscription specific KPIs */}
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      {
-                        label: lang === "vi" ? "Lượng chưa giao (kg)" : "Outstanding Volume (kg)",
-                        value: formatGrams(stats.outstandingVolumeGrams || 0),
-                        icon: faTruck,
-                      },
-                      {
-                        label: lang === "vi" ? "Gói ăn sắp cạn" : "Nearing Depletion",
-                        value: stats.subscriptionsNearingDepletion || 0,
-                        icon: faUtensils,
-                      },
-                      {
-                        label: lang === "vi" ? "Đã giao tháng này" : "Delivered This Month",
-                        value: formatGrams(stats.gramsDeliveredThisMonth || 0),
-                        icon: faCalendarAlt,
-                      },
-                      {
-                        label: lang === "vi" ? "Giao hàng tuần này" : "Deliveries This Week",
-                        value: stats.deliveriesThisWeek || 0,
-                        icon: faShoppingBag,
-                      },
-                      {
-                        label: lang === "vi" ? "Món sẵn sàng ngay" : "Dishes Ready Now",
-                        value: stats.dishesReadyNow ?? menuItems.filter((m) => (m.stockQuantity ?? 0) > 0).length,
-                        icon: faUtensils,
-                      },
-                    ].map((item, idx) => (
-                      <div key={idx} className="border border-border bg-card rounded-lg p-6 flex items-center justify-between">
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ">{item.label}</span>
-                          <div className="text-xl font-semibold font-heading">{item.value}</div>
+                  {/* 3. ALL-TIME — small context footer */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === "vi" ? "Tổng quan" : "All-time"}
+                    </h3>
+                    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { label: lang === "vi" ? "Tổng doanh thu" : "Total revenue", value: formatVND(stats.totalRevenue) },
+                        { label: lang === "vi" ? "Đã giao tháng này" : "Delivered this month", value: formatGrams(stats.gramsDeliveredThisMonth || 0) },
+                        { label: lang === "vi" ? "Gói hoạt động" : "Active subscriptions", value: stats.activeSubscriptions },
+                        { label: lang === "vi" ? "Tổng khách hàng" : "Total customers", value: stats.totalCustomers },
+                        { label: lang === "vi" ? "Tổng đơn món" : "Total food orders", value: stats.totalOrders },
+                      ].map((item, idx) => (
+                        <div key={idx} className="bg-muted/20 rounded-lg px-4 py-3">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{item.label}</span>
+                          <div className="text-sm font-bold font-heading mt-0.5">{item.value}</div>
                         </div>
-                        <div className="p-3 rounded-md border border-primary/20 bg-primary/10 text-primary">
-                          <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   {/* Inventory alerts — out-of-stock / low-stock dishes */}
@@ -2408,65 +2512,52 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Current / Completed / Cancelled — the status dropdown
-                      walks an order through PENDING_CONFIRMATION →
-                      CONFIRMED → PREPARING → OUT_FOR_DELIVERY → COMPLETED;
-                      reaching COMPLETED drops it out of Current into the
-                      Completed tab here. */}
-                  <div className="flex gap-2 border-b border-border">
-                    {(
-                      [
-                        { id: "current", label: "Current" },
-                        { id: "completed", label: "Completed" },
-                        { id: "cancelled", label: "Cancelled" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setOrderViewTab(tab.id)}
-                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
-                          orderViewTab === tab.id
-                            ? "border-primary text-primary"
-                            : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  {/* One tab per order status (plus All). Advancing an order's
+                      status from its row moves it to that status's tab
+                      automatically (loadData refetch -> re-filter). */}
+                  <div className="flex gap-1 border-b border-border overflow-x-auto">
+                    {(["ALL", ...ORDER_STATUS_OPTIONS] as const).map((tabId) => {
+                      const count = tabId === "ALL" ? oneOffOrders.length : orderStatusCounts[tabId] ?? 0;
+                      const label = tabId === "ALL" ? (lang === "vi" ? "Tất cả" : "All") : ORDER_STATUS_LABELS[tabId as OrderStatus];
+                      const active = orderViewTab === tabId;
+                      return (
+                        <button
+                          key={tabId}
+                          onClick={() => setOrderViewTab(tabId)}
+                          className={`px-3 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                            active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                          {count > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Filters — only meaningful within Current, where more
-                      than one status/fulfillment type can be mixed together. */}
-                  {orderViewTab === "current" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={orderSearch}
-                        onChange={(e) => setOrderSearch(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
-                      />
-                      <select
-                        value={orderStatusFilter}
-                        onChange={(e) => setOrderStatusFilter(e.target.value as typeof orderStatusFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All statuses</option>
-                        {ORDER_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={orderFulfillmentFilter}
-                        onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All fulfillment</option>
-                        <option value="IMMEDIATE">Ready Now</option>
-                        <option value="SCHEDULED">Needs Prep</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* Secondary filters — available on every status tab. */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search customer..."
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                    <select
+                      value={orderFulfillmentFilter}
+                      onChange={(e) => setOrderFulfillmentFilter(e.target.value as typeof orderFulfillmentFilter)}
+                      className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+                    >
+                      <option value="ALL">All fulfillment</option>
+                      <option value="IMMEDIATE">Ready Now</option>
+                      <option value="SCHEDULED">Needs Prep</option>
+                    </select>
+                  </div>
 
                   {orderDayGroups.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
@@ -2495,6 +2586,7 @@ export default function AdminDashboard() {
                                   <div className="text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5">
                                     {o.deliveryAddress && <span>📍 {o.deliveryAddress}</span>}
                                     <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                    {o.createdAt && <span>🕐 Đặt lúc {new Date(o.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span>}
                                   </div>
                                 </div>
                                 <span className="font-bold text-primary">{formatVND(o.total)}</span>
@@ -2585,6 +2677,7 @@ export default function AdminDashboard() {
                                     <div className="text-[10px] text-muted-foreground flex flex-col gap-0.5 mt-1">
                                       {o.deliveryAddress && <span className="truncate max-w-[200px]" title={o.deliveryAddress}>📍 {o.deliveryAddress}</span>}
                                       <span>💳 {o.paymentMethod === "BANK_TRANSFER" ? "VietQR CK" : "Ship COD"}</span>
+                                      {o.createdAt && <span>🕐 Đặt lúc {new Date(o.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span>}
                                     </div>
                                     {o.notes && <div className="text-[10px] text-primary italic truncate mt-1.5">&quot;{o.notes}&quot;</div>}
                                   </td>
@@ -2701,49 +2794,39 @@ export default function AdminDashboard() {
                       subscription-generated orders — separate state from
                       the one-off Orders tabs above, so switching one
                       doesn't affect the other. */}
-                  <div className="flex gap-2 border-b border-border">
-                    {(
-                      [
-                        { id: "current", label: "Current" },
-                        { id: "completed", label: "Completed" },
-                        { id: "cancelled", label: "Cancelled" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setSubOrderViewTab(tab.id)}
-                        className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer ${
-                          subOrderViewTab === tab.id
-                            ? "border-primary text-primary"
-                            : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  <div className="flex gap-1 border-b border-border overflow-x-auto">
+                    {(["ALL", ...ORDER_STATUS_OPTIONS] as const).map((tabId) => {
+                      const count = tabId === "ALL" ? subscriptionOrders.length : subOrderStatusCounts[tabId] ?? 0;
+                      const label = tabId === "ALL" ? (lang === "vi" ? "Tất cả" : "All") : ORDER_STATUS_LABELS[tabId as OrderStatus];
+                      const active = subOrderViewTab === tabId;
+                      return (
+                        <button
+                          key={tabId}
+                          onClick={() => setSubOrderViewTab(tabId)}
+                          className={`px-3 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                            active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                          {count > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {subOrderViewTab === "current" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={subOrderSearch}
-                        onChange={(e) => setSubOrderSearch(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
-                      />
-                      <select
-                        value={subOrderStatusFilter}
-                        onChange={(e) => setSubOrderStatusFilter(e.target.value as typeof subOrderStatusFilter)}
-                        className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-                      >
-                        <option value="ALL">All statuses</option>
-                        {ORDER_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search customer..."
+                      value={subOrderSearch}
+                      onChange={(e) => setSubOrderSearch(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-border bg-background outline-none focus:border-primary w-48"
+                    />
+                  </div>
 
                   {subOrderDayGroups.length === 0 ? (
                     <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
@@ -2774,6 +2857,11 @@ export default function AdminDashboard() {
                                 <tr key={d.id} className="border-b border-border/20 last:border-0 align-top">
                                   <td className="py-4">
                                     <div className="font-bold">{d.customerName}</div>
+                                    {d.createdAt && (
+                                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        🕐 Đặt lúc {new Date(d.createdAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="py-4 text-primary font-semibold">{d.packageName}</td>
                                   <td className="py-4  text-muted-foreground">{formatGrams(d.totalGrams)}</td>
@@ -2872,12 +2960,10 @@ export default function AdminDashboard() {
                             </span>
                             <span className="font-bold text-primary">{formatVND(c.walletBalance || 0)}</span>
                           </div>
-                          {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() && (
+                          {c.planDiscountPercent > 0 && c.walletBalance > 0 && (
                             <div className="flex items-center justify-between text-[11px] bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
                               <span className="font-semibold text-foreground">Ưu đãi gói:</span>
-                              <span className="font-bold text-emerald-700">
-                                {c.planDiscountPercent}% — đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
-                              </span>
+                              <span className="font-bold text-emerald-700">-{c.planDiscountPercent}% mọi đơn (đến khi hết ví)</span>
                             </div>
                           )}
                         </div>
@@ -2886,36 +2972,34 @@ export default function AdminDashboard() {
 
                     {/* Desktop table view */}
                     <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-xs text-left">
+                      <table className="w-full text-xs text-left border-separate border-spacing-0">
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-3">
-                            <th className="pb-3 font-semibold">Tên</th>
-                            <th className="pb-3 font-semibold">SĐT</th>
-                            <th className="pb-3 font-semibold">Zalo</th>
-                            <th className="pb-3 font-semibold">Địa chỉ</th>
-                            <th className="pb-3 font-semibold text-right">Số dư ví</th>
-                            <th className="pb-3 font-semibold">Ưu đãi gói</th>
-                            <th className="pb-3 font-semibold text-center">Actions</th>
+                            <th className="pb-3 pr-4 font-semibold">Tên</th>
+                            <th className="pb-3 pr-4 font-semibold">SĐT</th>
+                            <th className="pb-3 pr-4 font-semibold">Zalo</th>
+                            <th className="pb-3 pr-4 font-semibold">Địa chỉ</th>
+                            <th className="pb-3 pr-4 font-semibold text-right whitespace-nowrap">Số dư ví</th>
+                            <th className="pb-3 pr-4 font-semibold whitespace-nowrap">Ưu đãi gói</th>
+                            <th className="pb-3 pl-4 font-semibold text-center">Thao tác</th>
                           </tr>
                         </thead>
                         <tbody>
                           {paginate(customers, clampPage(customersPage, Math.ceil(customers.length / PAGE_SIZE) || 1), PAGE_SIZE).map((c) => (
                             <tr key={c.id} className="border-b border-border/20 last:border-0">
-                              <td className="py-3.5 font-bold">{c.name}</td>
-                              <td className="py-3.5 text-muted-foreground">{c.phone || "—"}</td>
-                              <td className="py-3.5 text-muted-foreground">{c.zalo || "—"}</td>
-                              <td className="py-3.5 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
-                              <td className="py-3.5 text-right font-bold text-primary">{formatVND(c.walletBalance || 0)}</td>
-                              <td className="py-3.5">
-                                {c.planDiscountPercent > 0 && c.planDiscountEndsAt && new Date(c.planDiscountEndsAt) > new Date() ? (
-                                  <span className="font-bold text-emerald-700">
-                                    {c.planDiscountPercent}% đến {new Date(c.planDiscountEndsAt).toLocaleDateString("vi-VN")}
-                                  </span>
+                              <td className="py-3.5 pr-4 font-bold">{c.name}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground whitespace-nowrap">{c.phone || "—"}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground whitespace-nowrap">{c.zalo || "—"}</td>
+                              <td className="py-3.5 pr-4 text-muted-foreground truncate max-w-[200px]">{c.address || "—"}</td>
+                              <td className="py-3.5 pr-4 text-right font-bold text-primary whitespace-nowrap">{formatVND(c.walletBalance || 0)}</td>
+                              <td className="py-3.5 pr-4 whitespace-nowrap">
+                                {c.planDiscountPercent > 0 && c.walletBalance > 0 ? (
+                                  <span className="font-bold text-emerald-700">-{c.planDiscountPercent}% (đến khi hết ví)</span>
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
                                 )}
                               </td>
-                              <td className="py-3.5">
+                              <td className="py-3.5 pl-4">
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => handleEditCustomerTrigger(c)}
@@ -3334,13 +3418,14 @@ export default function AdminDashboard() {
                             })}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                          <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px] text-muted-foreground">
                             <div>
                               Giao {formatGrams(sub.deliveryAmountGrams)} / {formatIntervalLabel(sub.deliveryIntervalDays)}
                             </div>
                             <div className="text-right font-bold text-primary">{formatVND(sub.totalPrice)}</div>
-                            <div>Thanh toán: {sub.paymentStatus}</div>
-                            <div className="text-right">
+                            <div>Bắt đầu: {sub.startDate ? new Date(sub.startDate).toLocaleDateString("vi-VN") : "—"}</div>
+                            <div className="text-right">Thanh toán: {sub.paymentStatus}</div>
+                            <div className="col-span-2 text-right">
                               {sub.postponedCount > 0 ? `Đã hoãn ${sub.postponedCount} lần` : `${pct}% còn lại`}
                             </div>
                           </div>
@@ -3704,6 +3789,33 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Description <span className="normal-case font-normal">(internal note, not shown to customer)</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Tết 2026 campaign, public code shared on Facebook"
+                          value={discountDescription}
+                          onChange={(e) => setDiscountDescription(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Usage Limit <span className="normal-case font-normal">(blank = unlimited)</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 20 — only the first 20 redemptions succeed"
+                          value={discountUsageLimit}
+                          onChange={(e) => setDiscountUsageLimit(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                        />
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold py-3.5 rounded-xl transition-all text-xs cursor-pointer"
@@ -3721,8 +3833,10 @@ export default function AdminDashboard() {
                         <thead>
                           <tr className="text-muted-foreground border-b border-border/50 pb-2">
                             <th className="pb-3 font-semibold">Code</th>
+                            <th className="pb-3 font-semibold">Origin</th>
                             <th className="pb-3 font-semibold">Type</th>
                             <th className="pb-3 font-semibold">Value</th>
+                            <th className="pb-3 font-semibold">Usage</th>
                             <th className="pb-3 font-semibold">Valid Period</th>
                             <th className="pb-3 font-semibold text-center">Actions</th>
                           </tr>
@@ -3731,9 +3845,33 @@ export default function AdminDashboard() {
                           {paginate(discounts, clampPage(discountsPage, Math.ceil(discounts.length / PAGE_SIZE) || 1), PAGE_SIZE).map((d) => (
                             <tr key={d.id} className="border-b border-border/20 last:border-0">
                               <td className="py-3.5 font-bold tracking-wider">{d.code}</td>
+                              <td className="py-3.5 max-w-[220px]">
+                                {d.customerId ? (
+                                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full mb-1">
+                                    Customer-linked{d.customerName ? `: ${d.customerName}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full mb-1">
+                                    Admin / public
+                                  </span>
+                                )}
+                                {d.description && (
+                                  <p className="text-muted-foreground leading-snug">{d.description}</p>
+                                )}
+                              </td>
                               <td className="py-3.5 text-muted-foreground">{d.type}</td>
                               <td className="py-3.5 font-bold text-primary">
                                 {d.type === "PERCENTAGE" ? `${d.amount} %` : formatVND(d.amount)}
+                              </td>
+                              <td className="py-3.5">
+                                {d.usageLimit == null ? (
+                                  <span className="text-muted-foreground">{d.usageCount ?? 0} used</span>
+                                ) : (
+                                  <span className={d.usageCount >= d.usageLimit ? "font-bold text-red-500" : "text-muted-foreground"}>
+                                    {d.usageCount ?? 0} / {d.usageLimit}
+                                    {d.usageCount >= d.usageLimit ? " — out of uses" : ""}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-3.5 text-muted-foreground">
                                 {new Date(d.startsAt).toLocaleDateString("vi-VN")} - {new Date(d.endsAt).toLocaleDateString("vi-VN")}
@@ -3998,6 +4136,72 @@ export default function AdminDashboard() {
                       onChange={setPendingTopUpsPage}
                     />
                   </div>
+
+                  {/* Plan-upgrade requests queue — a customer already
+                      holding an active plan discount asking to move to a
+                      higher tier before it expires. Approving one does NOT
+                      credit the wallet directly — it opens a PENDING
+                      payment that then shows up in the "Chờ xác nhận
+                      chuyển khoản" queue above, same confirm/reject flow as
+                      any other plan purchase. */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold font-heading">
+                      Yêu cầu nâng cấp gói ({pendingUpgradeRequests.length})
+                    </h3>
+                    {pendingUpgradeRequests.length === 0 ? (
+                      <div className="border border-dashed border-border rounded-lg py-16 text-center text-xs text-muted-foreground">
+                        Không có yêu cầu nâng cấp gói nào đang chờ duyệt
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {pendingUpgradeRequests.map((r: any) => (
+                          <div key={r.id} className="border border-border bg-card rounded-2xl p-5 shadow-sm space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-sm">{r.customerName}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Muốn chuyển sang: <span className="font-semibold">{r.requestedPlanName}</span>
+                                </p>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap bg-amber-50 text-amber-700 border-amber-200">
+                                Chờ duyệt
+                              </span>
+                            </div>
+
+                            <div className="text-xs space-y-1 bg-muted/30 border border-border/50 rounded-lg p-3">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Ngày yêu cầu:</span>
+                                <span className="font-semibold">{new Date(r.createdAt).toLocaleString("vi-VN")}</span>
+                              </div>
+                              {r.notes && (
+                                <div className="pt-1">
+                                  <span className="text-muted-foreground">Ghi chú của khách: </span>
+                                  <span className="font-semibold">{r.notes}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                              <button
+                                onClick={() => handleApproveUpgradeRequest(r.id)}
+                                disabled={processingUpgradeRequestId === r.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faCheck} className="h-3 w-3" /> Duyệt
+                              </button>
+                              <button
+                                onClick={() => handleDeclineUpgradeRequest(r.id)}
+                                disabled={processingUpgradeRequestId === r.id}
+                                className="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-md border border-red-300 text-red-600 hover:bg-red-50 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="h-3 w-3" /> Từ chối
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -4113,6 +4317,79 @@ export default function AdminDashboard() {
                       pageSize={PAGE_SIZE}
                       onChange={setHomeFramesPage}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* SYSTEM SETTINGS MANAGER */}
+              {section === "system-settings" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div>
+                    <h2 className="text-xl font-bold font-heading">Cấu hình Hệ thống</h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Thiết lập các thông tin chung của ứng dụng như số điện thoại hỗ trợ và các liên kết mạng xã hội của cửa hàng.
+                    </p>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-8 shadow-sm max-w-xl space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Số điện thoại Hotline</label>
+                        <input
+                          type="text"
+                          value={settingsHotline}
+                          onChange={(e) => setSettingsHotline(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. 090 123 4567"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Liên kết Facebook</label>
+                        <input
+                          type="url"
+                          value={settingsFacebook}
+                          onChange={(e) => setSettingsFacebook(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. https://facebook.com/fortifykitchen"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Liên kết Instagram</label>
+                        <input
+                          type="url"
+                          value={settingsInstagram}
+                          onChange={(e) => setSettingsInstagram(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. https://instagram.com/fortifykitchen"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSavingSettings}
+                      onClick={() => {
+                        setIsSavingSettings(true);
+                        setTimeout(() => {
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("settings_facebook", settingsFacebook);
+                            localStorage.setItem("settings_instagram", settingsInstagram);
+                            localStorage.setItem("settings_hotline", settingsHotline);
+                          }
+                          toast({
+                            title: "Lưu thành công",
+                            description: "Đã cập nhật cấu hình hệ thống.",
+                            type: "success",
+                          });
+                          setIsSavingSettings(false);
+                        }, 600);
+                      }}
+                      className="bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-1.5 w-full cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingSettings ? "Đang lưu..." : "Lưu cấu hình"}
+                    </button>
                   </div>
                 </div>
               )}
@@ -4403,6 +4680,56 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+
+            {/* Direct wallet top-up — staff crediting the customer's wallet
+                right from here, no bank-transfer reconciliation step (see
+                CustomersService.topUpWallet). Edit mode only: a brand-new
+                customer has no wallet history worth crediting yet before
+                being saved. */}
+            {customerModal === "edit" && (() => {
+              const editingCustomer = customers.find((c: any) => c.id === editingCustomerId);
+              return (
+                <div className="pt-5 border-t border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold font-heading flex items-center gap-1.5">
+                      <FontAwesomeIcon icon={faWallet} className="h-3 w-3 text-primary" />
+                      Nạp ví trực tiếp
+                    </h4>
+                    {editingCustomer && (
+                      <span className="text-[11px] text-muted-foreground">
+                        Số dư hiện tại: <span className="font-bold text-primary">{formatVND(editingCustomer.walletBalance ?? 0)}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Số tiền (₫)"
+                      value={topUpAmount}
+                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Ghi chú (không bắt buộc)"
+                      value={topUpNote}
+                      onChange={(e) => setTopUpNote(e.target.value)}
+                      className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSubmitWalletTopUp}
+                    disabled={isSubmittingTopUp || !topUpAmount}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    <FontAwesomeIcon icon={faWallet} className="h-3 w-3" />
+                    {isSubmittingTopUp ? "Đang nạp..." : "Nạp vào ví"}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -4456,6 +4783,11 @@ export default function AdminDashboard() {
               <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
                 {orderDetailView.paymentStatus}
               </span>
+              {orderDetailView.type && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+                  {orderDetailView.type === "IMMEDIATE_DELIVERY" ? "Giao ngay" : "Pre-order"}
+                </span>
+              )}
             </div>
 
             <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-2 text-xs">
@@ -4502,6 +4834,13 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-3">
                 &quot;{orderDetailView.notes}&quot;
               </p>
+            )}
+
+            {orderDetailView.systemNotes && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 leading-relaxed">
+                <p className="font-semibold mb-0.5">Lưu ý hệ thống:</p>
+                <p>{orderDetailView.systemNotes}</p>
+              </div>
             )}
 
             <div className="flex gap-3 pt-2">

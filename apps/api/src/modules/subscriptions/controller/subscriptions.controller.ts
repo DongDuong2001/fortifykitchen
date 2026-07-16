@@ -39,10 +39,19 @@ export class SubscriptionsController {
 
   @Get("me")
   @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
-  @ApiOperation({ summary: "Get current customer's subscription history" })
-  @ApiResponse({ status: 200, description: "Returns own subscriptions." })
-  async findMe(@CurrentUser() user: any): Promise<Subscription[]> {
-    return this.subscriptionsService.findForUser(user.id);
+  @ApiOperation({ summary: "Get current customer's subscriptions, each enriched with its next few upcoming deliveries" })
+  @ApiResponse({ status: 200, description: "Returns own subscriptions with upcomingOrders attached." })
+  async findMe(@CurrentUser() user: any) {
+    return this.subscriptionsService.findForUserWithUpcoming(user.id);
+  }
+
+  @Post("orders/:orderId/postpone")
+  @Roles("ADMIN", "MANAGER", "STAFF", "CUSTOMER")
+  @ApiOperation({ summary: "Postpone one of my own subscription's upcoming deliveries (logged-in customer, no phone needed)" })
+  @ApiResponse({ status: 200, description: "Schedule shifted." })
+  @ApiResponse({ status: 403, description: "This delivery doesn't belong to your account" })
+  async postponeMyDelivery(@Param("orderId", ParseUUIDPipe) orderId: string, @CurrentUser() user: any) {
+    return this.subscriptionsService.postponeOrderForUser(orderId, user.id);
   }
 
   @Get(":id")

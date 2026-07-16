@@ -5,6 +5,7 @@ import { UpdateCustomerDto } from "../dto/update-customer.dto";
 import { normalizePhone } from "../../../common/utils/phone.util";
 import { parsePagination } from "../../../common/utils/pagination.util";
 import { Customer } from "@fortifykitchen/types";
+import { Decimal, PaymentMethod, PaymentStatus } from "@fortifykitchen/database";
 
 @Injectable()
 export class CustomersService {
@@ -14,6 +15,7 @@ export class CustomersService {
     const { skip, take } = parsePagination(page, limit);
     const list = await this.db.client.customer.findMany({
       orderBy: { createdAt: "desc" },
+      include: { currentPlan: true },
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
@@ -23,6 +25,7 @@ export class CustomersService {
   async findOne(id: string): Promise<Customer> {
     const customer = await this.db.client.customer.findUnique({
       where: { id },
+      include: { currentPlan: true },
     });
 
     if (!customer) {
@@ -43,6 +46,7 @@ export class CustomersService {
         address: dto.address,
         notes: dto.notes,
       },
+      include: { currentPlan: true },
     });
 
     return this.mapCustomer(customer);
@@ -60,6 +64,7 @@ export class CustomersService {
         address: dto.address,
         notes: dto.notes,
       },
+      include: { currentPlan: true },
     });
 
     return this.mapCustomer(customer);
@@ -85,11 +90,47 @@ export class CustomersService {
   async findByUserId(userId: string): Promise<Customer> {
     const customer = await this.db.client.customer.findFirst({
       where: { userId },
+      include: { currentPlan: true },
     });
     if (!customer) {
       throw new NotFoundException(`Customer for user ID ${userId} not found`);
     }
     return this.mapCustomer(customer);
+  }
+
+  // Staff directly crediting a customer's wallet from the admin dashboard —
+  // no bank-transfer reconciliation step, since staff are the ones putting
+  // the money in right now (e.g. cash handed over in person, a transfer that
+  // arrived through a channel not otherwise tracked here). Creates a
+  // COMPLETED Payment immediately (audit trail — deliberately not piggybacked
+  // on update() which has no such record) and increments walletBalance
+  // atomically in the same transaction, mirroring
+  // SubscriptionPlansService.confirmPurchase()'s shape.
+  async topUpWallet(id: string, amount: number, note?: string): Promise<Customer> {
+    await this.findOne(id);
+
+    const updated = await this.db.client.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          customerId: id,
+          amount: new Decimal(amount),
+          method: PaymentMethod.MANUAL_TOPUP,
+          status: PaymentStatus.COMPLETED,
+          // No dedicated notes field on Payment — transactionId is repurposed
+          // here to hold staff's free-text reason, same as it would hold a
+          // gateway reference for other payment methods.
+          transactionId: note,
+        },
+      });
+
+      return tx.customer.update({
+        where: { id },
+        data: { walletBalance: { increment: amount } },
+        include: { currentPlan: true },
+      });
+    });
+
+    return this.mapCustomer(updated);
   }
 
   private mapCustomer(customer: {
@@ -102,7 +143,8 @@ export class CustomersService {
     notes: string | null;
     walletBalance: number;
     planDiscountPercent: number;
-    planDiscountEndsAt: Date | null;
+    currentPlanId: string | null;
+    currentPlan: { id: string; name: string; voucherPercent: number } | null;
     createdAt: Date;
     updatedAt: Date;
   }): Customer {
@@ -116,7 +158,9 @@ export class CustomersService {
       notes: customer.notes ?? undefined,
       walletBalance: customer.walletBalance,
       planDiscountPercent: customer.planDiscountPercent,
-      planDiscountEndsAt: customer.planDiscountEndsAt ?? undefined,
+      currentPlanId: customer.currentPlanId ?? undefined,
+      currentPlanName: customer.currentPlan?.name,
+      currentPlanVoucherPercent: customer.currentPlan?.voucherPercent,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };

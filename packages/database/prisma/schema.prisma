@@ -72,6 +72,11 @@ enum OrderFulfillmentType {
   SCHEDULED // at least one line item needed prep; no stock was touched
 }
 
+enum OrderType {
+  IMMEDIATE_DELIVERY
+  PRE_ORDER
+}
+
 enum Protein {
   CHICKEN
   BEEF
@@ -93,6 +98,13 @@ enum PaymentMethod {
   CASH_ON_DELIVERY
   BANK_TRANSFER
   WALLET // paid from Customer.walletBalance — see docs/plan-and-credit-design.md
+  MANUAL_TOPUP // staff directly credited the wallet from the admin dashboard, no customer bank transfer involved
+}
+
+enum PlanUpgradeRequestStatus {
+  PENDING // customer submitted, awaiting staff review
+  APPROVED // staff approved — a PENDING Payment was created for the new tier, same confirm/reject queue as a normal plan purchase
+  DECLINED
 }
 
 model User {
@@ -166,20 +178,35 @@ model Customer {
   // Recurring membership discount, granted directly on Customer rather than
   // as a redeemable Discount code — buying a SubscriptionPlan with
   // voucherPercent > 0 sets this (see SubscriptionPlansService.confirmPurchase)
-  // and it applies silently to every order until planDiscountEndsAt, no code
-  // to type, nothing to "redeem." Decided: this REPLACES the earlier
-  // single-use plan-purchase voucher design entirely — a customer can only
+  // and it applies silently to every order, no code to type, nothing to
+  // "redeem." Decided: this REPLACES the earlier single-use plan-purchase
+  // voucher design entirely. Indefinite by design — NOT time-limited: it
+  // stays in effect for as long as walletBalance > 0 (i.e. until the
+  // customer has spent down the credit that plan purchase funded), then
+  // naturally stops applying once the balance hits zero. A customer can only
   // ever hold one plan's discount at a time (see the purchase() guard, which
-  // blocks buying a new plan while planDiscountEndsAt is still in the
-  // future; upgrading mid-term is a staff-assisted action, not self-serve).
-  planDiscountPercent Int       @default(0)
-  planDiscountEndsAt  DateTime?
+  // blocks buying a new plan while walletBalance is still > 0; upgrading
+  // mid-plan goes through PlanUpgradeRequest instead, which prorates the
+  // top-up so the customer only pays the difference up to the new tier's
+  // price — see SubscriptionPlansService.approveUpgradeRequest).
+  planDiscountPercent Int @default(0)
 
-  orders             Order[]
-  subscriptions      Subscription[]
-  customPlanRequests CustomPlanRequest[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  // Which SubscriptionPlan tier produced the discount/balance above — purely
+  // informational (so the wallet page can show "you're on the Gói 3 triệu
+  // plan" and its benefits), never read for any gating/pricing logic, which
+  // stays keyed off planDiscountPercent/walletBalance directly. Set by
+  // SubscriptionPlansService.confirmPurchase whenever it sets a discount;
+  // left in place (not cleared) once walletBalance hits 0 — still useful as
+  // "your last plan" until the customer buys a new one and it's overwritten.
+  currentPlanId String?
+  currentPlan   SubscriptionPlan? @relation(fields: [currentPlanId], references: [id], onDelete: SetNull)
+
+  orders              Order[]
+  subscriptions       Subscription[]
+  customPlanRequests  CustomPlanRequest[]
+  planUpgradeRequests PlanUpgradeRequest[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([phone])
 }
@@ -250,6 +277,8 @@ model Order {
   paymentStatus   PaymentState  @default(UNPAID)
   status          OrderStatus   @default(PENDING_CONFIRMATION)
   fulfillmentType OrderFulfillmentType @default(SCHEDULED)
+  type            OrderType     @default(IMMEDIATE_DELIVERY)
+  systemNotes     String?
   paymentMethod   PaymentMethod @default(CASH_ON_DELIVERY)
   deliveryAddress String?
   subtotal        Int
@@ -408,12 +437,31 @@ model CustomPlanRequest {
   @@index([matchedSubscriptionId])
 }
 
-// Coupon-style promo codes. Two origins now share this table: (1) a public
-// code an admin creates by hand (customerId null), and (2) a voucher
-// auto-issued to one specific customer when they buy a SubscriptionPlan
-// (customerId set, code auto-generated — see SubscriptionPlansService) —
-// the tiered "5% off / 10% off" reward described in
-// docs/plan-and-credit-design.md.
+// Coupon-style promo codes. Historically this table had two origins: (1) a
+// public code an admin creates by hand (customerId null), and (2) a
+// voucher auto-issued to one specific customer when they bought a
+// SubscriptionPlan (customerId set, code auto-generated). Origin (2) was
+// retired — SubscriptionPlan purchases now set Customer.planDiscountPercent
+// / planDiscountEndsAt directly instead of minting a Discount row (see
+// SubscriptionPlansService.confirmPurchase and
+// docs/plan-and-credit-design.md) — so every NEW row here is admin-created.
+// customerId/redemptions are kept because (a) any pre-migration voucher
+// rows still exist and are still redeemable/expirable, and (b) an admin can
+// still hand-create a customer-scoped code via customerId if needed.
+//
+// `description` is admin-facing only (never shown to the customer) so
+// staff can tell codes apart at a glance — e.g. "Tết 2026 campaign,
+// public" vs "Goodwill code for customer X after late delivery" — without
+// having to infer origin from customerId alone.
+// usageLimit/usageCount cap total redemptions across ALL customers
+// (separate from the existing @@unique([discountId, customerId]) on
+// DiscountRedemption, which only ever caps one customer to one use of a
+// given code). usageLimit null = unlimited. usageCount is a denormalized
+// counter incremented atomically in the same transaction that creates the
+// DiscountRedemption row (see OrdersService.create) via a conditional
+// `updateMany` guarded by `usageCount < usageLimit` — Postgres row locking
+// inside that transaction is what makes the check-and-increment safe under
+// concurrent redemptions, not a plain read-then-write.
 model Discount {
   id          String              @id @default(uuid())
   code        String              @unique
@@ -422,7 +470,10 @@ model Discount {
   isActive    Boolean             @default(true)
   startsAt    DateTime
   endsAt      DateTime
-  customerId  String? // set only for a plan-purchase voucher; null for a public code
+  customerId  String? // set for a customer-scoped code (legacy plan voucher, or a hand-created one-off); null for a public code
+  description String? // admin-only note on why this code exists / who it's for
+  usageLimit  Int? // max total redemptions across all customers; null = unlimited
+  usageCount  Int                 @default(0) // denormalized count of successful redemptions so far
   redemptions DiscountRedemption[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
@@ -473,7 +524,40 @@ model SubscriptionPlan {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  upgradeRequests PlanUpgradeRequest[]
+  // Customers currently "on" this tier — see Customer.currentPlanId.
+  customers       Customer[]
+
   @@index([isActive])
+}
+
+// A customer already holding an active plan discount asks to move to a
+// higher tier before their current one expires — normally blocked outright
+// by SubscriptionPlansService.purchase()'s one-active-discount-at-a-time
+// guard, so this is the self-serve request path instead of "contact our
+// team." Approving one does NOT credit the wallet directly — it creates
+// the same kind of PENDING Payment a normal purchase() would (deliberately
+// bypassing that guard, since staff have now explicitly signed off), which
+// then flows through the existing subscription-plan-purchases confirm/
+// reject queue once the bank transfer actually arrives. This keeps exactly
+// one place (SubscriptionPlansService.confirmPurchase) ever responsible for
+// crediting walletBalance / setting the new discount tier.
+model PlanUpgradeRequest {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  requestedPlanId String
+  requestedPlan   SubscriptionPlan @relation(fields: [requestedPlanId], references: [id], onDelete: Cascade)
+  notes           String? // optional note from the customer on why they want to upgrade now
+  status          PlanUpgradeRequestStatus @default(PENDING)
+  adminNotes      String? // staff's reason for declining, if declined
+  paymentId       String? // set once approved — the Payment row staff need to confirm
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
 }
 
 // Ledger of actual payment transactions (future real payment processing).

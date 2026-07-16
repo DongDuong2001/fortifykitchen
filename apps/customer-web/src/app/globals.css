@@ -1,11 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@200..800&display=swap');
 @import "tailwindcss";
 
 /*
- * "Soumaki — Your Healthy Food Soulmate" design system — from DESIGN.md.
- * Mapped onto the existing shadcn-style CSS-variable convention
- * (--primary, --secondary, --accent, --muted, --border, --ring, etc.) so
- * every component in packages/ui automatically inherits the palette.
+ * FortifyKitchen Design System — Premium Sweetgreen / CAVA / Apple style adaptation
  */
 @theme {
   --color-background: var(--background);
@@ -28,49 +24,58 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Fraunces", "Inter", serif;
+  --font-heading: var(--font-heading), "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-body), "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* DESIGN.md's radius scale (sm: 8px / md: 16px / lg: 24px) */
+  /* Premium rounded radius scale */
   --radius-xs: 4px;
   --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
-  --radius-2xl: 40px;
-  --radius-3xl: 48px;
-  --radius-4xl: 64px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+  --radius-4xl: 32px;
 
-  /* Custom shadows */
-  --shadow-xs: 0 1px 0 rgba(47, 74, 60, 0.04);
-  --shadow-sm: 0 1px 2px rgba(47, 74, 60, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(47, 74, 60, 0.08), 0 2px 4px -1px rgba(47, 74, 60, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(47, 74, 60, 0.1), 0 10px 10px -5px rgba(47, 74, 60, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(47, 74, 60, 0.15);
+  /* Soft and deep luxury shadows */
+  --shadow-card: 0 16px 40px rgba(46, 42, 39, .03);
+  --shadow-card-hover: 0 24px 60px rgba(46, 42, 39, .06);
+  --shadow-xs: 0 1px 2px rgba(46, 42, 39, .01);
+  --shadow-sm: 0 2px 4px rgba(46, 42, 39, .02);
+  --shadow-md: 0 4px 8px -1px rgba(46, 42, 39, .03), 0 2px 4px -1px rgba(46, 42, 39, .01);
+  --shadow-lg: 0 10px 15px -3px rgba(46, 42, 39, .03), 0 4px 6px -2px rgba(46, 42, 39, .01);
+  --shadow-xl: 0 20px 25px -5px rgba(46, 42, 39, .04), 0 10px 10px -5px rgba(46, 42, 39, .01);
+  --shadow-2xl: 0 25px 50px -12px rgba(46, 42, 39, .08);
+
+  /* Container & spacing */
+  --container-max: 1280px;
+  --content-max: 1200px;
+  --section-padding: 64px;
+  --card-gap: 24px;
 }
 
 :root {
-  --background: #F0EBDA;        /* Rice paper warm neutral */
-  --foreground: #1E2016;        /* Deep matcha primary */
-  --primary: #B0361B;           /* Clay red tertiary */
-  --primary-foreground: #F8F3E1;/* Warm cream surface text */
-  --secondary: #7B8069;         /* Bamboo secondary green */
-  --secondary-foreground: #F8F3E1;
-  --muted: #E6DFCE;
-  --muted-foreground: #7B8069;  
-  --accent: #B0361B;
-  --accent-foreground: #F8F3E1;
-  --destructive: #B0361B;
-  --destructive-foreground: #F8F3E1;
-  --border: #E6DFCE;            /* Card outlines, dividers */
-  --input: #F8F3E1;             
-  --ring: #B0361B;
-  --card: #F8F3E1;              /* Warm cream surface card */
-  --card-foreground: #1E2016;
-  --popover: #F8F3E1;
-  --popover-foreground: #1E2016;
+  /* Sweetgreen/CAVA Warm Premium Color Palette with Forest Green Identity */
+  --background: #FAF7F2;        /* Warm background */
+  --foreground: #2E2A27;        /* Charcoal text */
+  --primary: #283828;           /* Deep Forest Green (Logo Identity) */
+  --primary-foreground: #FAF7F2;
+  --secondary: #A67C52;         /* Light warm brown */
+  --secondary-foreground: #FAF7F2;
+  --muted: #EFECE6;             /* Clean warm border / bg */
+  --muted-foreground: #706B67;   /* Secondary gray text */
+  --accent: #D97B42;            /* Vibrant warm orange accent */
+  --accent-foreground: #FAF7F2;
+  --destructive: #A94442;
+  --destructive-foreground: #FFFFFF;
+  --border: #EFECE6;
+  --input: #FAF7F2;
+  --ring: #283828;
+  --card: #FFFFFF;              /* Premium clean white card surface */
+  --card-foreground: #2E2A27;
+  --popover: #FFFFFF;
+  --popover-foreground: #2E2A27;
 }
 
 body {
@@ -78,26 +83,163 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-.shadow-warm {
-  box-shadow: 0 4px 6px -1px rgba(47, 74, 60, 0.05), 0 2px 4px -1px rgba(47, 74, 60, 0.02);
-}
-.shadow-warm-lg {
-  box-shadow: 0 10px 15px -3px rgba(47, 74, 60, 0.08), 0 4px 6px -2px rgba(47, 74, 60, 0.04);
+/* Button radius per DESIGN.md */
+.rounded-btn { border-radius: 18px; }
+.rounded-card { border-radius: 28px; }
+.rounded-img { border-radius: 24px; }
+.rounded-input { border-radius: 999px; }
+
+/* Shadows */
+.shadow-card { box-shadow: var(--shadow-card); }
+.shadow-card-hover { box-shadow: var(--shadow-card-hover); }
+
+/* Container */
+.container-design {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
-.transition-smooth {
-  transition: all 0.15s ease-out;
+@media (min-width: 1024px) {
+  .container-design { padding: 0 40px; }
 }
+
+/* Section spacing */
+.section { padding: var(--section-padding) 0; }
+
+/* Card gap */
+.card-grid {
+  display: grid;
+  gap: var(--card-gap);
+}
+
+@media (min-width: 640px) {
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .card-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Product Card Hover */
+.product-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--primary);
+}
+.product-card img {
+  transition: transform 0.4s ease;
+}
+.product-card:hover img {
+  transform: scale(1.03);
+}
+
+/* Editorial Headline */
+.headline-hero {
+  font-size: clamp(48px, 6vw, 72px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.headline-section {
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.headline-card {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* Body text per DESIGN.md */
+.body-text {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+
+.body-sm {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+
+/* Button styles per DESIGN.md */
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: var(--radius-lg);
+  padding: 12px 28px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background: #1d2a1d;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: var(--radius-lg);
+  padding: 10px 26px;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Focus states */
+.focus-visible:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Decorative organic elements */
+.decorative-herb::before,
+.decorative-herb::after {
+  content: "";
+  position: absolute;
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
