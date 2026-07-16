@@ -295,7 +295,7 @@ export class OrdersService {
       include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { createdAt: "desc" },
     });
-    return orders.map((o) => this.mapOrder(o));
+    return orders.map((o: any) => this.mapOrder(o));
   }
 
   private async createForCustomer(
@@ -353,7 +353,7 @@ export class OrdersService {
     const combinedDiscountAmount = Math.min(pricing.orderDiscountAmount + codeDiscountAmount + planDiscountAmount, pricing.lineSubtotal);
     const total = Math.round(pricing.lineSubtotal - combinedDiscountAmount);
 
-    const order = await this.db.client.$transaction(async (tx) => {
+    const order = await this.db.client.$transaction(async (tx: any) => {
       if (fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
         await this.decrementStock(tx, requiredByMenuItem);
       }
@@ -449,8 +449,8 @@ export class OrdersService {
           await tx.discountRedemption.create({
             data: { discountId: discount.id, customerId: customer.id, orderId: created.id },
           });
-        } catch (err) {
-          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        } catch (err: any) {
+          if (err && err.code === "P2002") {
             throw new BadRequestException(`Discount code "${discount.code}" has already been used on your account.`);
           }
           throw err;
