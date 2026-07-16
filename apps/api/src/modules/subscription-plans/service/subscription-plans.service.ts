@@ -125,17 +125,17 @@ export class SubscriptionPlansService {
     });
     if (list.length === 0) return [];
 
-    const customerIds = [...new Set(list.map((p) => p.customerId).filter((id): id is string => !!id))];
-    const planIds = [...new Set(list.map((p) => p.subscriptionPlanId).filter((id): id is string => !!id))];
+    const customerIds = [...new Set(list.map((p: any) => p.customerId).filter((id): id is string => !!id))];
+    const planIds = [...new Set(list.map((p: any) => p.subscriptionPlanId).filter((id): id is string => !!id))];
     const [customers, plans] = await Promise.all([
       this.db.client.customer.findMany({ where: { id: { in: customerIds } } }),
       this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } }),
     ]);
-    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
-    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+    const customerNameById = new Map(customers.map((c: any) => [c.id, c.name]));
+    const planNameById = new Map(plans.map((p: any) => [p.id, p.name]));
 
-    return list.map((p) => ({
-      ...this.mapPayment(p, p.subscriptionPlanId ? planNameById.get(p.subscriptionPlanId) : undefined),
+    return list.map((p: any) => ({
+      ...this.mapPayment(p, p.subscriptionPlanId ? (planNameById.get(p.subscriptionPlanId) as string) : undefined),
       customerName: p.customerId ? customerNameById.get(p.customerId) : undefined,
     }));
   }
@@ -271,10 +271,10 @@ export class SubscriptionPlansService {
       where: { customerId: customer.id },
       orderBy: { createdAt: "desc" },
     });
-    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const planIds = [...new Set(list.map((r: any) => r.requestedPlanId))];
     const plans = await this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } });
-    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
-    return list.map((r) => this.mapUpgradeRequest(r, customer.name, planNameById.get(r.requestedPlanId)));
+    const planNameById = new Map(plans.map((p: any) => [p.id, p.name]));
+    return list.map((r: any) => this.mapUpgradeRequest(r, customer.name, planNameById.get(r.requestedPlanId) as string));
   }
 
   // Staff queue — every upgrade request still awaiting review.
@@ -285,17 +285,17 @@ export class SubscriptionPlansService {
     });
     if (list.length === 0) return [];
 
-    const customerIds = [...new Set(list.map((r) => r.customerId))];
-    const planIds = [...new Set(list.map((r) => r.requestedPlanId))];
+    const customerIds = [...new Set(list.map((r: any) => r.customerId))];
+    const planIds = [...new Set(list.map((r: any) => r.requestedPlanId))];
     const [customers, plans] = await Promise.all([
       this.db.client.customer.findMany({ where: { id: { in: customerIds } } }),
       this.db.client.subscriptionPlan.findMany({ where: { id: { in: planIds } } }),
     ]);
-    const customerNameById = new Map(customers.map((c) => [c.id, c.name]));
-    const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+    const customerNameById = new Map(customers.map((c: any) => [c.id, c.name]));
+    const planNameById = new Map(plans.map((p: any) => [p.id, p.name]));
 
-    return list.map((r) =>
-      this.mapUpgradeRequest(r, customerNameById.get(r.customerId), planNameById.get(r.requestedPlanId)),
+    return list.map((r: any) =>
+      this.mapUpgradeRequest(r, customerNameById.get(r.customerId) as string, planNameById.get(r.requestedPlanId) as string),
     );
   }
 
@@ -341,7 +341,7 @@ export class SubscriptionPlansService {
     // Payment amount never moving once opened).
     const proratedAmount = Math.max(plan.price - customer.walletBalance, 0);
 
-    const updated = await this.db.client.$transaction(async (tx) => {
+    const updated = await this.db.client.$transaction(async (tx: any) => {
       const payment = await tx.payment.create({
         data: {
           customerId: request.customerId,
