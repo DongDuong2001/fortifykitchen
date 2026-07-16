@@ -291,6 +291,7 @@ export default function AdminDashboard() {
     | "subscription-plans"
     | "prep-list"
     | "home-frames"
+    | "system-settings"
   >("dashboard");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -342,6 +343,7 @@ export default function AdminDashboard() {
     marketing: [
       { id: "discounts", label: lang === "vi" ? "Mã khuyến mãi" : "Promotional Codes" },
       { id: "home-frames", label: lang === "vi" ? "Banner trang chủ" : "Home Banners" },
+      { id: "system-settings", label: lang === "vi" ? "Cấu hình chung" : "System Settings" },
     ],
   }), [lang]);
 
@@ -442,6 +444,12 @@ export default function AdminDashboard() {
   const [isSavingHomeFrame, setIsSavingHomeFrame] = React.useState(false);
   const [homeFrameImagePreview, setHomeFrameImagePreview] = React.useState<string>("");
   const [isHomeFrameUploading, setIsHomeFrameUploading] = React.useState(false);
+
+  // --- General System Settings State ---
+  const [settingsFacebook, setSettingsFacebook] = React.useState("");
+  const [settingsInstagram, setSettingsInstagram] = React.useState("");
+  const [settingsHotline, setSettingsHotline] = React.useState("");
+  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
 
   // --- Pagination state — one page counter per list view. Every list here
   // is small-ish and already loaded in full for client-side tab/search
@@ -756,6 +764,13 @@ export default function AdminDashboard() {
         if (res && res.ok) {
           const result = await res.json();
           setHomeFrames(result.data || []);
+        }
+      } else if (section === "system-settings") {
+        // Load settings from localStorage to match simple file-free setup
+        if (typeof window !== "undefined") {
+          setSettingsFacebook(localStorage.getItem("settings_facebook") || "https://facebook.com/fortifykitchen");
+          setSettingsInstagram(localStorage.getItem("settings_instagram") || "https://instagram.com/fortifykitchen");
+          setSettingsHotline(localStorage.getItem("settings_hotline") || "090 123 4567");
         }
       }
     } catch (e) {
@@ -4302,6 +4317,79 @@ export default function AdminDashboard() {
                       pageSize={PAGE_SIZE}
                       onChange={setHomeFramesPage}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* SYSTEM SETTINGS MANAGER */}
+              {section === "system-settings" && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div>
+                    <h2 className="text-xl font-bold font-heading">Cấu hình Hệ thống</h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Thiết lập các thông tin chung của ứng dụng như số điện thoại hỗ trợ và các liên kết mạng xã hội của cửa hàng.
+                    </p>
+                  </div>
+
+                  <div className="border border-border bg-card rounded-2xl p-8 shadow-sm max-w-xl space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Số điện thoại Hotline</label>
+                        <input
+                          type="text"
+                          value={settingsHotline}
+                          onChange={(e) => setSettingsHotline(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. 090 123 4567"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Liên kết Facebook</label>
+                        <input
+                          type="url"
+                          value={settingsFacebook}
+                          onChange={(e) => setSettingsFacebook(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. https://facebook.com/fortifykitchen"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">Liên kết Instagram</label>
+                        <input
+                          type="url"
+                          value={settingsInstagram}
+                          onChange={(e) => setSettingsInstagram(e.target.value)}
+                          className="w-full bg-background border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none"
+                          placeholder="e.g. https://instagram.com/fortifykitchen"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSavingSettings}
+                      onClick={() => {
+                        setIsSavingSettings(true);
+                        setTimeout(() => {
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("settings_facebook", settingsFacebook);
+                            localStorage.setItem("settings_instagram", settingsInstagram);
+                            localStorage.setItem("settings_hotline", settingsHotline);
+                          }
+                          toast({
+                            title: "Lưu thành công",
+                            description: "Đã cập nhật cấu hình hệ thống.",
+                            type: "success",
+                          });
+                          setIsSavingSettings(false);
+                        }, 600);
+                      }}
+                      className="bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-1.5 w-full cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingSettings ? "Đang lưu..." : "Lưu cấu hình"}
+                    </button>
                   </div>
                 </div>
               )}

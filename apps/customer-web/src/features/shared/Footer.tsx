@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMapMarkerAlt, faPhone, faEnvelope } from "@fortawesome/free-solid-svg-icons";
+import { faFacebook, faInstagram } from "@fortawesome/free-brands-svg-icons";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -15,6 +16,21 @@ interface FooterProps {
 }
 
 export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
+  const [facebookUrl, setFacebookUrl] = React.useState("https://facebook.com/fortifykitchen");
+  const [instagramUrl, setInstagramUrl] = React.useState("https://instagram.com/fortifykitchen");
+  const [hotline, setHotline] = React.useState("090 123 4567");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fb = localStorage.getItem("settings_facebook");
+      const ig = localStorage.getItem("settings_instagram");
+      const hl = localStorage.getItem("settings_hotline");
+      if (fb) setFacebookUrl(fb);
+      if (ig) setInstagramUrl(ig);
+      if (hl) setHotline(hl);
+    }
+  }, []);
+
   return (
     <footer className="bg-muted/30 border-t border-border/50 py-12 px-6 mt-auto text-xs">
       <div className="max-w-7xl mx-auto">
@@ -32,9 +48,12 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
                 : "Nutritional meal provider with precise protein metrics. Delivery only within Ho Chi Minh City."}
             </p>
             <div className="flex gap-4">
-              <span className="text-[10px] text-muted-foreground/60 italic">
-                {lang === 'vi' ? "(Mạng xã hội cấu hình bởi Admin)" : "(Social links configured by Admin)"}
-              </span>
+              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Facebook">
+                <FontAwesomeIcon icon={faFacebook} className="h-4 w-4" />
+              </a>
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Instagram">
+                <FontAwesomeIcon icon={faInstagram} className="h-4 w-4" />
+              </a>
             </div>
           </div>
           <div className="space-y-3">
@@ -55,7 +74,7 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
               </li>
               <li className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faPhone} className="h-3.5 w-3.5 shrink-0" />
-                <span>{lang === 'vi' ? "(Hotline cấu hình bởi Admin)" : "(Hotline configured by Admin)"}</span>
+                <span>{hotline}</span>
               </li>
               <li className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faEnvelope} className="h-3.5 w-3.5 shrink-0" />
