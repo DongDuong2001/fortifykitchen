@@ -86,3 +86,17 @@ export * from "@prisma/client";
 export { Decimal };
 export type PrismaClientType = PrismaClient;
 export type DecimalType = Decimal;
+
+// Explicitly export Prisma enums to avoid typescript resolution failure in client apps
+export {
+  Protein,
+  OrderStatus,
+  OrderSource,
+  PaymentState,
+  OrderFulfillmentType,
+  OrderType,
+  PaymentMethod,
+  PaymentStatus,
+  SubscriptionStatus,
+  CustomPlanRequestStatus,
+} from "@prisma/client";
