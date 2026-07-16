@@ -36,7 +36,7 @@ export class SubscriptionPlansService {
   // Staff view — every plan, active or not.
   async findAll(): Promise<SubscriptionPlan[]> {
     const list = await this.db.client.subscriptionPlan.findMany({ orderBy: { price: "asc" } });
-    return list.map((p) => this.mapPlan(p));
+    return list.map((p: any) => this.mapPlan(p));
   }
 
   // Storefront view — only what a customer can actually buy right now.
@@ -45,7 +45,7 @@ export class SubscriptionPlansService {
       where: { isActive: true },
       orderBy: { price: "asc" },
     });
-    return list.map((p) => this.mapPlan(p));
+    return list.map((p: any) => this.mapPlan(p));
   }
 
   async findOne(id: string): Promise<SubscriptionPlan> {

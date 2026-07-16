@@ -524,7 +524,7 @@ export class OrdersService {
       include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { createdAt: "desc" },
     });
-    return orders.map((o) => this.mapOrder(o));
+    return orders.map((o: any) => this.mapOrder(o));
   }
 
   // General-purpose list — covers what used to be three separate admin
@@ -547,7 +547,7 @@ export class OrdersService {
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
-    return orders.map((o) => this.mapOrder(o));
+    return orders.map((o: any) => this.mapOrder(o));
   }
 
   // Upcoming (today onward, still-active) orders of either source, grouped
@@ -561,7 +561,7 @@ export class OrdersService {
       include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { deliveryDate: "asc" },
     });
-    const upcoming = orders.map((o) => this.mapOrder(o));
+    const upcoming = orders.map((o: any) => this.mapOrder(o));
 
     const groups = new Map<string, Order[]>();
     for (const entry of upcoming) {
@@ -601,7 +601,7 @@ export class OrdersService {
       include: { items: true, subscription: { select: { packageName: true } } },
       orderBy: { deliveryDate: "asc" },
     });
-    return orders.map((o) => this.mapOrder(o));
+    return orders.map((o: any) => this.mapOrder(o));
   }
 
   // Upcoming (still-active), next-N occurrences for one subscription — used
@@ -613,7 +613,7 @@ export class OrdersService {
       orderBy: { deliveryDate: "asc" },
       take: limit,
     });
-    return orders.map((o) => this.mapOrder(o));
+    return orders.map((o: any) => this.mapOrder(o));
   }
 
   async findOne(id: string): Promise<Order> {
@@ -762,7 +762,7 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    const order = await this.db.client.$transaction(async (tx) => {
+    const order = await this.db.client.$transaction(async (tx: any) => {
       if (status === OrderStatus.CANCELLED && existing.status !== OrderStatus.CANCELLED && existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE) {
         const required = this.requiredByMenuItemFromOrderItems(existing.items);
         await this.restockItems(tx, required);
@@ -798,7 +798,7 @@ export class OrdersService {
       throw new BadRequestException("Không thể hoàn thành một đơn đã bị hủy");
     }
 
-    await this.db.client.$transaction(async (tx) => {
+    await this.db.client.$transaction(async (tx: any) => {
       if (existing.subscription) {
         const gramsByProtein: Record<string, number> = {};
         for (const item of existing.items) {
@@ -819,7 +819,7 @@ export class OrdersService {
       // If every pool is fully consumed, close out the subscription.
       if (existing.subscriptionId) {
         const refreshedPools = await tx.subscriptionPool.findMany({ where: { subscriptionId: existing.subscriptionId } });
-        const allDepleted = refreshedPools.length > 0 && refreshedPools.every((p) => p.remainingGrams <= 0);
+        const allDepleted = refreshedPools.length > 0 && refreshedPools.every((p: any) => p.remainingGrams <= 0);
         if (allDepleted) {
           await tx.subscription.update({ where: { id: existing.subscriptionId }, data: { status: "COMPLETED" } });
         }
@@ -859,7 +859,7 @@ export class OrdersService {
       orderBy: { deliveryDate: "asc" },
     });
 
-    await this.db.client.$transaction(async (tx) => {
+    await this.db.client.$transaction(async (tx: any) => {
       for (const o of affected) {
         const newDate = new Date(o.deliveryDate);
         newDate.setDate(newDate.getDate() + interval);
@@ -902,7 +902,7 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    await this.db.client.$transaction(async (tx) => {
+    await this.db.client.$transaction(async (tx: any) => {
       if (existing.fulfillmentType === OrderFulfillmentType.IMMEDIATE && existing.status !== OrderStatus.COMPLETED) {
         const required = this.requiredByMenuItemFromOrderItems(existing.items);
         await this.restockItems(tx, required);
@@ -952,7 +952,7 @@ export class OrdersService {
       discountCode: order.discountCode ?? undefined,
       total: order.total,
       notes: order.notes ?? undefined,
-      items: order.items.map((i) => ({
+      items: order.items.map((i: any) => ({
         id: i.id,
         orderId: i.orderId,
         menuItemId: i.menuItemId ?? undefined,
