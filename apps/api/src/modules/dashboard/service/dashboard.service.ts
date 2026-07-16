@@ -29,15 +29,15 @@ export class DashboardService {
       }),
     ]);
     const totalRevenue =
-      paidOrders.reduce((sum, o) => sum + o.total, 0) +
-      paidSubscriptions.reduce((sum, s) => sum + s.totalPrice, 0);
+      paidOrders.reduce((sum: number, o: any) => sum + o.total, 0) +
+      paidSubscriptions.reduce((sum: number, s: any) => sum + s.totalPrice, 0);
 
     const recentOrdersRaw = await this.db.client.order.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
     });
 
-    const recentOrders = recentOrdersRaw.map((o) => ({
+    const recentOrders = recentOrdersRaw.map((o: any) => ({
       id: o.id,
       customerName: o.customerName,
       total: o.total,
@@ -82,18 +82,18 @@ export class DashboardService {
     const allMenuItems = await this.db.client.menuItem.findMany({
       select: { id: true, protein: true, flavor: true, sizeGrams: true, stockQuantity: true },
     });
-    const outOfStockItems = allMenuItems.filter((m) => m.stockQuantity <= 0).slice(0, 8);
+    const outOfStockItems = allMenuItems.filter((m: any) => m.stockQuantity <= 0).slice(0, 8);
     const lowStockItems = allMenuItems
-      .filter((m) => m.stockQuantity > 0 && m.stockQuantity <= LOW_STOCK_THRESHOLD)
+      .filter((m: any) => m.stockQuantity > 0 && m.stockQuantity <= LOW_STOCK_THRESHOLD)
       .slice(0, 8);
-    const dishesReadyNow = allMenuItems.filter((m) => m.stockQuantity > 0).length;
+    const dishesReadyNow = allMenuItems.filter((m: any) => m.stockQuantity > 0).length;
 
     // Volume-subscription specific stats.
     const activePools = await this.db.client.subscriptionPool.findMany({
       where: { subscription: { status: "ACTIVE" } },
       select: { subscriptionId: true, protein: true, totalGrams: true, remainingGrams: true },
     });
-    const outstandingVolumeGrams = activePools.reduce((sum, p) => sum + p.remainingGrams, 0);
+    const outstandingVolumeGrams = activePools.reduce((sum: number, p: any) => sum + p.remainingGrams, 0);
 
     // "Nearing depletion" = an active subscription where every pool has
     // <=10% of its purchased weight left (i.e. about to need a top-up or
@@ -105,7 +105,7 @@ export class DashboardService {
     }
     let subscriptionsNearingDepletion = 0;
     for (const pools of poolsBySubscription.values()) {
-      const allLow = pools.every((p) => p.totalGrams === 0 || p.remainingGrams / p.totalGrams <= 0.1);
+      const allLow = pools.every((p: any) => p.totalGrams === 0 || p.remainingGrams / p.totalGrams <= 0.1);
       if (allLow) subscriptionsNearingDepletion += 1;
     }
 

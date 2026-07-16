@@ -19,7 +19,7 @@ export class CustomersService {
       ...(skip !== undefined ? { skip } : {}),
       ...(take !== undefined ? { take } : {}),
     });
-    return list.map((c) => this.mapCustomer(c));
+    return list.map((c: any) => this.mapCustomer(c));
   }
 
   async findOne(id: string): Promise<Customer> {
@@ -109,7 +109,7 @@ export class CustomersService {
   async topUpWallet(id: string, amount: number, note?: string): Promise<Customer> {
     await this.findOne(id);
 
-    const updated = await this.db.client.$transaction(async (tx) => {
+    const updated = await this.db.client.$transaction(async (tx: any) => {
       await tx.payment.create({
         data: {
           customerId: id,

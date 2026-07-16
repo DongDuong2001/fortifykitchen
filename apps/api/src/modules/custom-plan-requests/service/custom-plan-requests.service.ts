@@ -59,7 +59,7 @@ export class CustomPlanRequestsService {
       where: { status },
       orderBy: { createdAt: "desc" },
     });
-    return list.map((r) => this.mapRequest(r));
+    return list.map((r: any) => this.mapRequest(r));
   }
 
   async findOne(id: string): Promise<CustomPlanRequest> {
@@ -76,7 +76,7 @@ export class CustomPlanRequestsService {
       where: { phone: normalized },
       orderBy: { createdAt: "desc" },
     });
-    return list.map((r) => this.mapRequest(r));
+    return list.map((r: any) => this.mapRequest(r));
   }
 
   async findForUser(userId: string): Promise<CustomPlanRequest[]> {
@@ -86,7 +86,7 @@ export class CustomPlanRequestsService {
       where: { customerId: customer.id },
       orderBy: { createdAt: "desc" },
     });
-    return list.map((r) => this.mapRequest(r));
+    return list.map((r: any) => this.mapRequest(r));
   }
 
   async update(id: string, dto: UpdateCustomPlanRequestDto): Promise<CustomPlanRequest> {

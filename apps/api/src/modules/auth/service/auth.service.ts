@@ -27,7 +27,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(signupDto.password);
 
     // Create User and Customer profile atomically in a transaction
-    const user = await this.db.client.$transaction(async (tx) => {
+    const user = await this.db.client.$transaction(async (tx: any) => {
       const newUser = await tx.user.create({
         data: {
           email: signupDto.email,

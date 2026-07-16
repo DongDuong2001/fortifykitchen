@@ -11,7 +11,7 @@ export class CategoriesService {
     const list = await this.db.client.category.findMany({
       orderBy: { name: "asc" },
     });
-    return list.map(c => this.mapCategory(c));
+    return list.map((c: any) => this.mapCategory(c));
   }
 
   async findOne(id: string): Promise<Category> {
