@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faHouse, faUtensils, faCalculator, faWallet, faCalendarAlt, faUser } from "@fortawesome/free-solid-svg-icons";
+import { faHouse, faUtensils, faCalculator, faWallet, faUser } from "@fortawesome/free-solid-svg-icons";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -17,17 +17,18 @@ interface MobileNavProps {
   setAuthModal: (modal: "login" | "signup" | null) => void;
 }
 
-export default function MobileNav({ lang, activeTab, setActiveTab, user }: MobileNavProps) {
+export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuthModal }: MobileNavProps) {
   const tabs = [
     { id: "home", icon: faHouse, label: t("nav_home", lang) },
     { id: "menu", icon: faUtensils, label: t("nav_menu", lang) },
     { id: "calculator", icon: faCalculator, label: t("nav_calculator", lang) },
     { id: "wallet", icon: faWallet, label: t("nav_wallet", lang) },
-    { id: "subscriptions", icon: faCalendarAlt, label: t("nav_sub", lang) },
   ];
 
   if (user) {
     tabs.push({ id: "dashboard", icon: faUser, label: t("nav_dashboard", lang) });
+  } else {
+    tabs.push({ id: "profile-login", icon: faUser, label: lang === "vi" ? "Tài khoản" : "Account" });
   }
 
   return (
@@ -36,7 +37,13 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user }: Mobil
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              if (tab.id === "profile-login") {
+                setAuthModal("login");
+              } else {
+                setActiveTab(tab.id);
+              }
+            }}
             className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${activeTab === tab.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
             <FontAwesomeIcon icon={tab.icon} className="h-5 w-5" />
