@@ -32,6 +32,7 @@ interface HomeSectionProps {
   setActiveTab: (tab: string) => void;
   addToCart: (item: MenuItem, qty: number, flavorOverride?: string, lang?: "vi" | "en") => void;
   homeFrames?: any[];
+  isLoadingHomeFrames?: boolean;
 }
 
 const whyFortify = [
@@ -57,8 +58,24 @@ const howItWorks = [
   { icon: faBowlFood, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
 ] as const;
 
-export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, homeFrames = [] }: HomeSectionProps) {
-  const featuredItems = menuItems.slice(0, 3);
+export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, homeFrames = [], isLoadingHomeFrames = false }: HomeSectionProps) {
+  // Filter exactly one Chicken, one Beef, and one Shrimp dish for best sellers representation
+  const featuredItems = React.useMemo(() => {
+    const chicken = menuItems.find((item) => item.protein === "CHICKEN");
+    const beef = menuItems.find((item) => item.protein === "BEEF");
+    const shrimp = menuItems.find((item) => item.protein === "SHRIMP");
+    const list: MenuItem[] = [];
+    if (chicken) list.push(chicken);
+    if (beef) list.push(beef);
+    if (shrimp) list.push(shrimp);
+    // Fallback if database is empty or missing specific proteins
+    if (list.length < 3) {
+      const rest = menuItems.filter((item) => !list.includes(item));
+      list.push(...rest.slice(0, 3 - list.length));
+    }
+    return list;
+  }, [menuItems]);
+
   const [currentFrameIndex, setCurrentFrameIndex] = React.useState(0);
 
   React.useEffect(() => {
@@ -132,7 +149,11 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
           {/* Big horizontal dynamic visual below the text content */}
           <div className="mt-12 md:mt-16 max-w-5xl mx-auto relative px-4">
             <div className="relative aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl bg-card border border-border">
-              {hasFrames ? (
+              {isLoadingHomeFrames ? (
+                <div className="w-full h-full bg-card animate-pulse flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground/60">Loading banners...</span>
+                </div>
+              ) : hasFrames ? (
                 <div className="w-full h-full relative transition-all duration-700">
                   {currentFrame.linkUrl ? (
                     <a href={currentFrame.linkUrl} className="block w-full h-full">
@@ -362,19 +383,20 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             </p>
           </header>
 
-          <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
+          {/* Horizontally scrollable list on mobile, wraps on desktop */}
+          <div className="flex overflow-x-auto pb-4 md:pb-0 md:flex-wrap md:justify-center gap-4 max-w-4xl mx-auto scrollbar-none snap-x snap-mandatory px-4">
             {categories.map((cat, i) => (
               <Link
                 key={i}
                 href={cat.href}
-                className="group flex items-center gap-3.5 px-6 py-3.5 rounded-full bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 select-none"
+                className="group flex items-center gap-3 px-5 py-3 rounded-full bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 select-none shrink-0 snap-center"
               >
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
                   <FontAwesomeIcon icon={cat.icon} className="h-3.5 w-3.5" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-foreground leading-tight group-hover:text-primary transition-colors duration-300">{t(cat.labelKey, lang)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{cat.count} {t("home_cat_items", lang)}</p>
+                  <p className="text-xs font-bold text-foreground leading-tight group-hover:text-primary transition-colors duration-300 whitespace-nowrap">{t(cat.labelKey, lang)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">{cat.count} {t("home_cat_items", lang)}</p>
                 </div>
               </Link>
             ))}

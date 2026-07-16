@@ -302,6 +302,7 @@ export default function CustomerPortal() {
   const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
   const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
   const [homeFrames, setHomeFrames] = React.useState<any[]>([]);
+  const [isLoadingHomeFrames, setIsLoadingHomeFrames] = React.useState(true);
 
   React.useEffect(() => {
     async function loadPlans() {
@@ -320,6 +321,7 @@ export default function CustomerPortal() {
     }
     async function loadHomeFrames() {
       try {
+        setIsLoadingHomeFrames(true);
         const res = await fetch(`${API_URL}/home-frames`).catch(() => null);
         if (res && res.ok) {
           const result = await res.json().catch(() => null);
@@ -328,6 +330,8 @@ export default function CustomerPortal() {
         }
       } catch (err) {
         console.error(err);
+      } finally {
+        setIsLoadingHomeFrames(false);
       }
     }
     loadPlans();
@@ -1079,7 +1083,7 @@ const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt &&
         )}
 
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {activeTab === "home" && <HomeSection lang={lang} menuItems={menuItems} setActiveTab={handleSetActiveTab} addToCart={addToCart} homeFrames={homeFrames} />}
+        {activeTab === "home" && <HomeSection lang={lang} menuItems={menuItems} setActiveTab={handleSetActiveTab} addToCart={addToCart} homeFrames={homeFrames} isLoadingHomeFrames={isLoadingHomeFrames} />}
         {activeTab === "menu" && <MenuSection lang={lang} menuItems={menuItems} isLoadingMenu={isLoadingMenu} selectedProtein={selectedProtein} setSelectedProtein={setSelectedProtein} addToCart={addToCart} />}
         {activeTab === "calculator" && <CalculatorSection lang={lang} />}
         {activeTab === "order-now" && (
