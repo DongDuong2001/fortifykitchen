@@ -215,7 +215,7 @@ export default function DashboardSection({
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border/50">
                   <div>
                     <div className="text-xs text-muted-foreground font-semibold">{t("order_id", lang)}</div>
-                    <div className="text-xs font-mono font-semibold text-foreground/80">{order.id}</div>
+                    <div className="text-xs font-mono font-semibold text-foreground/80">FK{order.id.slice(0, 8)}</div>
                     {order.createdAt && (
                       <div className="text-[11px] text-muted-foreground mt-1">
                         {lang === "vi" ? "Đặt lúc: " : "Placed: "}
@@ -246,7 +246,7 @@ export default function DashboardSection({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{item.flavor}</p>
-                        <p className="text-xs text-muted-foreground">{formatVND(item.price)} × {item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{formatVND(item.unitPrice)} × {item.qty}</p>
                         {(item.proteinGrams || item.carbGrams || item.fatGrams) && (
                           <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-3">
                             {item.proteinGrams && <span>P: {item.proteinGrams}g</span>}
@@ -255,7 +255,7 @@ export default function DashboardSection({
                           </div>
                         )}
                       </div>
-                      <span className="font-bold text-primary shrink-0">{formatVND(item.price * item.quantity)}</span>
+                      <span className="font-bold text-primary shrink-0">{formatVND(item.unitPrice * item.qty)}</span>
                     </div>
                   ))}
                 </div>
@@ -380,7 +380,7 @@ export default function DashboardSection({
           <div className="absolute inset-0 cursor-pointer" onClick={() => setOrderDetail(null)} />
           <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 my-8 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold font-heading">{t("order_id", lang)} {orderDetail.id}</h3>
+              <h3 className="text-lg font-bold font-heading">{t("order_id", lang)} FK{orderDetail.id.slice(0, 8)}</h3>
               <button onClick={() => setOrderDetail(null)} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer">
                 <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4" />
               </button>
@@ -409,7 +409,7 @@ export default function DashboardSection({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{item.flavor}</p>
-                      <p className="text-xs text-muted-foreground">{formatVND(item.price)} × {item.quantity}</p>
+                      <p className="text-xs text-muted-foreground">{formatVND(item.unitPrice)} × {item.qty}</p>
                       {(item.proteinGrams || item.carbGrams || item.fatGrams) && (
                         <div className="text-[10px] text-muted-foreground mt-0.5 flex gap-3">
                           {item.proteinGrams && <span>P: {item.proteinGrams}g</span>}
@@ -418,7 +418,7 @@ export default function DashboardSection({
                         </div>
                       )}
                     </div>
-                    <span className="font-bold text-primary shrink-0">{formatVND(item.price * item.quantity)}</span>
+                    <span className="font-bold text-primary shrink-0">{formatVND(item.unitPrice * item.qty)}</span>
                   </div>
                 ))}
               </div>
