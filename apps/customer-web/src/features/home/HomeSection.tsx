@@ -133,7 +133,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
 
           {/* Big horizontal dynamic visual below the text content */}
           <div className="mt-12 md:mt-16 max-w-5xl mx-auto relative px-4">
-            <div className="relative aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl bg-card border border-border">
+            <div className="relative aspect-[16/9] rounded-3xl overflow-hidden shadow-2xl bg-card border border-border">
               {isLoadingHomeFrames ? (
                 <div className="w-full h-full bg-card animate-pulse flex items-center justify-center">
                   <span className="text-xs text-muted-foreground/60">Loading banners...</span>
