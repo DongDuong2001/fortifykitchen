@@ -66,7 +66,7 @@ export default function WalletSection({
   return (
     <div className="space-y-6">
       {user ? (
-        <div className="bg-gradient-to-br from-primary/10 via-card to-primary/5 border border-primary/20 rounded-2xl p-6 shadow-sm">
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-primary/20 text-primary"><FontAwesomeIcon icon={faWallet} className="h-5 w-5" /></div>
