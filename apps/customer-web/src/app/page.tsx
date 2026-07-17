@@ -128,7 +128,7 @@ export default function CustomerPortal() {
   const [checkoutStreet, setCheckoutStreet] = React.useState("");
   const [checkoutAgreeTerms, setCheckoutAgreeTerms] = React.useState(false);
   const [checkoutResult, setCheckoutResult] = React.useState<{ id: string; total: number; paymentMethod: string; deliveryDate: string } | null>(null);
-  const [showPrivacyModal, setShowPrivacyModal] = React.useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = React.useState<"privacy" | "terms" | "refund" | "shipping" | null>(null);
 
   const [showWalletPlans, setShowWalletPlans] = React.useState(false);
   const [selectedUpgradePlanId, setSelectedUpgradePlanId] = React.useState<string | null>(null);
