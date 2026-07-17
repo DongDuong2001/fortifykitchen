@@ -675,7 +675,21 @@ export default function AdminDashboard() {
         // no separate deliveries endpoint needed anymore. Pull the rolling
         // upcoming window forward first so newly-due subscription
         // occurrences show up without waiting on an external cron.
-        await fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers }).catch(() => null);
+        // Fire sync-orders asynchronously in the background so it doesn't block loading the current orders list.
+        fetch(`${API_URL}/subscriptions/sync-orders`, { method: "POST", headers })
+          .then((res) => {
+            if (res && res.ok) {
+              // Silently fetch and refresh orders list in the background once sync completes
+              fetch(`${API_URL}/orders`, { headers })
+                .then((r) => r.json())
+                .then((result) => {
+                  if (result && result.data) setOrders(result.data);
+                })
+                .catch(() => null);
+            }
+          })
+          .catch(() => null);
+
         const [resOrders, resCustomers, resMenu] = await Promise.all([
           fetch(`${API_URL}/orders`, { headers }).catch(() => null),
           fetch(`${API_URL}/customers`, { headers }).catch(() => null),
