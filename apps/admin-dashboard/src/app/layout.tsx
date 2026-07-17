@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
+import { Manrope, Be_Vietnam_Pro } from "next/font/google";
 import { Providers } from "../providers/providers";
 import "./globals.css";
 
-// Inter font with native latin & vietnamese diacritics support
-const inter = Inter({
+const manrope = Manrope({
   subsets: ["latin", "vietnamese"],
-  variable: "--font-sans",
-  display: "swap",
+  variable: "--font-heading",
+  weight: ["700", "800"],
+});
+
+const beVietnam = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-body",
+  weight: ["400", "600"],
 });
 
 export const metadata: Metadata = {
@@ -33,7 +38,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="vi" className={`${manrope.variable} ${beVietnam.variable}`} suppressHydrationWarning>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

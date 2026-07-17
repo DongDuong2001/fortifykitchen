@@ -319,42 +319,53 @@ export default function OrdersSection({
   );
 
   const renderOrderCard = (o: any) => (
-    <div key={o.id} className="border border-border bg-muted/10 p-4 rounded-xl space-y-2.5 text-xs" onClick={() => setOrderDetailView(o)}>
+    <div key={o.id} className="border border-border bg-card p-4 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer space-y-3" onClick={() => setOrderDetailView(o)}>
       <div className="flex justify-between items-start">
-        <div>
-          <p className="font-bold text-foreground">{o.customerName}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(o.deliveryDate).toLocaleDateString('vi-VN')}</p>
+        <div className="space-y-0.5">
+          <p className="font-extrabold text-sm text-foreground">{o.customerName}</p>
+          <span className="inline-block font-mono text-[9px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            FK{o.id.slice(0, 8)}
+          </span>
         </div>
-        <span className="font-bold text-primary">{formatVND(o.total)}</span>
+        <span className="font-black text-sm text-primary">{formatVND(o.total)}</span>
       </div>
-      <div className="flex flex-wrap gap-2">
+
+      <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+        <span className="font-semibold">{lang === 'vi' ? 'Ngày giao:' : 'Deliver:'}</span>
+        <span className="font-bold">{new Date(o.deliveryDate).toLocaleDateString('vi-VN')}</span>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 pt-1">
         {getFulfillmentBadge(o.fulfillmentType)}
         {getStatusBadge(o.status)}
         {o.source === 'SUBSCRIPTION' ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
-            {lang === 'vi' ? 'Gói đăng ký' : 'Subscription'}: {o.packageName || '—'}
+          <span className="px-2 py-0.5 rounded text-[9px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-700 whitespace-nowrap">
+            {lang === 'vi' ? 'Định kỳ' : 'Sub'}: {o.packageName || '—'}
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+          <span className="px-2 py-0.5 rounded text-[9px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
             {lang === 'vi' ? 'Mua lẻ' : 'One-off'}
           </span>
         )}
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
+        <span className="px-2 py-0.5 rounded text-[9px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
           {o.paymentStatus}
         </span>
       </div>
-      <div className="flex gap-2 pt-2 border-t border-border/30">
+
+      <div className="flex gap-2 pt-2.5 border-t border-border/40">
         <button
           onClick={(e) => { e.stopPropagation(); handleEditOrderTrigger(o); }}
-          className="flex-1 py-1.5 border border-border hover:bg-muted text-[10px] font-bold rounded-md cursor-pointer"
+          className="flex-1 py-2 border border-border hover:bg-muted text-[10px] font-bold rounded-xl cursor-pointer flex items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
+          <FontAwesomeIcon icon={faEdit} className="h-3 w-3" />
           {lang === 'vi' ? 'Sửa' : 'Edit'}
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o.id); }}
-          className="py-1.5 px-2 border border-red-500/20 hover:bg-red-500/10 text-red-500 rounded-md cursor-pointer"
+          className="py-2 px-3.5 border border-red-500/20 hover:bg-red-50 text-red-600 rounded-xl cursor-pointer transition-colors"
+          title={lang === 'vi' ? 'Xóa' : 'Delete'}
         >
-          <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+          <FontAwesomeIcon icon={faTrashAlt} className="h-3 w-3" />
         </button>
       </div>
     </div>
