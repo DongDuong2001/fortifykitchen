@@ -151,9 +151,6 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                         ) : (
                           <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
                         )}
-                        <span className="absolute top-4 right-4 bg-primary text-primary-foreground font-mono text-[10px] font-bold py-1 px-2.5 rounded-full uppercase tracking-wider">
-                          {formatVND(selected.price)}
-                        </span>
                         <span
                           className={`absolute top-4 left-4 text-[10px] font-bold px-2.5 py-1 rounded-md border ${
                             (selected.stockQuantity ?? 0) > 0
@@ -198,12 +195,20 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                       </div>
                     </div>
 
-                    <div className="px-6 pb-6 pt-3">
+                    <div className="px-6 pb-6 pt-3 flex items-center justify-between gap-4 border-t border-border/20">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold leading-none mb-1">
+                          {lang === "vi" ? "Giá bán" : "Price"}
+                        </span>
+                        <span className="text-base sm:text-lg font-black text-primary font-mono leading-none">
+                          {formatVND(selected.price)}
+                        </span>
+                      </div>
                       <button
                         onClick={() => addToCart(selected, 1, undefined, lang)}
-                        className="w-full btn-primary py-3 text-xs tracking-wider uppercase font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                        className="flex-1 btn-primary py-3 px-4 text-xs tracking-wider uppercase font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                       >
-                        <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                        <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                         {t("btn_add_cart", lang)}
                       </button>
                     </div>

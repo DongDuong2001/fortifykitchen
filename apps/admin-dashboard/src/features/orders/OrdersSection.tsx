@@ -69,17 +69,11 @@ export default function OrdersSection({
   const [orderViewTab, setOrderViewTab] = React.useState<'ALL' | OrderStatus>('PENDING_CONFIRMATION');
   const [orderStatusFilter, setOrderStatusFilter] = React.useState<'ALL' | OrderStatus>('ALL');
   const [orderFulfillmentFilter, setOrderFulfillmentFilter] = React.useState<'ALL' | 'IMMEDIATE' | 'SCHEDULED'>('ALL');
+  const [orderSourceFilter, setOrderSourceFilter] = React.useState<'ALL' | 'ONE_OFF' | 'SUBSCRIPTION'>('ALL');
   const [orderSearch, setOrderSearch] = React.useState('');
   const [orderDateFilter, setOrderDateFilter] = React.useState('');
   const [orderDateMode, setOrderDateMode] = React.useState<'date' | 'upcoming'>('date');
   const [ordersPage, setOrdersPage] = React.useState(1);
-
-  const [subOrderViewTab, setSubOrderViewTab] = React.useState<'ALL' | OrderStatus>('PENDING_CONFIRMATION');
-  const [subOrderStatusFilter, setSubOrderStatusFilter] = React.useState<'ALL' | OrderStatus>('ALL');
-  const [subOrderSearch, setSubOrderSearch] = React.useState('');
-  const [subOrderDateFilter, setSubOrderDateFilter] = React.useState('');
-  const [subOrderDateMode, setSubOrderDateMode] = React.useState<'date' | 'upcoming'>('date');
-  const [subOrdersPage, setSubOrdersPage] = React.useState(1);
 
   const [orderModal, setOrderModal] = React.useState<'create' | 'edit' | null>(null);
   const [editingOrderId, setEditingOrderId] = React.useState<string | null>(null);
@@ -93,11 +87,7 @@ export default function OrdersSection({
 
   React.useEffect(() => {
     setOrdersPage(1);
-  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSearch, orderDateFilter, orderDateMode]);
-
-  React.useEffect(() => {
-    setSubOrdersPage(1);
-  }, [subOrderViewTab, subOrderStatusFilter, subOrderSearch, subOrderDateFilter, subOrderDateMode]);
+  }, [orderViewTab, orderStatusFilter, orderFulfillmentFilter, orderSourceFilter, orderSearch, orderDateFilter, orderDateMode]);
 
   const authHeaders = React.useCallback(() => ({
     'Content-Type': 'application/json',
@@ -239,6 +229,7 @@ export default function OrdersSection({
     if (orderViewTab !== 'ALL' && o.status !== orderViewTab) return false;
     if (orderStatusFilter !== 'ALL' && o.status !== orderStatusFilter) return false;
     if (orderFulfillmentFilter !== 'ALL' && o.fulfillmentType !== orderFulfillmentFilter) return false;
+    if (orderSourceFilter !== 'ALL' && o.source !== orderSourceFilter) return false;
     if (orderSearch && !o.customerName?.toLowerCase().includes(orderSearch.toLowerCase())) return false;
     if (orderDateMode === 'date' && orderDateFilter) {
       const orderDate = new Date(o.deliveryDate).toISOString().split('T')[0];
@@ -248,27 +239,9 @@ export default function OrdersSection({
     return true;
   });
 
-  const filteredSubOrders = orders
-    .filter((o) => o.source === 'SUBSCRIPTION')
-    .filter((o) => {
-      if (subOrderViewTab !== 'ALL' && o.status !== subOrderViewTab) return false;
-      if (subOrderStatusFilter !== 'ALL' && o.status !== subOrderStatusFilter) return false;
-      if (subOrderSearch && !o.customerName?.toLowerCase().includes(subOrderSearch.toLowerCase())) return false;
-      if (subOrderDateMode === 'date' && subOrderDateFilter) {
-        const orderDate = new Date(o.deliveryDate).toISOString().split('T')[0];
-        if (orderDate !== subOrderDateFilter) return false;
-      }
-      if (subOrderDateMode === 'upcoming' && isToday(o.deliveryDate)) return false;
-      return true;
-    });
-
   const ordersTotalPages = Math.ceil(filteredOrders.length / PAGE_SIZE) || 1;
   const ordersSafePage = clampPage(ordersPage, ordersTotalPages);
   const pagedOrders = paginate(filteredOrders, ordersSafePage, PAGE_SIZE);
-
-  const subOrdersTotalPages = Math.ceil(filteredSubOrders.length / PAGE_SIZE) || 1;
-  const subOrdersSafePage = clampPage(subOrdersPage, subOrdersTotalPages);
-  const pagedSubOrders = paginate(filteredSubOrders, subOrdersSafePage, PAGE_SIZE);
 
   const getFulfillmentBadge = (type: OrderFulfillmentType) => {
     if (type === 'IMMEDIATE') {
@@ -295,6 +268,17 @@ export default function OrdersSection({
     <tr key={o.id} className="border-b border-border/20 last:border-0 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => setOrderDetailView(o)}>
       <td className="py-3.5 font-bold">{o.customerName}</td>
       <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
+      <td className="py-3.5">
+        {o.source === 'SUBSCRIPTION' ? (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-700 whitespace-nowrap" title={o.packageName}>
+            {lang === 'vi' ? 'Định kỳ' : 'Sub'}: {o.packageName || '—'}
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+            {lang === 'vi' ? 'Mua lẻ' : 'One-off'}
+          </span>
+        )}
+      </td>
       <td className="py-3.5">{getFulfillmentBadge(o.fulfillmentType)}</td>
       <td className="py-3.5">{getStatusBadge(o.status)}</td>
       <td className="py-3.5 text-muted-foreground">{new Date(o.deliveryDate).toLocaleDateString('vi-VN')}</td>
@@ -332,9 +316,13 @@ export default function OrdersSection({
       <div className="flex flex-wrap gap-2">
         {getFulfillmentBadge(o.fulfillmentType)}
         {getStatusBadge(o.status)}
-        {o.source === 'SUBSCRIPTION' && (
+        {o.source === 'SUBSCRIPTION' ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
             {lang === 'vi' ? 'Gói đăng ký' : 'Subscription'}: {o.packageName || '—'}
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+            {lang === 'vi' ? 'Mua lẻ' : 'One-off'}
           </span>
         )}
         <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-muted text-muted-foreground whitespace-nowrap">
@@ -417,6 +405,15 @@ export default function OrdersSection({
             <option value="IMMEDIATE">{lang === 'vi' ? 'Giao ngay' : 'Ready Now'}</option>
             <option value="SCHEDULED">{lang === 'vi' ? 'Cần chuẩn bị' : 'Needs Prep'}</option>
           </select>
+          <select
+            value={orderSourceFilter}
+            onChange={(e) => setOrderSourceFilter(e.target.value as any)}
+            className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
+          >
+            <option value="ALL">{lang === 'vi' ? 'Tất cả nguồn' : 'All sources'}</option>
+            <option value="ONE_OFF">{lang === 'vi' ? 'Mua lẻ' : 'One-off'}</option>
+            <option value="SUBSCRIPTION">{lang === 'vi' ? 'Từ gói đăng ký' : 'From subscription'}</option>
+          </select>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setOrderDateFilter(''); setOrderDateMode('date'); }}
@@ -449,6 +446,7 @@ export default function OrdersSection({
               <tr className="text-muted-foreground border-b border-border/50 pb-2">
                 <th className="pb-3 font-semibold">{lang === 'vi' ? 'Khách hàng' : 'Customer'}</th>
                 <th className="pb-3 font-semibold">{lang === 'vi' ? 'Số tiền' : 'Amount'}</th>
+                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Nguồn đơn' : 'Source'}</th>
                 <th className="pb-3 font-semibold">{lang === 'vi' ? 'Điều phối' : 'Fulfillment'}</th>
                 <th className="pb-3 font-semibold">{lang === 'vi' ? 'Trạng thái' : 'Status'}</th>
                 <th className="pb-3 font-semibold">{lang === 'vi' ? 'Ngày giao' : 'Delivery Date'}</th>
@@ -468,129 +466,6 @@ export default function OrdersSection({
           totalItems={filteredOrders.length}
           pageSize={PAGE_SIZE}
           onChange={setOrdersPage}
-        />
-      </div>
-
-      <div className="border border-border bg-card rounded-2xl p-6 shadow-sm space-y-6 mt-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h3 className="text-sm font-bold font-heading">Orders from Subscriptions ({filteredSubOrders.length})</h3>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {['PENDING_CONFIRMATION', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED'].map((status) => (
-            <button
-              key={`sub-${status}`}
-              onClick={() => setSubOrderViewTab(status as any)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
-                subOrderViewTab === status
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border hover:bg-muted'
-              }`}
-            >
-              {lang === 'vi' ? ORDER_STATUS_LABELS[status as OrderStatus] : status.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
-            <input
-              type="text"
-              placeholder={lang === 'vi' ? 'Tìm kiếm theo tên khách...' : 'Search by customer...'}
-              value={subOrderSearch}
-              onChange={(e) => setSubOrderSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-background border border-border focus:border-primary text-xs rounded-lg outline-none"
-            />
-          </div>
-          <select
-            value={subOrderStatusFilter}
-            onChange={(e) => setSubOrderStatusFilter(e.target.value as any)}
-            className="text-[11px] font-bold px-2 py-2 rounded border border-border bg-background cursor-pointer"
-          >
-            <option value="ALL">{lang === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
-            {ORDER_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{lang === 'vi' ? ORDER_STATUS_LABELS[s] : s}</option>)}
-          </select>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setSubOrderDateFilter(''); setSubOrderDateMode('date'); }}
-              className={`px-2 py-2 rounded border text-[10px] font-bold cursor-pointer ${subOrderDateMode === 'date' && !subOrderDateFilter ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'}`}
-            >
-              {lang === 'vi' ? 'Tất cả' : 'All'}
-            </button>
-            <input
-              type="date"
-              value={subOrderDateFilter}
-              onChange={(e) => { setSubOrderDateFilter(e.target.value); setSubOrderDateMode('date'); }}
-              className="bg-background border border-border focus:border-primary text-xs py-2 px-3 rounded-lg outline-none"
-            />
-            <button
-              onClick={() => setSubOrderDateMode('upcoming')}
-              className={`px-2 py-2 rounded border text-[10px] font-bold cursor-pointer ${subOrderDateMode === 'upcoming' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border'}`}
-            >
-              {lang === 'vi' ? 'Sắp tới' : 'Upcoming'}
-            </button>
-          </div>
-        </div>
-
-        <div className="md:hidden space-y-3">
-          {pagedSubOrders.map(renderOrderCard)}
-        </div>
-
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead>
-              <tr className="text-muted-foreground border-b border-border/50 pb-2">
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Khách hàng' : 'Customer'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Số tiền' : 'Amount'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Điều phối' : 'Fulfillment'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Trạng thái' : 'Status'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Ngày giao' : 'Delivery Date'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Thanh toán' : 'Payment'}</th>
-                <th className="pb-3 font-semibold">{lang === 'vi' ? 'Gói' : 'Package'}</th>
-                <th className="pb-3 font-semibold text-center">{lang === 'vi' ? 'Thao tác' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedSubOrders.map((o) => (
-                <tr key={o.id} className="border-b border-border/20 last:border-0 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => setOrderDetailView(o)}>
-                  <td className="py-3.5 font-bold">{o.customerName}</td>
-                  <td className="py-3.5 font-semibold text-primary">{formatVND(o.total)}</td>
-                  <td className="py-3.5">{getFulfillmentBadge(o.fulfillmentType)}</td>
-                  <td className="py-3.5">{getStatusBadge(o.status)}</td>
-                  <td className="py-3.5 text-muted-foreground">{new Date(o.deliveryDate).toLocaleDateString('vi-VN')}</td>
-                  <td className="py-3.5 text-muted-foreground">{o.paymentStatus}</td>
-                  <td className="py-3.5 text-muted-foreground">{o.packageName || '—'}</td>
-                  <td className="py-3.5">
-                    <div className="flex justify-center gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleEditOrderTrigger(o); }}
-                        className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0 p-1"
-                        title={lang === 'vi' ? 'Sửa' : 'Edit'}
-                      >
-                        <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o.id); }}
-                        className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0 p-1"
-                        title={lang === 'vi' ? 'Xóa' : 'Delete'}
-                      >
-                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <PaginationControls
-          page={subOrdersSafePage}
-          totalPages={subOrdersTotalPages}
-          totalItems={filteredSubOrders.length}
-          pageSize={PAGE_SIZE}
-          onChange={setSubOrdersPage}
         />
       </div>
 
