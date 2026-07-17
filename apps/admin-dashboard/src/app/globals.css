@@ -42,37 +42,36 @@
   --radius-3xl: 48px;
   --radius-4xl: 64px;
 
-  /* Custom shadows */
-  --shadow-xs: 0 1px 0 rgba(30, 32, 22, 0.04);
-  --shadow-sm: 0 1px 2px rgba(30, 32, 22, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(30, 32, 22, 0.08), 0 2px 4px -1px rgba(30, 32, 22, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(30, 32, 22, 0.08), 0 4px 6px -2px rgba(30, 32, 22, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(30, 32, 22, 0.1), 0 10px 10px -5px rgba(30, 32, 22, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(30, 32, 22, 0.15);
+  /* Soft and deep luxury shadows */
+  --shadow-xs: 0 1px 2px rgba(46, 42, 39, .01);
+  --shadow-sm: 0 2px 4px rgba(46, 42, 39, .02);
+  --shadow-md: 0 4px 8px -1px rgba(46, 42, 39, .03), 0 2px 4px -1px rgba(46, 42, 39, .01);
+  --shadow-lg: 0 10px 15px -3px rgba(46, 42, 39, .03), 0 4px 6px -2px rgba(46, 42, 39, .01);
+  --shadow-xl: 0 20px 25px -5px rgba(46, 42, 39, .04), 0 10px 10px -5px rgba(46, 42, 39, .01);
+  --shadow-2xl: 0 25px 50px -12px rgba(46, 42, 39, .08);
 }
 
 :root {
-  /* Kept in sync with the root DESIGN.md palette (Deep Matcha / Bamboo Sage
-     / Clay Red / Rice Paper) — same tokens apps/customer-web uses. */
-  --background: #f0ebda; /* Rice Paper warm neutral */
-  --foreground: #1e2016; /* Deep Matcha primary */
-  --primary: #b0361b; /* Clay Red tertiary — the one accent color */
-  --primary-foreground: #f8f3e1;
-  --secondary: #7b8069; /* Bamboo Sage secondary */
-  --secondary-foreground: #f8f3e1;
-  --muted: #e6dfce;
-  --muted-foreground: #7b8069;
-  --accent: #b0361b;
-  --accent-foreground: #f8f3e1;
-  --destructive: #b0361b;
-  --destructive-foreground: #f8f3e1;
-  --border: #e6dfce; /* Card outlines, dividers */
-  --input: #f8f3e1;
-  --ring: #b0361b;
-  --card: #f8f3e1; /* Warm Sand Cream surface */
-  --card-foreground: #1e2016;
-  --popover: #f8f3e1;
-  --popover-foreground: #1e2016;
+  /* Aligned with customer-web design system palette */
+  --background: #FAF7F2;        /* Warm background */
+  --foreground: #2E2A27;        /* Charcoal text */
+  --primary: #283828;           /* Deep Forest Green (Logo Identity) */
+  --primary-foreground: #FAF7F2;
+  --secondary: #A67C52;         /* Light warm brown */
+  --secondary-foreground: #FAF7F2;
+  --muted: #EFECE6;             /* Clean warm border / bg */
+  --muted-foreground: #706B67;   /* Secondary gray text */
+  --accent: #D97B42;            /* Vibrant warm orange accent */
+  --accent-foreground: #FAF7F2;
+  --destructive: #A94442;
+  --destructive-foreground: #FFFFFF;
+  --border: #EFECE6;
+  --input: #FAF7F2;
+  --ring: #283828;
+  --card: #FFFFFF;              /* Premium clean white card surface */
+  --card-foreground: #2E2A27;
+  --popover: #FFFFFF;
+  --popover-foreground: #2E2A27;
 }
 
 body {

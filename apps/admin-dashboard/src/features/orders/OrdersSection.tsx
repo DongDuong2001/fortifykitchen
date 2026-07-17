@@ -94,7 +94,6 @@ export default function OrdersSection({
     Authorization: `Bearer ${token}`,
   }), [token]);
 
-  /*
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
       const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
@@ -102,8 +101,13 @@ export default function OrdersSection({
         headers: authHeaders(),
         body: JSON.stringify({ status }),
       });
-      if (res.ok) loadData();
-      else {
+      if (res.ok) {
+        loadData();
+        if (orderDetailView && orderDetailView.id === orderId) {
+          setOrderDetailView((prev: any) => prev ? { ...prev, status } : null);
+        }
+        toast({ title: lang === 'vi' ? 'Đã cập nhật trạng thái đơn hàng' : 'Order status updated', type: 'success' });
+      } else {
         const error = await res.json().catch(() => null);
         toast({ title: error?.message || 'Failed to update order status', type: 'error' });
       }
@@ -112,6 +116,7 @@ export default function OrdersSection({
     }
   };
 
+  /*
   const handlePostponeOrder = (orderId: string) => {
     requestConfirm('Hoãn đơn này? Toàn bộ lịch còn lại sẽ dời sau một chu kỳ, số lượng được bảo lưu.', async () => {
       try {
@@ -126,6 +131,7 @@ export default function OrdersSection({
       }
     });
   };
+  */
 
   const handleUpdateOrderPaymentStatus = async (orderId: string, paymentStatus: string) => {
     try {
@@ -134,12 +140,20 @@ export default function OrdersSection({
         headers: authHeaders(),
         body: JSON.stringify({ paymentStatus }),
       });
-      if (res.ok) loadData();
+      if (res.ok) {
+        loadData();
+        if (orderDetailView && orderDetailView.id === orderId) {
+          setOrderDetailView((prev: any) => prev ? { ...prev, paymentStatus } : null);
+        }
+        toast({ title: lang === 'vi' ? 'Đã cập nhật trạng thái thanh toán' : 'Payment status updated', type: 'success' });
+      } else {
+        const error = await res.json().catch(() => null);
+        toast({ title: error?.message || 'Failed to update payment status', type: 'error' });
+      }
     } catch (e) {
       console.error(e);
     }
   };
-  */
 
   const handleDeleteOrder = (orderId: string) => {
     requestConfirm(
@@ -684,6 +698,83 @@ export default function OrdersSection({
                 <p>{orderDetailView.systemNotes}</p>
               </div>
             )}
+
+            {/* Quick Actions Panel */}
+            <div className="border-t border-border/50 pt-4 space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{lang === 'vi' ? 'Cập nhật nhanh đơn hàng' : 'Quick Actions'}</p>
+              
+              <div className="flex flex-wrap gap-2">
+                {/* Trạng thái đơn hàng */}
+                {orderDetailView.status === 'PENDING_CONFIRMATION' && (
+                  <>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'CONFIRMED')}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      {lang === 'vi' ? '✓ Xác nhận đơn' : 'Confirm Order'}
+                    </button>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'CANCELLED')}
+                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      {lang === 'vi' ? '✕ Hủy đơn' : 'Cancel Order'}
+                    </button>
+                  </>
+                )}
+
+                {orderDetailView.status === 'CONFIRMED' && (
+                  <>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'PREPARING')}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      {lang === 'vi' ? '⚙ Bắt đầu chuẩn bị' : 'Start Preparing'}
+                    </button>
+                    <button
+                      onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'CANCELLED')}
+                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      {lang === 'vi' ? '✕ Hủy đơn' : 'Cancel Order'}
+                    </button>
+                  </>
+                )}
+
+                {orderDetailView.status === 'PREPARING' && (
+                  <button
+                    onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'OUT_FOR_DELIVERY')}
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                  >
+                    {lang === 'vi' ? '🚚 Giao hàng' : 'Ship Order'}
+                  </button>
+                )}
+
+                {orderDetailView.status === 'OUT_FOR_DELIVERY' && (
+                  <button
+                    onClick={() => handleUpdateOrderStatus(orderDetailView.id, 'COMPLETED')}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                  >
+                    {lang === 'vi' ? '✓ Hoàn thành' : 'Complete Order'}
+                  </button>
+                )}
+
+                {/* Trạng thái thanh toán */}
+                {orderDetailView.paymentStatus !== 'PAID' ? (
+                  <button
+                    onClick={() => handleUpdateOrderPaymentStatus(orderDetailView.id, 'PAID')}
+                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer shadow-sm"
+                  >
+                    {lang === 'vi' ? '$ Xác nhận thanh toán' : 'Mark as Paid'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleUpdateOrderPaymentStatus(orderDetailView.id, 'UNPAID')}
+                    className="px-3.5 py-2 border border-amber-600/30 hover:bg-amber-50 text-amber-800 text-[11px] font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    {lang === 'vi' ? '$ Đánh dấu chưa trả' : 'Mark as Unpaid'}
+                  </button>
+                )}
+              </div>
+            </div>
 
             <div className="flex gap-3 pt-2">
               <button onClick={() => setOrderDetailView(null)} className="flex-1 bg-secondary hover:bg-muted text-secondary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer border border-border">
