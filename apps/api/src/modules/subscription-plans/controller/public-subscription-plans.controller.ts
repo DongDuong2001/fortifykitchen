@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ParseUUIDPipe } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, UseGuards, ParseUUIDPipe, Header } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { SubscriptionPlansService } from "../service/subscription-plans.service";
 import { RequestPlanUpgradeDto } from "../dto/request-plan-upgrade.dto";
@@ -16,6 +16,7 @@ export class PublicSubscriptionPlansController {
   constructor(private readonly service: SubscriptionPlansService) {}
 
   @Get()
+  @Header("Cache-Control", "public, max-age=60, stale-while-revalidate=30")
   @ApiOperation({ summary: "List purchasable subscription plan tiers" })
   async findActive(): Promise<SubscriptionPlan[]> {
     return this.service.findActive();

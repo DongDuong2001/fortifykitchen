@@ -11,6 +11,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import compression from "compression";
 import { AppModule } from "./app.module";
 import { ConfigService } from "./config/config.service";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
@@ -27,6 +28,7 @@ async function bootstrap() {
   // Security Middlewares
   app.use(helmet());
   app.use(cookieParser());
+  app.use(compression());
   
   // CORS Configuration supporting development & multiple production frontends
   const allowedOrigins = [

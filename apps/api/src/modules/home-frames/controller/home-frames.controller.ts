@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus, Header } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { HomeFramesService } from "../service/home-frames.service";
 import { CreateHomeFrameDto } from "../dto/create-home-frame.dto";
@@ -14,6 +14,7 @@ export class HomeFramesController {
   constructor(private readonly homeFramesService: HomeFramesService) {}
 
   @Get()
+  @Header("Cache-Control", "public, max-age=60, stale-while-revalidate=30")
   @ApiOperation({ summary: "Get all active home image frames" })
   @ApiResponse({ status: 200, description: "Returns active home frames." })
   async findAllActive(): Promise<HomeFrame[]> {
