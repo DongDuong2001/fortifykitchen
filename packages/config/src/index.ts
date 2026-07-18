@@ -9,7 +9,13 @@ export const backendEnvSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   THROTTLE_TTL: z.coerce.number().default(60),
   THROTTLE_LIMIT: z.coerce.number().default(100),
-  // Cloudinary — required for image upload
+  // Cron job secret for secure cron endpoint access
+  CRON_SECRET: z.string().min(16),
+  // Neon Auth - for JWKS-based JWT verification
+  NEON_AUTH_JWKS_URL: z.string().url().optional(),
+  NEON_AUTH_AUDIENCE: z.string().optional(),
+  NEON_AUTH_ISSUER: z.string().url().optional(),
+  // Cloudinary - required for image upload
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
