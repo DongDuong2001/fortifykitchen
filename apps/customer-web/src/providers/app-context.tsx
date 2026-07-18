@@ -39,6 +39,25 @@ export function useApp() {
   return context;
 }
 
+function setCookie(name: string, value: string, days = 7) {
+  if (typeof document === "undefined") return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+}
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return decodeURIComponent(parts.pop()!.split(";").shift() || "");
+  return null;
+}
+
+function deleteCookie(name: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure`;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
   const [token, setToken] = React.useState<string | null>(null);
@@ -55,8 +74,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Hydrate auth and cart on mount
   React.useEffect(() => {
-    const savedToken = localStorage.getItem("fk_token");
-    const savedUser = localStorage.getItem("fk_user");
+    const savedToken = getCookie("fk_token");
+    const savedUser = getCookie("fk_user");
     const savedCart = localStorage.getItem("fk_cart");
 
     if (savedToken && savedUser) {
@@ -119,8 +138,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setToken(result.data.accessToken);
       setUser(result.data.user);
-      localStorage.setItem("fk_token", result.data.accessToken);
-      localStorage.setItem("fk_user", JSON.stringify(result.data.user));
+      setCookie("fk_token", result.data.accessToken, 7);
+      setCookie("fk_user", JSON.stringify(result.data.user), 7);
 
       toast({
         title: lang === "vi" ? "Chào mừng trở lại" : "Welcome Back",
@@ -170,8 +189,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setToken(result.data.accessToken);
       setUser(result.data.user);
-      localStorage.setItem("fk_token", result.data.accessToken);
-      localStorage.setItem("fk_user", JSON.stringify(result.data.user));
+      setCookie("fk_token", result.data.accessToken, 7);
+      setCookie("fk_user", JSON.stringify(result.data.user), 7);
 
       toast({
         title: lang === "vi" ? "Tạo tài khoản thành công" : "Account Created",
@@ -195,8 +214,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = (lang: Lang = "vi") => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem("fk_token");
-    localStorage.removeItem("fk_user");
+    deleteCookie("fk_token");
+    deleteCookie("fk_user");
     toast({
       title: lang === "vi" ? "Đã đăng xuất" : "Logged Out",
       description: lang === "vi" ? "Bạn đã đăng xuất thành công." : "You have successfully signed out.",
