@@ -1,6 +1,8 @@
 import { MenuItem } from "@fortifykitchen/types";
 import CustomerPortalClient from "@/features/home/CustomerPortalClient";
 
+export const dynamic = 'force-dynamic';
+
 async function getMenuItems(apiUrl: string): Promise<MenuItem[]> {
   try {
     const res = await fetch(`${apiUrl}/menu`, {
