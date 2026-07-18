@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus, Header } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { MenuService } from "../service/menu.service";
 import { CreateMenuItemDto } from "../dto/create-menu-item.dto";
@@ -14,6 +14,7 @@ export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
   @Get()
+  @Header("Cache-Control", "public, max-age=60, stale-while-revalidate=30")
   @ApiOperation({ summary: "Get all available menu items" })
   @ApiQuery({ name: "categoryId", required: false, type: String })
   @ApiResponse({ status: 200, description: "Returns list of available menu items." })
