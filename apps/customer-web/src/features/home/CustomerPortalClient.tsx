@@ -180,7 +180,7 @@ export default function CustomerPortalClient({
         .then((res) => res.json())
         .then((result) => {
           if (result.success && result.data) {
-            setCheckoutAddress(result.data.address);
+            if (result.data.address) setCheckoutStreet(result.data.address);
             setWalletBalance(result.data.walletBalance ?? 0);
             setPlanDiscountPercent(result.data.planDiscountPercent ?? 0);
             setPlanDiscountEndsAt(result.data.planDiscountEndsAt ?? null);
@@ -195,7 +195,6 @@ export default function CustomerPortalClient({
   }, [user, API_URL]);
 
   // Checkout states - must be declared before useEffects that use them
-  const [checkoutAddress, setCheckoutAddress] = React.useState("");
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
   const [checkoutGuestName, setCheckoutGuestName] = React.useState("");
   const [checkoutGuestPhone, setCheckoutGuestPhone] = React.useState("");
@@ -205,9 +204,6 @@ export default function CustomerPortalClient({
   const [discountCodeError, setDiscountCodeError] = React.useState<string | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = React.useState(false);
   const [checkoutStep, setCheckoutStep] = React.useState<"cart" | "details">("cart");
-  // Silence unused state warnings
-  void discountCodeStatus;
-  void discountCodeError;
 
   React.useEffect(() => {
     if (!isCartOpen) setCheckoutStep("cart");
@@ -413,6 +409,13 @@ export default function CustomerPortalClient({
     e.preventDefault();
     setCheckoutError(null);
 
+    if (!checkoutStreet.trim()) {
+      setCheckoutError(lang === "vi" ? "Vui lòng nhập địa chỉ nhận hàng." : "Please enter a delivery address.");
+      return;
+    }
+    const provinceLabel = checkoutProvince === "79" ? "TP. Hồ Chí Minh" : "";
+    const fullAddress = [checkoutStreet.trim(), provinceLabel].filter(Boolean).join(", ");
+
     if (!user) {
       if (!checkoutGuestName.trim() || !checkoutGuestPhone.trim()) {
         setCheckoutError(lang === "vi" ? "Vui lòng nhập tên và số điện thoại." : "Please enter your name and phone number.");
@@ -422,7 +425,7 @@ export default function CustomerPortalClient({
       const guestPayload: any = {
         name: checkoutGuestName.trim(),
         phone: checkoutGuestPhone.trim(),
-        address: checkoutAddress.trim() || undefined,
+        address: fullAddress,
         notes: checkoutNotes.trim() || undefined,
         paymentMethod,
         items: cart.map((l) => ({ menuItemId: l.menuItem.id, qty: l.quantity })),
@@ -455,7 +458,7 @@ export default function CustomerPortalClient({
     }
 
     setIsSubmittingOrder(true);
-    const result = await placeOrder(checkoutAddress, paymentMethod, checkoutNotes, discountCode, lang);
+    const result = await placeOrder(fullAddress, paymentMethod, checkoutNotes, discountCode, lang);
     setIsSubmittingOrder(false);
     if (result && result.success === false) {
       setCheckoutError(result.message || (lang === "vi" ? "Không thể xử lý đơn hàng. Vui lòng thử lại." : "Couldn't process your order. Please try again."));
@@ -1165,6 +1168,15 @@ export default function CustomerPortalClient({
         setCheckoutProvince={setCheckoutProvince}
         checkoutStreet={checkoutStreet}
         setCheckoutStreet={setCheckoutStreet}
+        isGuest={!user}
+        checkoutGuestName={checkoutGuestName}
+        setCheckoutGuestName={setCheckoutGuestName}
+        checkoutGuestPhone={checkoutGuestPhone}
+        setCheckoutGuestPhone={setCheckoutGuestPhone}
+        discountCode={discountCode}
+        setDiscountCode={setDiscountCode}
+        discountCodeStatus={discountCodeStatus}
+        discountCodeError={discountCodeError}
       />
 
       <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} />

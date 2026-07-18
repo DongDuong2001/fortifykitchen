@@ -100,6 +100,15 @@ interface CartDrawerProps {
   setCheckoutProvince: (province: string) => void;
   checkoutStreet: string;
   setCheckoutStreet: (street: string) => void;
+  isGuest: boolean;
+  checkoutGuestName: string;
+  setCheckoutGuestName: (name: string) => void;
+  checkoutGuestPhone: string;
+  setCheckoutGuestPhone: (phone: string) => void;
+  discountCode: string;
+  setDiscountCode: (code: string) => void;
+  discountCodeStatus: "idle" | "checking" | "valid" | "invalid";
+  discountCodeError: string | null;
 }
 
 export default function CartDrawer({
@@ -128,6 +137,15 @@ export default function CartDrawer({
   setCheckoutProvince,
   checkoutStreet,
   setCheckoutStreet,
+  isGuest,
+  checkoutGuestName,
+  setCheckoutGuestName,
+  checkoutGuestPhone,
+  setCheckoutGuestPhone,
+  discountCode,
+  setDiscountCode,
+  discountCodeStatus,
+  discountCodeError,
 }: CartDrawerProps) {
   if (!isCartOpen) return null;
 
@@ -181,6 +199,34 @@ export default function CartDrawer({
           </div>
 
           <form onSubmit={handleCheckout} className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Guest Contact Info */}
+            {isGuest && (
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                  {lang === "vi" ? "Thông tin liên hệ" : "Contact Info"}
+                </label>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder={t("placeholder_name", lang)}
+                    value={checkoutGuestName}
+                    onChange={(e) => setCheckoutGuestName(e.target.value)}
+                    className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-xl outline-none"
+                    required
+                  />
+                  <input
+                    type="tel"
+                    placeholder={t("placeholder_phone", lang)}
+                    value={checkoutGuestPhone}
+                    onChange={(e) => setCheckoutGuestPhone(e.target.value)}
+                    className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-xl outline-none"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Delivery Address */}
             <div className="space-y-4">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -188,22 +234,54 @@ export default function CartDrawer({
                 {t("cart_address", lang)}
               </label>
               <div className="space-y-3">
-                <select 
-                  value={checkoutProvince} 
-                  onChange={(e) => setCheckoutProvince(e.target.value)} 
+                <select
+                  value={checkoutProvince}
+                  onChange={(e) => setCheckoutProvince(e.target.value)}
                   className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-xl outline-none cursor-pointer font-bold font-mono"
                 >
                   <option value="">{t("cart_province", lang)}</option>
                   <option value="79">TP. Hồ Chí Minh</option>
                 </select>
-                <input 
-                  type="text" 
-                  placeholder={t("cart_street", lang)} 
-                  value={checkoutStreet} 
-                  onChange={(e) => setCheckoutStreet(e.target.value)} 
-                  className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-xl outline-none" 
+                <input
+                  type="text"
+                  placeholder={t("cart_street", lang)}
+                  value={checkoutStreet}
+                  onChange={(e) => setCheckoutStreet(e.target.value)}
+                  className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 rounded-xl outline-none"
+                  required
                 />
               </div>
+            </div>
+
+            {/* Discount Code */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                {t("cart_coupon", lang)}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={t("cart_coupon", lang)}
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value)}
+                  className="w-full bg-input border border-border focus:border-primary text-sm py-3 px-4 pr-10 rounded-xl outline-none uppercase"
+                />
+                {discountCodeStatus === "checking" && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">⋯</span>
+                )}
+                {discountCodeStatus === "valid" && (
+                  <FontAwesomeIcon icon={faCheckCircle} className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
+                )}
+              </div>
+              {discountCodeStatus === "valid" && verifiedDiscount && (
+                <p className="text-xs text-emerald-600 font-semibold">
+                  {t("cart_applied", lang)} — {verifiedDiscount.type === "PERCENTAGE" ? `${verifiedDiscount.amount}%` : formatVND(verifiedDiscount.amount)}
+                </p>
+              )}
+              {discountCodeStatus === "invalid" && (
+                <p className="text-xs text-red-500">{discountCodeError || t("cart_invalid_coupon", lang)}</p>
+              )}
             </div>
 
             {/* Order Notes */}
