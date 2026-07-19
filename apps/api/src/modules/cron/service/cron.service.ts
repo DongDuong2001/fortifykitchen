@@ -65,10 +65,7 @@ export class CronService {
         },
       });
 
-      let synced = 0;
-      for (const _subscription of subscriptions) {
-        synced++;
-      }
+      const synced = subscriptions.length;
 
       this.logger.log(`[${cronJobName}] Synced ${synced} subscriptions`);
       return { synced, timestamp: new Date().toISOString() };

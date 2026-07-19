@@ -17,8 +17,9 @@ export class CronAuthGuard implements CanActivate {
     const cronSecret = this.configService.get("CRON_SECRET");
 
     if (!cronSecret) {
-      this.configService.get("NODE_ENV") === "production" && 
+      if (this.configService.get("NODE_ENV") === "production") {
         console.error("CRON_SECRET not configured in production!");
+      }
       throw new UnauthorizedException("Cron authentication not configured");
     }
 
