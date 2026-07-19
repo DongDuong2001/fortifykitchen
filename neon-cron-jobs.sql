@@ -1,9 +1,28 @@
 -- Neon pg_cron jobs for database maintenance
--- Run this SQL in your Neon database (via Neon SQL Editor or psql)
+-- IMPORTANT: Run this in Neon SQL Editor connected to 'postgres' database, NOT 'neondb'
+-- See: https://neon.tech/docs/extensions/pg_cron
 
--- Enable pg_cron extension (run once)
+-- ============================================
+-- STEP 1: Enable pg_cron on 'postgres' database (run once)
+-- ============================================
+-- In Neon SQL Editor:
+-- 1. Switch to 'postgres' database (top-left dropdown)
+-- 2. Run:
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net; -- For http_post() to call API endpoints
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- ============================================
+-- STEP 2: Configure pg_cron to work on 'neondb'
+-- ============================================
+-- Still in 'postgres' database, run:
+-- This allows pg_cron to schedule jobs on 'neondb'
+ALTER DATABASE neondb SET cron.database_name = 'neondb';
+
+-- ============================================
+-- STEP 3: Switch to 'neondb' and schedule jobs
+-- ============================================
+-- Now switch to 'neondb' database (top-left dropdown)
+-- Run the following:
 
 -- ============================================
 -- DAILY MAINTENANCE JOBS (Run daily at 2-4 AM UTC)
@@ -49,11 +68,11 @@ SELECT cron.schedule(
 
 -- Process pending subscription renewals (every hour)
 -- Calls the API endpoint to sync upcoming orders
+-- Replace YOUR_CRON_SECRET with actual CRON_SECRET from Render
 SELECT cron.schedule(
     'process-subscription-renewals',
     '0 * * * *',  -- Every hour at minute 0
     $$
-    -- Call the API endpoint to process subscription renewals
     SELECT http_post(
       'https://fortifykitchen-api.onrender.com/api/cron/subscriptions/renew',
       '{}',
@@ -80,7 +99,6 @@ SELECT cron.schedule(
     'monthly-db-stats',
     '0 2 1 * *',  -- 1st of month at 2 AM UTC
     $$
-    -- Update table statistics for query planner
     ANALYZE;
     $$
 );
@@ -89,22 +107,21 @@ SELECT cron.schedule(
 -- JOB MONITORING
 -- ============================================
 
--- View scheduled jobs
+-- View scheduled jobs (run in 'neondb')
 -- SELECT * FROM cron.job;
 
--- View job run history
+-- View job run history (run in 'neondb')
 -- SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 50;
 
--- Unschedule a job if needed
+-- Unschedule a job if needed (run in 'neondb')
 -- SELECT cron.unschedule('job-name');
 
 -- ============================================
 -- NOTES
 -- ============================================
--- 1. Run these SQL commands in Neon SQL Editor or via psql
+-- 1. Run Step 1-2 in 'postgres' database, Step 3 in 'neondb'
 -- 2. pg_cron runs on the database server (UTC timezone)
--- 3. For API calls from pg_cron, enable pg_net extension and use http_post()
---    Replace YOUR_CRON_SECRET_HERE with your actual CRON_SECRET from Render
+-- 3. For API calls, enable pg_net and replace YOUR_CRON_SECRET_HERE
 -- 4. Monitor job runs: SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;
 -- 5. Neon free tier supports pg_cron - check your plan limits
 -- 6. The http_post calls will fail if pg_net is not enabled or secret is wrong
