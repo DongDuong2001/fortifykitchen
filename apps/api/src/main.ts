@@ -32,7 +32,8 @@ async function bootstrap() {
   
   // CORS Configuration supporting development & multiple production frontends
   const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL, // Customer Web
+    process.env.NEXT_PUBLIC_APP_URL, // Customer Web (Render)
+    process.env.CUSTOMER_WEB_URL, // Customer Web (alternate)
     "https://fortifykitchen.vercel.app", // Customer Web Vercel
     "https://fortifykitchen.onrender.com", // Admin Dashboard on Render
     "http://localhost:3000",
