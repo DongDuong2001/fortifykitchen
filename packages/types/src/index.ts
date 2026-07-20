@@ -56,6 +56,34 @@ export interface Category {
   updatedAt: Date;
 }
 
+// Food type classification (e.g. "Thịt Gà", "Thịt Bò", "Tôm", "Cá", "Rau Củ")
+export interface FoodType {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  order: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Detailed food subtype for specific cuts/parts (e.g. "Má", "Đùi", "Cánh" for chicken)
+export interface FoodSubtypeDetail {
+  id: string;
+  foodTypeId: string;
+  foodType?: FoodType;
+  name: string; // e.g. "Má", "Đùi", "Cánh"
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  order: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // A sellable SKU: one protein + flavor + portion size combination
 // (e.g. chicken / xá xíu / 150g). price is in whole VND (no subunit).
 export interface MenuItem {
@@ -66,6 +94,8 @@ export interface MenuItem {
   price: number;
   isAvailable: boolean;
   categoryId?: string;
+  foodSubtypeId?: string;
+  foodSubtype?: FoodSubtypeDetail;
   // Optional customer-facing copy/photo — not used by the admin tool today
   // but needed by the customer-web storefront.
   description?: string;

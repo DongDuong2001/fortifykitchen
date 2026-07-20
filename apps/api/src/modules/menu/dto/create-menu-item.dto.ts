@@ -54,6 +54,11 @@ export class CreateMenuItemDto {
   @IsOptional()
   categoryId?: string;
 
+  @ApiProperty({ required: false, description: "Food subtype ID (e.g. chicken breast, beef ribeye)" })
+  @IsUUID()
+  @IsOptional()
+  foodSubtypeId?: string;
+
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
