@@ -85,22 +85,15 @@ async function main() {
     "sốt thái",
   ];
 
-  // Placeholder image URLs for different proteins
-  const proteinImages: Record<string, string> = {
-    CHICKEN: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400&h=300&fit=crop",
-    BEEF: "https://images.unsplash.com/photo-1546833999-e9f1b2e7a3e2?w=400&h=300&fit=crop",
-    SHRIMP: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=400&h=300&fit=crop",
-  };
-
   const menuItems = [
     ...chickenFlavors.flatMap((flavor) => [
-      { protein: "CHICKEN" as const, flavor, sizeGrams: 150, price: 25000, imageUrl: proteinImages.CHICKEN },
-      { protein: "CHICKEN" as const, flavor, sizeGrams: 250, price: 42000, imageUrl: proteinImages.CHICKEN },
+      { protein: "CHICKEN" as const, flavor, sizeGrams: 150, price: 25000 },
+      { protein: "CHICKEN" as const, flavor, sizeGrams: 250, price: 42000 },
     ]),
-    { protein: "BEEF" as const, flavor: "herb", sizeGrams: 150, price: 50000, imageUrl: proteinImages.BEEF },
-    { protein: "SHRIMP" as const, flavor: "herb", sizeGrams: 150, price: 50000, imageUrl: proteinImages.SHRIMP },
-    { protein: "SHRIMP" as const, flavor: "muối ớt", sizeGrams: 150, price: 50000, imageUrl: proteinImages.SHRIMP },
-    { protein: "SHRIMP" as const, flavor: "sốt thái", sizeGrams: 150, price: 50000, imageUrl: proteinImages.SHRIMP },
+    { protein: "BEEF" as const, flavor: "herb", sizeGrams: 150, price: 50000 },
+    { protein: "SHRIMP" as const, flavor: "herb", sizeGrams: 150, price: 50000 },
+    { protein: "SHRIMP" as const, flavor: "muối ớt", sizeGrams: 150, price: 50000 },
+    { protein: "SHRIMP" as const, flavor: "sốt thái", sizeGrams: 150, price: 50000 },
   ];
 
   await prisma.menuItem.deleteMany({});
