@@ -591,7 +591,7 @@ model DiscountRedemption {
 // CustomPlanRequest, reviewed by staff (see docs/plan-and-credit-design.md).
 model SubscriptionPlan {
   id             String   @id @default(uuid())
-  name           String // e.g. "Gói 1.5 triệu"
+  name           String   @unique // e.g. "Gói 1.5 triệu"
   price          Int // VND, credited 1:1 to Customer.walletBalance on purchase
   voucherPercent Int      @default(0) // % off voucher granted on purchase, admin-configurable per tier
   description    String?
