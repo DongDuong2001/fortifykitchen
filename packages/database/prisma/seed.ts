@@ -379,9 +379,9 @@ async function main() {
   });
   console.log("Seeded 2 test custom plan requests.");
 
-  // --- Seed default discount codes ------------------------------------------
+// --- Seed default discount codes ------------------------------------------
   await prisma.discount.deleteMany({});
-  const welcomeDiscount = await prisma.discount.create({
+  await prisma.discount.create({
     data: {
       code: "WELCOME10",
       type: "PERCENTAGE",
@@ -391,7 +391,48 @@ async function main() {
       endsAt: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000), // 10 years later
     },
   });
-  console.log(`Seeded default discount code: ${welcomeDiscount.code}`);
+  console.log("Seeded default discount code: WELCOME10");
+
+  // --- Seed default subscription plans ---------------------------------------
+  const plans = [
+    {
+      name: "Gói 1.5 triệu",
+      price: 1500000,
+      voucherPercent: 5,
+      description: "Tặng 5% giảm giá mọi đơn, phù hợp người mới bắt đầu",
+      isActive: true,
+    },
+    {
+      name: "Gói 3 triệu",
+      price: 3000000,
+      voucherPercent: 10,
+      description: "Tặng 10% giảm giá mọi đơn + 1 món miễn phí/tháng",
+      isActive: true,
+    },
+    {
+      name: "Gói 5 triệu",
+      price: 5000000,
+      voucherPercent: 15,
+      description: "Tặng 15% giảm giá mọi đơn + ưu tiên giao hàng + món miễn phí/tháng",
+      isActive: true,
+    },
+    {
+      name: "Gói 10 triệu",
+      price: 10000000,
+      voucherPercent: 20,
+      description: "Tặng 20% giảm giá mọi đơn + ưu tiên giao hàng + miễn phí giao hàng trọn đời + tư vấn dinh dưỡng 1-1/tháng",
+      isActive: true,
+    },
+  ];
+
+for (const plan of plans) {
+    await prisma.subscriptionPlan.upsert({
+      where: { name: plan.name },
+      update: {},
+      create: plan,
+    });
+  }
+  console.log(`Seeded ${plans.length} subscription plans.`);
 }
 
 main()
