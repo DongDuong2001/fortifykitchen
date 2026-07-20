@@ -147,6 +147,9 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                             src={selected.imageUrl}
                             alt={getMenuItemLabel(selected)}
                             className="object-cover h-full w-full"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400";
+                            }}
                           />
                         ) : (
                           <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
