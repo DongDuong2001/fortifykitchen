@@ -83,6 +83,78 @@ enum Protein {
   SHRIMP
 }
 
+// Food type classification (e.g. "Thịt Gà", "Thịt Bò", "Tôm", "Cá", "Rau Củ")
+model FoodType {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "Thịt Gà", "Thịt Bò"
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  subtypes    FoodSubtypeDetail[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([order])
+}
+
+// Detailed food subtype for specific cuts/parts (e.g. "Má", "Đùi", "Cánh" for chicken)
+model FoodSubtypeDetail {
+  id          String    @id @default(uuid())
+  foodTypeId  String
+  foodType    FoodType  @relation(fields: [foodTypeId], references: [id], onDelete: Cascade)
+  name        String    // e.g. "Má", "Đùi", "Cánh"
+  slug        String
+  description String?
+  imageUrl    String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  menuItems   MenuItem[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([foodTypeId, slug])
+  @@index([foodTypeId])
+  @@index([isActive])
+  @@index([order])
+}
+
+enum FoodSubtype {
+  // Chicken subtypes
+  CHICKEN_BREAST      // Má gà
+  CHICKEN_THIGH       // Đùi gà
+  CHICKEN_WING        // Cánh gà
+  CHICKEN_LEG         // Chân gà
+  CHICKEN_WHOLE       // Gà ta / Gà ri (nguyên con)
+
+  // Beef subtypes
+  BEEF_TENDERLOIN     // Bắp bò / Thăn ngoài
+  BEEF_RIBEYE         // Sườn bò
+  BEEF_SIRLOIN        // Thăn trong
+  BEEF_BRISKET        // Bắp bò / Gân bò
+  BEEF_SHANK          // Gân bò / Bắp chân
+  BEEF_FLANK          // Bả bò
+  BEEF_GROUND         // Bò xay
+
+  // Shrimp subtypes
+  SHRIMP_TIGER        // Tôm sú
+  SHRIMP_KING         // Tôm hùm / Tôm hồng
+  SHRIMP_WHITE        // Tôm trắng
+  SHRIMP_MANTIS       // Tôm tích / Tôm cua
+}
+
+model FoodSubtypeConfig {
+  id        String   @id @default(uuid())
+  protein   Protein  @unique
+  subtypes  FoodSubtype[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([protein])
+}
+
 enum PaymentStatus {
   PENDING
   COMPLETED
@@ -226,14 +298,16 @@ model Category {
 // A sellable SKU: one protein + flavor + portion size combination.
 // e.g. chicken / xá xíu / 150g. price is in whole VND (no subunit).
 model MenuItem {
-  id          String    @id @default(uuid())
-  protein     Protein
-  flavor      String
-  sizeGrams   Int
-  price       Int
-  isAvailable Boolean   @default(true)
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id            String    @id @default(uuid())
+  protein       Protein
+  flavor        String
+  sizeGrams     Int
+  price         Int
+  isAvailable   Boolean   @default(true)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  foodSubtypeId String?
+  foodSubtype   FoodSubtypeDetail? @relation(fields: [foodSubtypeId], references: [id], onDelete: SetNull)
 
   // How many portions of this exact SKU are prepped and ready to go right
   // now — decremented when an Order is fulfilled IMMEDIATE, restored if
@@ -253,6 +327,7 @@ model MenuItem {
 
   @@index([protein])
   @@index([categoryId])
+  @@index([foodSubtypeId])
 }
 
 // A single order for a single delivery date — covers BOTH a one-off order
