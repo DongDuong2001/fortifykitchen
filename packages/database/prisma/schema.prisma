@@ -239,9 +239,6 @@ model Customer {
   address       String?
   notes         String?
 
-  // Profile image uploaded by customer (via Cloudinary)
-  imageUrl      String?
-
   // Spendable balance in whole VND, topped up by buying a SubscriptionPlan
   // (see SubscriptionPlan) and spent on one-off orders (PaymentMethod.WALLET)
   // or in full toward a staff-built Subscription from an approved
