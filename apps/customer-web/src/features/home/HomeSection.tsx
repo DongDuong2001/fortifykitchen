@@ -146,6 +146,9 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                         src={currentFrame.imageUrl}
                         alt={currentFrame.title || t("home_hero_image_alt", lang)}
                         className="w-full h-full object-contain md:object-cover transition-transform duration-500 hover:scale-102"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
+                        }}
                       />
                     </a>
                   ) : (
@@ -153,6 +156,9 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                       src={currentFrame.imageUrl}
                       alt={currentFrame.title || t("home_hero_image_alt", lang)}
                       className="w-full h-full object-contain md:object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
+                      }}
                     />
                   )}
                   {/* Slider Indicators */}
@@ -299,6 +305,9 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                     alt={getMenuItemLabel(item)}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-103"
                     loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400";
+                    }}
                   />
                   <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-background/90 text-foreground text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm shadow-sm border border-border/40 select-none">
                     {t(`filter_${item.protein}` as keyof Dictionary, lang)}
