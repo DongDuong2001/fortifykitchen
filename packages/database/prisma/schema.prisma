@@ -595,6 +595,7 @@ model SubscriptionPlan {
   price          Int // VND, credited 1:1 to Customer.walletBalance on purchase
   voucherPercent Int      @default(0) // % off voucher granted on purchase, admin-configurable per tier
   description    String?
+  features       String[] @default([]) // Itemised benefits, e.g. ["Giảm 5% mọi đơn hàng", "Ưu tiên giao hàng"]
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
