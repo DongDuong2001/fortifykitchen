@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional, IsBoolean } from "class-validator";
+import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional, IsBoolean, IsArray } from "class-validator";
 
 // A purchasable price tier (e.g. "Gói 1.5 triệu") — buying one credits
 // Customer.walletBalance by `price` and issues a percentage-off Discount
@@ -28,8 +28,15 @@ export class CreateSubscriptionPlanDto {
   @IsOptional()
   description?: string;
 
+  @ApiProperty({ required: false, default: [], description: "Itemised benefits / inclusions for this plan tier" })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  features?: string[];
+
   @ApiProperty({ required: false, default: true })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }
+

@@ -11,6 +11,7 @@ type RawPlan = {
   price: number;
   voucherPercent: number;
   description: string | null;
+  features: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +28,7 @@ export class SubscriptionPlansService {
         price: dto.price,
         voucherPercent: dto.voucherPercent ?? 0,
         description: dto.description,
+        features: dto.features ?? [],
         isActive: dto.isActive ?? true,
       },
     });
@@ -65,6 +67,7 @@ export class SubscriptionPlansService {
         price: dto.price,
         voucherPercent: dto.voucherPercent,
         description: dto.description,
+        features: dto.features,
         isActive: dto.isActive,
       },
     });
@@ -414,6 +417,7 @@ export class SubscriptionPlansService {
       price: p.price,
       voucherPercent: p.voucherPercent,
       description: p.description ?? undefined,
+      features: p.features ?? [],
       isActive: p.isActive,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

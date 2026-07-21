@@ -294,6 +294,7 @@ export interface SubscriptionPlan {
   price: number;
   voucherPercent: number;
   description?: string;
+  features: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

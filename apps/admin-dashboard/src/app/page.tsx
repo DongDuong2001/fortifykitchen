@@ -601,6 +601,7 @@ export default function AdminDashboard() {
   const [subPlanPrice, setSubPlanPrice] = React.useState(1500000);
   const [subPlanVoucherPercent, setSubPlanVoucherPercent] = React.useState(5);
   const [subPlanDescription, setSubPlanDescription] = React.useState("");
+  const [subPlanFeatures, setSubPlanFeatures] = React.useState<string[]>([]);
   const [subPlanIsActive, setSubPlanIsActive] = React.useState(true);
   const [isSavingSubPlan, setIsSavingSubPlan] = React.useState(false);
 
@@ -1753,6 +1754,7 @@ export default function AdminDashboard() {
     setSubPlanPrice(1500000);
     setSubPlanVoucherPercent(5);
     setSubPlanDescription("");
+    setSubPlanFeatures([]);
     setSubPlanIsActive(true);
   };
 
@@ -1762,6 +1764,7 @@ export default function AdminDashboard() {
     setSubPlanPrice(plan.price);
     setSubPlanVoucherPercent(plan.voucherPercent ?? 0);
     setSubPlanDescription(plan.description || "");
+    setSubPlanFeatures(plan.features || []);
     setSubPlanIsActive(plan.isActive);
   };
 
@@ -1772,11 +1775,13 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       setIsSavingSubPlan(true);
+      const cleanedFeatures = subPlanFeatures.filter((f) => f.trim() !== "");
       const payload = {
         name: subPlanName,
         price: Number(subPlanPrice),
         voucherPercent: Number(subPlanVoucherPercent),
         description: subPlanDescription || undefined,
+        features: cleanedFeatures,
         isActive: subPlanIsActive,
       };
       const url = editingSubPlanId ? `${API_URL}/subscription-plans/${editingSubPlanId}` : `${API_URL}/subscription-plans`;
@@ -3975,6 +3980,51 @@ export default function AdminDashboard() {
                           />
                         </div>
 
+                        {/* Features / benefits list */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              Quyền lợi / Bao gồm
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setSubPlanFeatures([...subPlanFeatures, ""])}
+                              className="text-[10px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 cursor-pointer bg-transparent border-0"
+                            >
+                              <FontAwesomeIcon icon={faPlus} className="h-2.5 w-2.5" /> Thêm mục
+                            </button>
+                          </div>
+                          {subPlanFeatures.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground italic">
+                              Chưa có quyền lợi nào. Bấm &quot;Thêm mục&quot; để thêm.
+                            </p>
+                          )}
+                          <div className="space-y-1.5">
+                            {subPlanFeatures.map((feature, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 group">
+                                <input
+                                  type="text"
+                                  placeholder={`vd: Giảm ${5 + idx}% mọi đơn hàng`}
+                                  value={feature}
+                                  onChange={(e) => {
+                                    const updated = [...subPlanFeatures];
+                                    updated[idx] = e.target.value;
+                                    setSubPlanFeatures(updated);
+                                  }}
+                                  className="flex-1 bg-background border border-border focus:border-primary text-xs py-2 px-2.5 rounded-lg outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setSubPlanFeatures(subPlanFeatures.filter((_, i) => i !== idx))}
+                                  className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <FontAwesomeIcon icon={faTimes} className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
                           <input
                             type="checkbox"
@@ -4015,6 +4065,7 @@ export default function AdminDashboard() {
                               <th className="pb-3 font-semibold">Tên gói</th>
                               <th className="pb-3 font-semibold">Giá</th>
                               <th className="pb-3 font-semibold">Voucher</th>
+                              <th className="pb-3 font-semibold">Quyền lợi</th>
                               <th className="pb-3 font-semibold text-center">Trạng thái</th>
                               <th className="pb-3 font-semibold text-center">Thao tác</th>
                             </tr>
@@ -4025,38 +4076,67 @@ export default function AdminDashboard() {
                               clampPage(subscriptionPlansPage, Math.ceil(subscriptionPlans.length / PAGE_SIZE) || 1),
                               PAGE_SIZE,
                             ).map((p: any) => (
-                              <tr key={p.id} className="border-b border-border/20 last:border-0">
-                                <td className="py-3.5 font-bold">{p.name}</td>
-                                <td className="py-3.5 font-bold text-primary">{formatVND(p.price)}</td>
-                                <td className="py-3.5 text-muted-foreground">{p.voucherPercent}%</td>
-                                <td className="py-3.5 text-center">
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
-                                      p.isActive
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : "bg-muted text-muted-foreground border-border"
-                                    }`}
-                                  >
-                                    {p.isActive ? "Hoạt động" : "Đã ẩn"}
-                                  </span>
-                                </td>
-                                <td className="py-3.5">
-                                  <div className="flex justify-center gap-2">
-                                    <button
-                                      onClick={() => handleEditSubPlanTrigger(p)}
-                                      className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                              <React.Fragment key={p.id}>
+                                <tr className="border-b border-border/20 last:border-0">
+                                  <td className="py-3.5 font-bold">{p.name}</td>
+                                  <td className="py-3.5 font-bold text-primary">{formatVND(p.price)}</td>
+                                  <td className="py-3.5 text-muted-foreground">{p.voucherPercent}%</td>
+                                  <td className="py-3.5">
+                                    {(p.features || []).length > 0 ? (
+                                      <span className="text-[11px] font-semibold text-primary">
+                                        {p.features.length} mục
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground italic text-[11px]">Chưa có</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3.5 text-center">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${
+                                        p.isActive
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                          : "bg-muted text-muted-foreground border-border"
+                                      }`}
                                     >
-                                      <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSubscriptionPlan(p.id)}
-                                      className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
-                                    >
-                                      <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
+                                      {p.isActive ? "Hoạt động" : "Đã ẩn"}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5">
+                                    <div className="flex justify-center gap-2">
+                                      <button
+                                        onClick={() => handleEditSubPlanTrigger(p)}
+                                        className="text-muted-foreground hover:text-primary cursor-pointer bg-transparent border-0"
+                                      >
+                                        <FontAwesomeIcon icon={faEdit} className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteSubscriptionPlan(p.id)}
+                                        className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0"
+                                      >
+                                        <FontAwesomeIcon icon={faTrashAlt} className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {/* Inline features detail — shown when editing this plan */}
+                                {(p.features || []).length > 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="pb-3 pt-0 px-4">
+                                      <div className="bg-muted/30 border border-border/50 rounded-lg p-3 space-y-1">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                                          Quyền lợi bao gồm:
+                                        </p>
+                                        {(p.features || []).map((f: string, i: number) => (
+                                          <div key={i} className="flex items-start gap-2 text-xs">
+                                            <span className="text-emerald-600 mt-0.5">✓</span>
+                                            <span>{f}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>
