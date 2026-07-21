@@ -3,7 +3,15 @@ import CustomerPortalClient from "@/features/home/CustomerPortalClient";
 
 export const dynamic = 'force-dynamic';
 
+// Check if we're in a build environment
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                    process.env.NEXT_PHASE === 'phase-production-server' ||
+                    !process.env.NEXT_PUBLIC_API_URL;
+
 async function getMenuItems(apiUrl: string): Promise<MenuItem[]> {
+  // Skip fetch during build time
+  if (isBuildTime) return [];
+  
   try {
     const res = await fetch(`${apiUrl}/menu`, {
       next: { revalidate: 60 },
@@ -18,6 +26,9 @@ async function getMenuItems(apiUrl: string): Promise<MenuItem[]> {
 }
 
 async function getSubscriptionPlans(apiUrl: string): Promise<any[]> {
+  // Skip fetch during build time
+  if (isBuildTime) return [];
+  
   try {
     const res = await fetch(`${apiUrl}/subscription-plans/public`, {
       next: { revalidate: 60 },
@@ -32,6 +43,9 @@ async function getSubscriptionPlans(apiUrl: string): Promise<any[]> {
 }
 
 async function getHomeFrames(apiUrl: string): Promise<any[]> {
+  // Skip fetch during build time
+  if (isBuildTime) return [];
+  
   try {
     const res = await fetch(`${apiUrl}/home-frames`, {
       next: { revalidate: 60 },
@@ -48,12 +62,23 @@ async function getHomeFrames(apiUrl: string): Promise<any[]> {
 export default async function CustomerPortalPage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-  // Fetch concurrently
-  const [menuItems, subscriptionPlans, homeFrames] = await Promise.all([
-    getMenuItems(apiUrl),
-    getSubscriptionPlans(apiUrl),
-    getHomeFrames(apiUrl),
-  ]);
+  // Skip data fetching during build
+  let menuItems: MenuItem[] = [];
+  let subscriptionPlans: any[] = [];
+  let homeFrames: any[] = [];
+
+  if (!isBuildTime) {
+    // Fetch concurrently
+    const [menuItemsData, subscriptionPlansData, homeFramesData] = await Promise.all([
+      getMenuItems(apiUrl),
+      getSubscriptionPlans(apiUrl),
+      getHomeFrames(apiUrl),
+    ]);
+    
+    menuItems = menuItemsData;
+    subscriptionPlans = subscriptionPlansData;
+    homeFrames = homeFramesData;
+  }
 
   return (
     <CustomerPortalClient
