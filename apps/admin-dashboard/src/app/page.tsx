@@ -3981,10 +3981,10 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Features / benefits list */}
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                           <div className="flex items-center justify-between">
                             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                              Quyền lợi / Bao gồm
+                              Quyền lợi / Bao gồm ({subPlanFeatures.length})
                             </label>
                             <button
                               type="button"
@@ -3994,14 +3994,41 @@ export default function AdminDashboard() {
                               <FontAwesomeIcon icon={faPlus} className="h-2.5 w-2.5" /> Thêm mục
                             </button>
                           </div>
+
+                          {/* Preset suggestion chips */}
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            <span className="text-[9px] text-muted-foreground font-semibold py-0.5 mr-1">Gợi ý nhanh:</span>
+                            {[
+                              `Giảm ${subPlanVoucherPercent || 5}% mọi đơn hàng`,
+                              `Cộng ${formatVND(subPlanPrice || 1500000)} vào ví`,
+                              "Ưu tiên giao hàng",
+                              "Miễn phí giao hàng trọn gói",
+                              "Tư vấn dinh dưỡng 1-1",
+                            ].map((preset, pIdx) => (
+                              <button
+                                key={pIdx}
+                                type="button"
+                                onClick={() => {
+                                  if (!subPlanFeatures.includes(preset)) {
+                                    setSubPlanFeatures([...subPlanFeatures, preset]);
+                                  }
+                                }}
+                                className="text-[10px] bg-muted/60 hover:bg-primary/10 hover:text-primary border border-border/60 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors cursor-pointer"
+                              >
+                                + {preset}
+                              </button>
+                            ))}
+                          </div>
+
                           {subPlanFeatures.length === 0 && (
-                            <p className="text-[11px] text-muted-foreground italic">
-                              Chưa có quyền lợi nào. Bấm &quot;Thêm mục&quot; để thêm.
+                            <p className="text-[11px] text-muted-foreground italic bg-muted/20 p-2 rounded-lg text-center">
+                              Chưa có quyền lợi nào. Bấm &quot;Thêm mục&quot; hoặc chọn gợi ý bên trên.
                             </p>
                           )}
+
                           <div className="space-y-1.5">
                             {subPlanFeatures.map((feature, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5 group">
+                              <div key={idx} className="flex items-center gap-1.5">
                                 <input
                                   type="text"
                                   placeholder={`vd: Giảm ${5 + idx}% mọi đơn hàng`}
@@ -4016,7 +4043,8 @@ export default function AdminDashboard() {
                                 <button
                                   type="button"
                                   onClick={() => setSubPlanFeatures(subPlanFeatures.filter((_, i) => i !== idx))}
-                                  className="text-muted-foreground hover:text-red-500 cursor-pointer bg-transparent border-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Xóa mục này"
+                                  className="text-muted-foreground/70 hover:text-red-500 p-1 cursor-pointer bg-transparent border-0 transition-colors"
                                 >
                                   <FontAwesomeIcon icon={faTimes} className="h-3 w-3" />
                                 </button>
