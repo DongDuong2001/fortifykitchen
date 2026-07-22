@@ -46,35 +46,6 @@ async function main() {
 
   console.log(`Seeded admin user: ${admin2.email}`);
 
-  // Seed user dongduong840@gmail.com (Pass: 20042001)
-  const testUserPasswordHash = "$argon2id$v=19$m=65536,t=3,p=4$XWhullxz0g0b8hPb+dGqxA$qvsaepOj9gYk2frb5PkZO7CAGic+4XtcXjKwxaVC3PE";
-  const testUser = await prisma.user.upsert({
-    where: { email: "dongduong840@gmail.com" },
-    update: { passwordHash: testUserPasswordHash },
-    create: {
-      email: "dongduong840@gmail.com",
-      firstName: "Đông",
-      lastName: "Dương",
-      passwordHash: testUserPasswordHash,
-      role: "CUSTOMER",
-      isActive: true,
-    },
-  });
-
-  const existingTestCustomer = await prisma.customer.findFirst({ where: { userId: testUser.id } });
-  if (!existingTestCustomer) {
-    await prisma.customer.create({
-      data: {
-        userId: testUser.id,
-        name: "Đông Dương",
-        phone: "0908402001",
-        address: "TP.HCM",
-      },
-    });
-  }
-
-  console.log(`Seeded test user: ${testUser.email}`);
-
   // Seed default menu categories
   const categories = [
     { name: "Salads", slug: "salads" },
