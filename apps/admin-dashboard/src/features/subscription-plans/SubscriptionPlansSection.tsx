@@ -57,7 +57,7 @@ export default function SubscriptionPlansSection({
   // Track which plan card is expanded to show features
   const [expandedPlanId, setExpandedPlanId] = React.useState<string | null>(null);
 
-  const formRef = React.useRef<HTMLDivElement>(null);
+  const formRef = React.useRef<React.ElementRef<'div'>>(null);
 
   const authHeaders = React.useCallback(() => ({
     'Content-Type': 'application/json',
