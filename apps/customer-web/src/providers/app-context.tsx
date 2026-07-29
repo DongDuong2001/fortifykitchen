@@ -114,6 +114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       }).catch(() => null);
       if (!res) {
@@ -174,6 +175,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       }).catch(() => null);
       if (!res) {
@@ -224,6 +226,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = (lang: Lang = "vi") => {
+    fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => null);
+
     setToken(null);
     setUser(null);
     deleteCookie("fk_token");
@@ -335,6 +342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
         body: JSON.stringify({
           items: orderItems,
           deliveryDate,
