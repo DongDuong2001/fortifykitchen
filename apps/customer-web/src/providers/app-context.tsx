@@ -74,13 +74,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Hydrate auth and cart on mount
   React.useEffect(() => {
-    const savedToken = getCookie("fk_token");
-    const savedUser = getCookie("fk_user");
-    const savedCart = localStorage.getItem("fk_cart");
+    const savedToken = getCookie("fk_token") || (typeof window !== "undefined" ? localStorage.getItem("fk_token") : null);
+    const savedUser = getCookie("fk_user") || (typeof window !== "undefined" ? localStorage.getItem("fk_user") : null);
+    const savedCart = typeof window !== "undefined" ? localStorage.getItem("fk_cart") : null;
 
     if (savedToken && savedUser) {
       setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error(e);
+      }
     }
     if (savedCart) {
       try {
@@ -140,6 +144,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(result.data.user);
       setCookie("fk_token", result.data.accessToken, 7);
       setCookie("fk_user", JSON.stringify(result.data.user), 7);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fk_token", result.data.accessToken);
+        localStorage.setItem("fk_user", JSON.stringify(result.data.user));
+      }
 
       toast({
         title: lang === "vi" ? "Chào mừng trở lại" : "Welcome Back",
@@ -191,6 +199,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser(result.data.user);
       setCookie("fk_token", result.data.accessToken, 7);
       setCookie("fk_user", JSON.stringify(result.data.user), 7);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("fk_token", result.data.accessToken);
+        localStorage.setItem("fk_user", JSON.stringify(result.data.user));
+      }
 
       toast({
         title: lang === "vi" ? "Tạo tài khoản thành công" : "Account Created",
@@ -216,6 +228,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     deleteCookie("fk_token");
     deleteCookie("fk_user");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("fk_token");
+      localStorage.removeItem("fk_user");
+    }
     toast({
       title: lang === "vi" ? "Đã đăng xuất" : "Logged Out",
       description: lang === "vi" ? "Bạn đã đăng xuất thành công." : "You have successfully signed out.",
