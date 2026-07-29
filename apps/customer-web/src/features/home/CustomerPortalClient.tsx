@@ -172,10 +172,15 @@ export default function CustomerPortalClient({
   const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
   const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
 
+  const getAuthToken = React.useCallback(() => {
+    return token || (typeof window !== "undefined" ? localStorage.getItem("fk_token") : null);
+  }, [token]);
+
   React.useEffect(() => {
-    if (user) {
+    const activeToken = getAuthToken();
+    if (user && activeToken) {
       fetch(`${API_URL}/customers/me`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("fk_token")}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
       })
         .then((res) => res.json())
         .then((result) => {
@@ -192,7 +197,7 @@ export default function CustomerPortalClient({
       setPlanDiscountPercent(0);
       setPlanDiscountEndsAt(null);
     }
-  }, [user, API_URL]);
+  }, [user, API_URL, getAuthToken]);
 
   // Checkout states - must be declared before useEffects that use them
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
@@ -264,9 +269,10 @@ export default function CustomerPortalClient({
 
   const loadNotifications = React.useCallback(async () => {
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
+      if (!activeToken) return;
       const res = await fetch(`${API_URL}/notifications/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
       }).catch(() => null);
       if (res && res.ok) {
         const result = await res.json().catch(() => null);
@@ -275,7 +281,7 @@ export default function CustomerPortalClient({
     } catch (err) {
       console.error(err);
     }
-  }, [API_URL]);
+  }, [API_URL, getAuthToken]);
 
   React.useEffect(() => {
     if (user) {
@@ -295,10 +301,10 @@ export default function CustomerPortalClient({
   const loadDashboard = React.useCallback(async () => {
     try {
       setIsLoadingDashboard(true);
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const [resOrders, resSubs] = await Promise.all([
-        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${activeToken}` } }).catch(() => null),
+        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${activeToken}` } }).catch(() => null),
       ]);
       if (resOrders && resSubs && resOrders.ok && resSubs.ok) {
         const orderData = await resOrders.json();
@@ -501,9 +507,9 @@ export default function CustomerPortalClient({
     setLookupError(null);
     setHasLookedUp(true);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -566,10 +572,10 @@ export default function CustomerPortalClient({
     }
     setPurchasingPlanId(plan.id);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscription-plans/public/${plan.id}/purchase`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -601,10 +607,10 @@ export default function CustomerPortalClient({
     setPayingSubscriptionId(subscriptionId);
     setPayFromWalletError(null);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${activeToken}` },
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -622,7 +628,7 @@ export default function CustomerPortalClient({
           handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
         }
         fetch(`${API_URL}/customers/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${activeToken}` },
         })
           .then((r) => r.json())
           .then((rr) => {
@@ -658,12 +664,12 @@ export default function CustomerPortalClient({
     if (!selectedUpgradePlanId || !user?.id) return;
     setIsSubmittingUpgradeRequest(true);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/wallet/upgrade-request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
         },
         body: JSON.stringify({
           targetPlanId: selectedUpgradePlanId,
