@@ -180,7 +180,8 @@ export default function CustomerPortalClient({
     const activeToken = getAuthToken();
     if (user && activeToken) {
       fetch(`${API_URL}/customers/me`, {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       })
         .then((res) => res.json())
         .then((result) => {
@@ -272,7 +273,8 @@ export default function CustomerPortalClient({
       const activeToken = getAuthToken();
       if (!activeToken) return;
       const res = await fetch(`${API_URL}/notifications/me`, {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       }).catch(() => null);
       if (res && res.ok) {
         const result = await res.json().catch(() => null);
@@ -303,8 +305,8 @@ export default function CustomerPortalClient({
       setIsLoadingDashboard(true);
       const activeToken = getAuthToken();
       const [resOrders, resSubs] = await Promise.all([
-        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${activeToken}` } }).catch(() => null),
-        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${activeToken}` } }).catch(() => null),
+        fetch(`${API_URL}/orders/me`, { headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined, credentials: "include" }).catch(() => null),
+        fetch(`${API_URL}/subscriptions/me`, { headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined, credentials: "include" }).catch(() => null),
       ]);
       if (resOrders && resSubs && resOrders.ok && resSubs.ok) {
         const orderData = await resOrders.json();
@@ -509,7 +511,8 @@ export default function CustomerPortalClient({
     try {
       const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/me`, {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -575,7 +578,8 @@ export default function CustomerPortalClient({
       const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscription-plans/public/${plan.id}/purchase`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -610,7 +614,8 @@ export default function CustomerPortalClient({
       const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -628,7 +633,8 @@ export default function CustomerPortalClient({
           handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
         }
         fetch(`${API_URL}/customers/me`, {
-          headers: { Authorization: `Bearer ${activeToken}` },
+          headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+          credentials: "include",
         })
           .then((r) => r.json())
           .then((rr) => {
@@ -669,8 +675,9 @@ export default function CustomerPortalClient({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${activeToken}`,
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({
           targetPlanId: selectedUpgradePlanId,
           notes: upgradeRequestNotes.trim() || undefined,
