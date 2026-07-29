@@ -18,7 +18,8 @@
     "prepare": "husky",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
-    "db:seed": "turbo db:seed"
+    "db:seed": "turbo db:seed",
+    "ping-api": "node scripts/ping-api.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
