@@ -351,8 +351,52 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #141f14;
 }
 
-.btn-add-cart:active .button__icon {
-  background-color: #141f14;
+.btn-add-cart-added {
+  background-color: #16a34a !important;
+  border-color: #16a34a !important;
+}
+
+.btn-add-cart-added .button__icon {
+  background-color: #15803d !important;
+  width: 44px !important;
+}
+
+/*
+ * Horizontal Marquee Info Ticker
+ */
+.ticker-container {
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
+.ticker-track {
+  display: flex;
+  gap: 3rem;
+  width: max-content;
+  animation: ticker-slide 28s linear infinite;
+}
+
+.ticker-container:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-slide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-bounce-short {
+  animation: bounce-short 0.6s ease-in-out;
+}
+
+@keyframes bounce-short {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px) scale(1.15); }
 }
 
 /*
