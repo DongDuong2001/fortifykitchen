@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUtensils, faPlus, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faUtensils, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { getMenuItemLabel, PROTEIN_LABELS, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
+import AddToCartButton from "@/components/AddToCartButton";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -207,13 +208,10 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                           {formatVND(selected.price)}
                         </span>
                       </div>
-                      <button
+                      <AddToCartButton
+                        text={t("btn_add_cart", lang)}
                         onClick={() => addToCart(selected, 1, undefined, lang)}
-                        className="flex-1 btn-primary py-3 px-4 text-xs tracking-wider uppercase font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
-                        {t("btn_add_cart", lang)}
-                      </button>
+                      />
                     </div>
                   </div>
                 );
