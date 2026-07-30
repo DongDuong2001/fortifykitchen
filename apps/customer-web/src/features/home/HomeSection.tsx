@@ -349,6 +349,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                     <AddToCartButton
                       text={t("btn_add_cart", lang)}
                       onClick={() => addToCart(item, 1, undefined, lang)}
+                      imageUrl={item.imageUrl}
                       className="w-full max-w-none justify-center"
                     />
                   </div>
