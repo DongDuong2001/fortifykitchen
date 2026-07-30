@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Providers } from "../providers/providers";
 import { Manrope, Be_Vietnam_Pro } from "next/font/google";
+import Pattern from "@/components/Pattern";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -55,7 +56,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={`${manrope.variable} ${beVietnam.variable}`} suppressHydrationWarning>
-      <body className="antialiased font-sans" suppressHydrationWarning>
+      <body className="antialiased font-sans relative" suppressHydrationWarning>
+        <Pattern />
         <Providers>{children}</Providers>
       </body>
     </html>
