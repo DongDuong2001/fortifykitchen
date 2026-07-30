@@ -78,123 +78,53 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
 
   return (
     <div className="space-y-0">
-      {/* 2. HERO — "THE NUTRITION PILL" Bố cục Pill & Split Layout */}
+      {/* 2. HERO — SOUMAKI STYLE IMMERSIVE BANNER (Adapted for 100% Online Delivery) */}
       <section className="relative pt-2 pb-12 md:pt-4 md:pb-16 overflow-hidden bg-transparent">
-        {/* Top Info Ticker Bar */}
-        <div className="max-w-7xl mx-auto mb-8 overflow-hidden px-4">
-          <div className="ticker-container rounded-full bg-primary/5 border border-primary/10 py-3 px-6 shadow-sm">
-            <div className="ticker-track text-primary text-xs sm:text-sm font-semibold tracking-wide">
-              <span className="flex items-center gap-2">✔ Protein chuẩn ISO</span>
-              <span className="flex items-center gap-2">✔ Giao hàng đúng giờ</span>
-              <span className="flex items-center gap-2">✔ Nguồn gốc rõ ràng</span>
-              <span className="flex items-center gap-2">✔ Chế biến Sous-vide</span>
-              <span className="flex items-center gap-2">✔ Macro minh bạch</span>
-              <span className="flex items-center gap-2">✔ Nguyên liệu tươi mới</span>
-              <span className="flex items-center gap-2">✔ Protein chuẩn ISO</span>
-              <span className="flex items-center gap-2">✔ Giao hàng đúng giờ</span>
-              <span className="flex items-center gap-2">✔ Nguồn gốc rõ ràng</span>
-              <span className="flex items-center gap-2">✔ Chế biến Sous-vide</span>
-              <span className="flex items-center gap-2">✔ Macro minh bạch</span>
-              <span className="flex items-center gap-2">✔ Nguyên liệu tươi mới</span>
+        {/* Top Announcement Bar (Soumaki Green Bar) */}
+        <div className="max-w-7xl mx-auto mb-6 overflow-hidden px-4">
+          <div className="ticker-container rounded-full bg-primary text-primary-foreground py-3 px-6 shadow-md border border-primary/20">
+            <div className="ticker-track text-xs sm:text-sm font-semibold tracking-wide">
+              <span className="flex items-center gap-2">🛵 Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
+              <span className="flex items-center gap-2">✦ Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
+              <span className="flex items-center gap-2">🌿 Fortify Kitchen Sous-Vide Nutrition</span>
+              <span className="flex items-center gap-2">💪 Minh Bạch Macro & Calo</span>
+              <span className="flex items-center gap-2">🛵 Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
+              <span className="flex items-center gap-2">✦ Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
+              <span className="flex items-center gap-2">🌿 Fortify Kitchen Sous-Vide Nutrition</span>
+              <span className="flex items-center gap-2">💪 Minh Bạch Macro & Calo</span>
             </div>
           </div>
         </div>
 
-        {/* Hero Pill Split Grid */}
+        {/* Soumaki-Style Full-Bleed Hero Visual Card */}
         <div className="container-design relative z-10 w-full">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.3fr,0.7fr] gap-8 items-center">
+          <div className="max-w-7xl mx-auto relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden min-h-[500px] sm:min-h-[560px] lg:min-h-[600px] shadow-2xl border border-border/60 bg-card group flex flex-col justify-between p-6 sm:p-10 lg:p-14">
             
-            {/* KHỐI NỘI DUNG CHÍNH (PILL 1) */}
-            <div className="bg-card p-8 sm:p-10 lg:p-12 rounded-3xl sm:rounded-[2.5rem] shadow-card border border-border/80 flex flex-col justify-between text-left space-y-6">
-              <div className="space-y-6">
-                <div className="flex items-center space-x-2.5 bg-primary/10 border border-primary/20 px-4 py-2 rounded-full w-fit">
-                  <FontAwesomeIcon icon={faStar} className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-primary text-xs font-bold tracking-wide uppercase">
-                    {currentFrame?.title || t("home_hero_badge", lang)}
-                  </span>
-                </div>
-
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-black text-foreground leading-[1.1] uppercase font-heading">
-                  {t("home_hero_title", lang)}
-                </h1>
-
-                <p className="body-text text-muted-foreground text-base sm:text-lg leading-relaxed max-w-xl">
-                  {t("home_hero_subtitle", lang)}
-                </p>
-              </div>
-
-              <div className="pt-2 space-y-6">
-                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                  <button
-                    onClick={() => setActiveTab("menu")}
-                    className="btn-primary rounded-full inline-flex items-center justify-center py-3.5 px-7 text-sm font-bold tracking-wider uppercase cursor-pointer shadow-lg hover:scale-102 transition-all"
-                  >
-                    <span>{t("home_hero_cta_menu", lang)} &gt;</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("order-now")}
-                    className="btn-secondary rounded-full inline-flex items-center justify-center py-3.5 px-7 text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-all"
-                  >
-                    {t("home_hero_cta_order", lang)}
-                  </button>
-                </div>
-
-                {/* Trust indicators inside content pill */}
-                <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-border/40 text-xs text-muted-foreground font-semibold">
-                  <div className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faTruckFast} className="h-4 w-4 text-primary" />
-                    <span>{t("home_trust_delivery", lang)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-accent" />
-                    <span>{t("home_trust_macro", lang)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faFire} className="h-4 w-4 text-secondary" />
-                    <span>{t("home_trust_sousvide", lang)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* KHỐI HÌNH ẢNH GỌN GÀNG, NỊNH MẮT (PILL 2) */}
-            <div className="relative aspect-[4/3] sm:aspect-[16/10] lg:aspect-[4/4.5] w-full max-w-md mx-auto lg:max-w-none overflow-hidden rounded-3xl sm:rounded-[2.5rem] shadow-xl border border-border/80 bg-card group flex items-center justify-center">
+            {/* Background Image / Banner Carousel */}
+            <div className="absolute inset-0 z-0">
               {isLoadingHomeFrames ? (
                 <div className="w-full h-full bg-card animate-pulse flex items-center justify-center">
                   <span className="text-xs text-muted-foreground/60">Loading banner...</span>
                 </div>
               ) : hasFrames ? (
                 <div className="w-full h-full relative transition-all duration-700">
-                  {currentFrame.linkUrl ? (
-                    <a href={currentFrame.linkUrl} className="block w-full h-full">
-                      <img
-                        src={currentFrame.imageUrl}
-                        alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-103"
-                        onError={(e) => {
-                          e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
-                        }}
-                      />
-                    </a>
-                  ) : (
-                    <img
-                      src={currentFrame.imageUrl}
-                      alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                      className="w-full h-full object-cover object-center"
-                      onError={(e) => {
-                        e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
-                      }}
-                    />
-                  )}
+                  <img
+                    src={currentFrame?.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=2000"}
+                    alt={currentFrame?.title || t("home_hero_image_alt", lang)}
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-103"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=2000";
+                    }}
+                  />
                   {/* Slider Indicators */}
                   {homeFrames.length > 1 && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                    <div className="absolute top-6 right-6 flex gap-1.5 z-20">
                       {homeFrames.map((_, idx) => (
                         <button
                           key={idx}
                           onClick={() => setCurrentFrameIndex(idx)}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                            idx === currentFrameIndex ? "bg-primary w-5" : "bg-white/60 hover:bg-white"
+                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                            idx === currentFrameIndex ? "bg-primary-foreground w-6" : "bg-white/50 hover:bg-white"
                           }`}
                           aria-label={`Go to slide ${idx + 1}`}
                         />
@@ -204,26 +134,64 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                 </div>
               ) : (
                 <img
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600"
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=2000"
                   alt={t("home_hero_image_alt", lang)}
                   className="w-full h-full object-cover object-center"
                 />
               )}
+              {/* Rich Dark Gradient Overlay (Soumaki Style) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 pointer-events-none" />
+            </div>
 
-              {/* Gentle Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none rounded-3xl sm:rounded-[2.5rem]" />
+            {/* Top Badge Overlay */}
+            <div className="relative z-10 flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-widest border border-white/20">
+                <FontAwesomeIcon icon={faStar} className="h-3 w-3 text-amber-400" />
+                Fortify Kitchen Experience
+              </span>
+              <div className="hidden sm:flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/15 text-white/90 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>100% Online Delivery & Order</span>
+              </div>
+            </div>
 
-              {/* Top Right Floating Glassmorphism Nutrition Badge */}
-              <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-white/60 text-center animate-bounce-short pointer-events-none select-none">
-                <p className="text-xl font-black text-primary font-mono leading-none">45g</p>
-                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Protein</p>
+            {/* Bottom Split Layout: Huge Stacked Title Left + Intro & Actions Right (Soumaki Style) */}
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr,0.9fr] gap-8 items-end pt-20">
+              
+              {/* Soumaki Stacked Title (Left) */}
+              <div className="space-y-3 text-left">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  Dinh Dưỡng Sous-vide Minh Bạch
+                </p>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-none uppercase tracking-tight font-heading space-y-1">
+                  <span className="block">Online Order</span>
+                  <span className="block text-emerald-400">Fast Delivery</span>
+                  <span className="block">Sous-vide Meals</span>
+                </h1>
               </div>
 
-              {/* Bottom Left Micro Badge */}
-              <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-md px-3.5 py-2 rounded-full shadow-md border border-white/60 text-center pointer-events-none select-none hidden sm:flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] font-bold text-foreground">Slow-Cooked 16h</span>
+              {/* Intro Text & Action Buttons (Right) */}
+              <div className="space-y-6 text-left lg:text-right">
+                <p className="text-sm sm:text-base text-white/85 leading-relaxed max-w-lg lg:ml-auto font-medium">
+                  {t("home_hero_subtitle", lang)}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 justify-start lg:justify-end">
+                  <button
+                    onClick={() => setActiveTab("menu")}
+                    className="btn-primary rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase cursor-pointer shadow-xl hover:scale-105 transition-all bg-emerald-600 hover:bg-emerald-500 text-white border-none"
+                  >
+                    <span>{t("home_hero_cta_menu", lang)} &gt;</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("order-now")}
+                    className="rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-all bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30"
+                  >
+                    {t("home_hero_cta_order", lang)}
+                  </button>
+                </div>
               </div>
+
             </div>
 
           </div>
