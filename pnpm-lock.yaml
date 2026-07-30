@@ -265,6 +265,9 @@ importers:
       react-hook-form:
         specifier: ^7.54.0
         version: 7.80.0(react@19.2.7)
+      reicon-react:
+        specifier: ^1.1.302
+        version: 1.1.302(react@19.2.7)
       sub-vn:
         specifier: ^0.0.2
         version: 0.0.2
@@ -3493,6 +3496,11 @@ packages:
   regexp.prototype.flags@1.5.4:
     resolution: {integrity: sha512-dYqgNSZbDwkaJ2ceRd9ojCGjBq+mOm9LmtXnAnEGyHhN/5R7iDW2TRw3h+o/jCFxus3P2LfWIIiwowAjANm7IA==}
     engines: {node: '>= 0.4'}
+
+  reicon-react@1.1.302:
+    resolution: {integrity: sha512-QbBVVe8GDajRbHuWprW2w5n6nDQq9qIM3778ohzbb5SPU+FQJ02mN86RojHfW9KGU1DQGSJei3aEKHwbalcMkw==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   repeat-string@1.6.1:
     resolution: {integrity: sha512-PV0dzCYDNfRi1jCDbJzpW7jNNDRuCOG/jI5ctQcGKt/clZD+YcPS3yIlWuTJMmESC8aevCFmWJy5wjAFgNqN6w==}
@@ -7250,6 +7258,10 @@ snapshots:
       get-proto: 1.0.1
       gopd: 1.2.0
       set-function-name: 2.0.2
+
+  reicon-react@1.1.302(react@19.2.7):
+    dependencies:
+      react: 19.2.7
 
   repeat-string@1.6.1: {}
 
