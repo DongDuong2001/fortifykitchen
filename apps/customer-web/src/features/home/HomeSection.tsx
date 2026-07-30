@@ -78,7 +78,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
   return (
     <div className="space-y-0">
       {/* 2. HERO — Centered editorial layout with image below */}
-      <section className="relative pt-4 pb-12 md:pt-6 md:pb-16 overflow-hidden bg-background">
+      <section className="relative pt-4 pb-12 md:pt-6 md:pb-16 overflow-hidden bg-transparent">
         <div className="container-design relative z-10 w-full text-center">
           <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 flex flex-col items-center">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
@@ -191,7 +191,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
       </section>
 
       {/* 3. WHY FORTIFY KITCHEN — Four feature cards */}
-      <section className="section bg-background" aria-labelledby="why-heading">
+      <section className="section bg-transparent" aria-labelledby="why-heading">
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
@@ -271,7 +271,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
       </section>
 
       {/* 4. BEST SELLERS — Three-column layout */}
-      <section className="section bg-background" aria-labelledby="bestsellers-heading">
+      <section className="section bg-transparent" aria-labelledby="bestsellers-heading">
         <div className="container-design">
           <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-16">
             <div className="space-y-3">
@@ -362,7 +362,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
       </section>
 
       {/* 5. HOW IT WORKS — Interactive Timeline Card Grid */}
-      <section className="section bg-background border-t border-border/30" aria-labelledby="how-heading">
+      <section className="section bg-transparent border-t border-border/30" aria-labelledby="how-heading">
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
@@ -405,7 +405,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
       </section>
 
       {/* 6. FAQ — Interactive Accordion replacing Categories, placed below How It Works */}
-      <section className="section bg-background border-t border-border/30" aria-labelledby="faq-heading">
+      <section className="section bg-transparent border-t border-border/30" aria-labelledby="faq-heading">
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
