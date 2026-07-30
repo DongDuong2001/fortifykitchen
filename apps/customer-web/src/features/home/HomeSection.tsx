@@ -78,66 +78,90 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
 
   return (
     <div className="space-y-0">
-      {/* 2. HERO — Centered editorial layout with image below */}
-      <section className="relative pt-4 pb-12 md:pt-6 md:pb-16 overflow-hidden bg-transparent">
-        <div className="container-design relative z-10 w-full text-center">
-          <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 flex flex-col items-center">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-              <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
-              {currentFrame?.title || t("home_hero_badge", lang)}
-            </span>
-
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground uppercase leading-tight font-heading max-w-2xl">
-              {t("home_hero_title", lang)}
-            </h1>
-
-            <p className="body-text text-muted-foreground max-w-xl mx-auto">
-              {t("home_hero_subtitle", lang)}
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-4 w-full">
-              <button
-                onClick={() => setActiveTab("menu")}
-                className="btn-primary inline-flex items-center justify-center min-w-[160px] py-3.5 px-6 text-sm cursor-pointer"
-              >
-                <span className="whitespace-nowrap">{t("home_hero_cta_menu", lang)}</span>
-                <FontAwesomeIcon icon={faChevronRight} className="h-4 w-4 ml-2 shrink-0" />
-              </button>
-              <button
-                onClick={() => setActiveTab("order-now")}
-                className="btn-secondary inline-flex items-center justify-center min-w-[160px] py-3.5 px-6 text-sm whitespace-nowrap cursor-pointer"
-              >
-                {t("home_hero_cta_order", lang)}
-              </button>
-            </div>
-
-            {/* Trust indicators */}
-            <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8 pt-4 w-full text-xs text-muted-foreground font-semibold">
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faTruckFast} className="h-4 w-4 text-primary" />
-                <span>{t("home_trust_delivery", lang)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-accent" />
-                <span>{t("home_trust_macro", lang)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faFire} className="h-4 w-4 text-secondary" />
-                <span>{t("home_trust_sousvide", lang)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faSeedling} className="h-4 w-4 text-primary" />
-                <span>{t("home_trust_fresh", lang)}</span>
-              </div>
+      {/* 2. HERO — "THE NUTRITION PILL" Bố cục Pill & Split Layout */}
+      <section className="relative pt-2 pb-12 md:pt-4 md:pb-16 overflow-hidden bg-transparent">
+        {/* Top Info Ticker Bar */}
+        <div className="max-w-7xl mx-auto mb-8 overflow-hidden px-4">
+          <div className="ticker-container rounded-full bg-primary/5 border border-primary/10 py-3 px-6 shadow-sm">
+            <div className="ticker-track text-primary text-xs sm:text-sm font-semibold tracking-wide">
+              <span className="flex items-center gap-2">✔ Protein chuẩn ISO</span>
+              <span className="flex items-center gap-2">✔ Giao hàng đúng giờ</span>
+              <span className="flex items-center gap-2">✔ Nguồn gốc rõ ràng</span>
+              <span className="flex items-center gap-2">✔ Chế biến Sous-vide</span>
+              <span className="flex items-center gap-2">✔ Macro minh bạch</span>
+              <span className="flex items-center gap-2">✔ Nguyên liệu tươi mới</span>
+              <span className="flex items-center gap-2">✔ Protein chuẩn ISO</span>
+              <span className="flex items-center gap-2">✔ Giao hàng đúng giờ</span>
+              <span className="flex items-center gap-2">✔ Nguồn gốc rõ ràng</span>
+              <span className="flex items-center gap-2">✔ Chế biến Sous-vide</span>
+              <span className="flex items-center gap-2">✔ Macro minh bạch</span>
+              <span className="flex items-center gap-2">✔ Nguyên liệu tươi mới</span>
             </div>
           </div>
+        </div>
 
-          {/* Big horizontal dynamic visual below the text content */}
-          <div className="mt-12 md:mt-16 max-w-5xl mx-auto relative px-4">
-            <div className="relative aspect-[16/9] rounded-3xl overflow-hidden shadow-2xl bg-card border border-border">
+        {/* Hero Pill Split Grid */}
+        <div className="container-design relative z-10 w-full">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr] gap-8 items-stretch">
+            
+            {/* KHỐI NỘI DUNG CHÍNH (PILL 1) */}
+            <div className="bg-card p-8 sm:p-10 lg:p-14 rounded-3xl sm:rounded-[3rem] shadow-card border border-border/80 flex flex-col justify-between text-left space-y-6 md:space-y-8">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2.5 bg-primary/10 border border-primary/20 px-4 py-2 rounded-full w-fit">
+                  <FontAwesomeIcon icon={faStar} className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-primary text-xs font-bold tracking-wide uppercase">
+                    {currentFrame?.title || t("home_hero_badge", lang)}
+                  </span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.1] uppercase font-heading">
+                  {t("home_hero_title", lang)}
+                </h1>
+
+                <p className="body-text text-muted-foreground text-base sm:text-lg leading-relaxed max-w-xl">
+                  {t("home_hero_subtitle", lang)}
+                </p>
+              </div>
+
+              <div className="pt-2 space-y-6">
+                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                  <button
+                    onClick={() => setActiveTab("menu")}
+                    className="btn-primary rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase cursor-pointer shadow-lg hover:scale-102 transition-all"
+                  >
+                    <span>{t("home_hero_cta_menu", lang)} &gt;</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("order-now")}
+                    className="btn-secondary rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-all"
+                  >
+                    {t("home_hero_cta_order", lang)}
+                  </button>
+                </div>
+
+                {/* Trust indicators inside content pill */}
+                <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-border/40 text-xs text-muted-foreground font-semibold">
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faTruckFast} className="h-4 w-4 text-primary" />
+                    <span>{t("home_trust_delivery", lang)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-accent" />
+                    <span>{t("home_trust_macro", lang)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faFire} className="h-4 w-4 text-secondary" />
+                    <span>{t("home_trust_sousvide", lang)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* KHỐI HÌNH ẢNH (PILL 2) */}
+            <div className="relative min-h-[360px] sm:min-h-[420px] lg:min-h-full overflow-hidden rounded-3xl sm:rounded-[3rem] shadow-2xl border border-border bg-card group flex items-center justify-center">
               {isLoadingHomeFrames ? (
-                <div className="w-full h-full bg-card animate-pulse flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground/60">Loading banners...</span>
+                <div className="w-full h-full bg-card animate-pulse flex items-center justify-center min-h-[360px]">
+                  <span className="text-xs text-muted-foreground/60">Loading banner...</span>
                 </div>
               ) : hasFrames ? (
                 <div className="w-full h-full relative transition-all duration-700">
@@ -146,7 +170,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                       <img
                         src={currentFrame.imageUrl}
                         alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                        className="w-full h-full object-contain md:object-cover transition-transform duration-500 hover:scale-102"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
                         onError={(e) => {
                           e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
                         }}
@@ -156,7 +180,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                     <img
                       src={currentFrame.imageUrl}
                       alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                      className="w-full h-full object-contain md:object-cover"
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
                       }}
@@ -185,6 +209,15 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                   className="w-full h-full object-cover"
                 />
               )}
+
+              {/* Gradient Overlay for Rich Depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none rounded-3xl sm:rounded-[3rem]" />
+
+              {/* Floating Glassmorphism Nutrition Badge */}
+              <div className="absolute top-6 right-6 bg-card/85 backdrop-blur-md px-5 py-3.5 rounded-2xl shadow-xl border border-white/60 text-center min-w-[90px] animate-bounce-short pointer-events-none select-none">
+                <p className="text-2xl font-black text-primary font-mono leading-none">45g</p>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Protein</p>
+              </div>
             </div>
 
           </div>
