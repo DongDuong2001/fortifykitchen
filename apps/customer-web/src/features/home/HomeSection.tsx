@@ -30,10 +30,10 @@ interface HomeSectionProps {
 }
 
 const whyFortify = [
-  { icon: faFire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "16+ Hrs" },
+  { icon: faFire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "Nấu chậm" },
   { icon: faSeedling, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
   { icon: faDrumstickBite, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
-  { icon: faTruckFast, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "30-45'" },
+  { icon: faTruckFast, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "Giao nhanh" },
 ] as const;
 
 const howItWorks = [
@@ -424,7 +424,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             {[
               {
                 q: lang === "vi" ? "Làm thế nào để đặt hàng giao ngay?" : "How do I place a quick delivery order?",
-                a: lang === "vi" ? "Bạn chỉ cần chọn tab 'Giao ngay' trên thanh điều hướng, lựa chọn món ăn và nhập thông tin địa chỉ để chúng tôi giao bữa ăn nóng hổi trong 30-45 phút mà không cần đăng ký tài khoản." : "Simply switch to the 'Ready Now' tab, pick your meals, and fill in your delivery details. We will deliver hot meals in 30-45 minutes without requiring an account."
+                a: lang === "vi" ? "Bạn chỉ cần chọn tab 'Giao ngay' trên thanh điều hướng, lựa chọn món ăn và nhập thông tin địa chỉ để chúng tôi giao bữa ăn nóng hổi nhanh nhất có thể mà không cần đăng ký tài khoản." : "Simply switch to the 'Ready Now' tab, pick your meals, and fill in your delivery details. We will deliver hot meals as fast as possible without requiring an account."
               },
               {
                 q: lang === "vi" ? "Gói hội viên Protein hoạt động như thế nào?" : "How do subscription packages work?",
