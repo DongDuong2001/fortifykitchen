@@ -16,6 +16,7 @@ import {
   faTruck,
   faChevronLeft,
   faChevronRight,
+  faChevronDown,
   faBox,
   faInfoCircle,
   faWallet,
@@ -347,12 +348,28 @@ export default function AdminDashboard() {
     ],
   }), [lang]);
 
+  const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({
+    operations: true,
+    sales: true,
+    products: true,
+    subscriptions: true,
+    marketing: true,
+  });
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
   React.useEffect(() => {
-    // Automatically switch activeGroup if section is changed via internal redirection
+    // Automatically switch activeGroup and expand its section
     for (const group of NAVIGATION_GROUPS) {
       const match = SUB_TABS[group.id as keyof typeof SUB_TABS].find((tab) => tab.id === section);
       if (match) {
         setActiveGroup(group.id as any);
+        setExpandedGroups((prev) => ({ ...prev, [group.id]: true }));
         break;
       }
     }
@@ -2140,27 +2157,80 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-1.5 text-xs font-semibold">
-              {NAVIGATION_GROUPS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveGroup(item.id as any);
-                    setSection(item.defaultSection as any);
-                    if (typeof window !== "undefined" && window.innerWidth < 768) {
-                      setSidebarOpen(false);
-                    }
-                  }}
-                  className={`w-full text-left py-2.5 px-3.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                    activeGroup === item.id
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </button>
-              ))}
+            <nav className="flex-1 p-3.5 space-y-2 text-xs font-semibold overflow-y-auto">
+              {NAVIGATION_GROUPS.map((group) => {
+                const isGroupActive = activeGroup === group.id;
+                const isExpanded = expandedGroups[group.id] ?? true;
+                const subItems = SUB_TABS[group.id as keyof typeof SUB_TABS];
+
+                return (
+                  <div key={group.id} className="space-y-1">
+                    {/* Collapsible Category Header */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleGroup(group.id);
+                        if (activeGroup !== group.id) {
+                          setActiveGroup(group.id as any);
+                          setSection(group.defaultSection as any);
+                        }
+                      }}
+                      className={`w-full text-left py-2.5 px-3 rounded-xl flex items-center justify-between transition-all cursor-pointer font-bold ${
+                        isGroupActive
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-1.5 rounded-lg transition-colors ${isGroupActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                          <FontAwesomeIcon icon={group.icon} className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-xs">{group.label}</span>
+                      </div>
+                      <FontAwesomeIcon
+                        icon={faChevronDown}
+                        className={`h-3 w-3 transition-transform duration-300 ${isExpanded ? "rotate-180 text-primary" : "text-muted-foreground"}`}
+                      />
+                    </button>
+
+                    {/* Sub-Items Collapsible Section */}
+                    {isExpanded && (
+                      <div className="pl-8 pr-1 space-y-1 py-1 transition-all">
+                        {subItems.map((tab) => {
+                          const isSubActive = section === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveGroup(group.id as any);
+                                setSection(tab.id as any);
+                                if (typeof window !== "undefined" && window.innerWidth < 768) {
+                                  setSidebarOpen(false);
+                                }
+                              }}
+                              className={`w-full text-left py-2 px-3 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center justify-between ${
+                                isSubActive
+                                  ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                              }`}
+                            >
+                              <span>{tab.label}</span>
+                              {tab.id === "orders" && stats.ordersAwaitingAcceptance > 0 && (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black tabular-nums ${
+                                  isSubActive ? "bg-white text-primary" : "bg-amber-500 text-white"
+                                }`}>
+                                  {stats.ordersAwaitingAcceptance}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </nav>
 
             <div className="p-4 border-t border-border mt-auto hidden md:block space-y-2.5">
@@ -2230,7 +2300,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Workspace Body */}
-        <main className="flex-1 p-6 overflow-y-auto bg-muted/20">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-muted/20 pb-24 md:pb-6">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center py-20 gap-2">
               <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
@@ -5655,6 +5725,30 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Mobile Sticky Quick Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border flex items-center justify-around py-2 px-1 shadow-lg">
+        {NAVIGATION_GROUPS.map((group) => {
+          const isActive = activeGroup === group.id;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => {
+                setActiveGroup(group.id as any);
+                setSection(group.defaultSection as any);
+                setExpandedGroups((prev) => ({ ...prev, [group.id]: true }));
+              }}
+              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                isActive ? "text-primary font-bold scale-105" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FontAwesomeIcon icon={group.icon} className="h-4 w-4" />
+              <span className="text-[10px] tracking-tight truncate max-w-[64px]">{group.label.split(" ")[0]}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
