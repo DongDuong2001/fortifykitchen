@@ -1,13 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faShoppingBag,
-  faUser,
-  faSignOutAlt,
-  faInfoCircle,
-} from "@fortawesome/free-solid-svg-icons";
+import { BagShopping, User, Logout, InfoCircle } from "reicon-react";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { PROTEIN_LABELS, translateApiError, formatGrams } from "@fortifykitchen/shared";
 import { useApp } from "@/providers/app-context";
@@ -954,7 +948,7 @@ export default function CustomerPortalClient({
               onClick={() => setCartOpen(true)}
               className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-black/5"
             >
-              <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+              <BagShopping className="h-4 w-4" />
               {cartCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
               )}
@@ -967,7 +961,7 @@ export default function CustomerPortalClient({
                     onClick={() => setActiveTab("dashboard")}
                     className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-black/5 hover:bg-black/10 transition-all text-xs font-medium text-foreground"
                   >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                    <User className="h-2.5 w-2.5 text-primary" />
                     <span>{user.firstName}</span>
                   </div>
                   <button
@@ -975,7 +969,7 @@ export default function CustomerPortalClient({
                     className="p-2 rounded-full hover:text-primary text-muted-foreground transition-colors cursor-pointer"
                     title={t("btn_logout", lang)}
                   >
-                    <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
+                    <Logout className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
@@ -983,7 +977,7 @@ export default function CustomerPortalClient({
                   onClick={() => setAuthModal("login")}
                   className="border border-border/80 hover:border-primary/60 text-foreground hover:text-primary text-xs font-semibold py-1.5 px-4.5 rounded-full bg-card hover:bg-muted/30 transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
                 >
-                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                  <User className="h-2.5 w-2.5 text-primary" />
                   <span>{t("btn_signin", lang)}</span>
                 </button>
               )}
@@ -999,7 +993,7 @@ export default function CustomerPortalClient({
             {notifications.walletLow && !dismissedBanners.includes("wallet") && (
               <div className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
                 <span className="flex items-center gap-2">
-                  <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                  <InfoCircle className="h-4 w-4 shrink-0" />
                   {lang === "vi"
                     ? `Số dư Ví của bạn đang thấp (còn ${formatVND(notifications.walletBalance)}). Nạp thêm gói để tiếp tục thanh toán bằng Ví.`
                     : `Your wallet balance is running low (${formatVND(notifications.walletBalance)} left). Buy a plan to top up.`}
@@ -1021,7 +1015,7 @@ export default function CustomerPortalClient({
                   className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3"
                 >
                   <span className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                    <InfoCircle className="h-4 w-4 shrink-0" />
                     {lang === "vi"
                       ? `Gói "${p.packageName}" của bạn sắp hết ${PROTEIN_LABELS[p.protein as keyof typeof PROTEIN_LABELS] || p.protein} (còn ${formatGrams(p.remainingGrams)}).`
                       : `Your "${p.packageName}" plan is running low on ${PROTEIN_LABELS[p.protein as keyof typeof PROTEIN_LABELS] || p.protein} (${formatGrams(p.remainingGrams)} left).`}
