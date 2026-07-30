@@ -945,8 +945,9 @@ export default function CustomerPortalClient({
             </div>
 
             <button
+              id="header-cart-btn"
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-black/5"
+              className="relative p-2.5 hover:text-primary text-foreground transition-all duration-300 cursor-pointer rounded-full hover:bg-black/5"
             >
               <BagShopping className="h-4 w-4" />
               {cartCount > 0 && (
