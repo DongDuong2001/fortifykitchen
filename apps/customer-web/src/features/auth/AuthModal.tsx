@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { CloseCircle } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -105,7 +104,7 @@ export default function AuthModal({ lang, authModal, setAuthModal, login, signup
           aria-label={lang === "vi" ? "Đóng" : "Close"}
           className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer"
         >
-          <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+          <CloseCircle className="h-4 w-4" />
         </button>
 
         <div className="text-center">
