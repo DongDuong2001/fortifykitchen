@@ -1476,6 +1476,11 @@ export default function AdminDashboard() {
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Kích thước file vượt quá 20MB! Vui lòng chọn file nhỏ hơn.", type: "error" });
+      return;
+    }
+
     // Show a local preview immediately — no waiting for the server
     const localPreview = URL.createObjectURL(file);
     setMenuItemImagePreview(localPreview);
@@ -1595,6 +1600,12 @@ export default function AdminDashboard() {
 
   const handleHomeFrameImageUpload = async (file: File) => {
     if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Kích thước file vượt quá 20MB! Vui lòng chọn file nhỏ hơn.", type: "error" });
+      return;
+    }
+
     const localPreview = URL.createObjectURL(file);
     setHomeFrameImagePreview(localPreview);
     setIsHomeFrameUploading(true);
@@ -5567,7 +5578,7 @@ export default function AdminDashboard() {
                       />
                     </label>
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      Chấp nhận PNG, JPG, GIF. Dung lượng tối đa 5MB. Ảnh sẽ được tự động đồng bộ lên Cloudinary.
+                      Chấp nhận PNG, JPG, GIF. Dung lượng tối đa 20MB. Ảnh sẽ được tự động đồng bộ lên Cloudinary.
                     </p>
                   </div>
                 </div>
