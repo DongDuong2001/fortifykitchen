@@ -28,10 +28,10 @@ const whyFortify = [
 ] as const;
 
 const howItWorks = [
-  { icon: Cart, titleKey: "home_how_step1", descKey: "home_how_step1_desc", number: "01" },
-  { icon: Fire, titleKey: "home_how_step2", descKey: "home_how_step2_desc", number: "02" },
-  { icon: Truck, titleKey: "home_how_step3", descKey: "home_how_step3_desc", number: "03" },
-  { icon: ForkKnife, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
+  { icon: Cart, gifUrl: "/assets/select.gif", titleKey: "home_how_step1", descKey: "home_how_step1_desc", number: "01" },
+  { icon: Fire, gifUrl: "/assets/frying-pan.gif", titleKey: "home_how_step2", descKey: "home_how_step2_desc", number: "02" },
+  { icon: Truck, gifUrl: "/assets/truck.gif", titleKey: "home_how_step3", descKey: "home_how_step3_desc", number: "03" },
+  { icon: ForkKnife, gifUrl: "/assets/delivery-man.gif", titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
 ] as const;
 
 export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, homeFrames = [], isLoadingHomeFrames = false }: HomeSectionProps) {
@@ -283,10 +283,10 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             </div>
             <button
               onClick={() => setActiveTab("menu")}
-              className="btn-secondary self-end whitespace-nowrap"
+              className="px-5 py-2.5 rounded-xl border border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-xs transition-all duration-300 inline-flex items-center gap-2 shrink-0 whitespace-nowrap cursor-pointer shadow-sm hover:shadow-md self-start sm:self-end"
             >
-              {t("home_bestsellers_cta", lang)}
-              <ChevronRight className="h-5 w-5 ml-2" />
+              <span>{t("home_bestsellers_cta", lang)}</span>
+              <ChevronRight className="h-4 w-4 shrink-0" />
             </button>
           </header>
 
@@ -299,44 +299,40 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                 {/* Image Section with hover zoom scale */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-muted">
                   <img
-                    src={item.imageUrl}
+                    src={item.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800"}
                     alt={getMenuItemLabel(item)}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-103"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400";
-                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-background/90 text-foreground text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm shadow-sm border border-border/40 select-none">
-                    {t(`filter_${item.protein}` as keyof Dictionary, lang)}
-                  </span>
+                  <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-primary font-mono shadow-sm">
+                    {formatVND(item.price)}
+                  </div>
                 </div>
 
                 {/* Content Section */}
-                <div className="p-6 flex flex-col flex-grow justify-between space-y-5">
+                <div className="p-6 space-y-4 flex-1 flex flex-col justify-between text-left">
                   <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <h3 className="text-lg font-bold text-foreground font-heading line-clamp-1 group-hover:text-primary transition-colors duration-300">
-                        {getMenuItemLabel(item)}
-                      </h3>
-                      <span className="text-lg font-bold text-primary font-heading shrink-0 tabular-nums">
-                        {formatVND(item.price)}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                        {item.protein}
                       </span>
                     </div>
+                    <h3 className="text-base font-bold text-foreground font-heading group-hover:text-primary transition-colors">
+                      {getMenuItemLabel(item)}
+                    </h3>
                     <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      {item.description}
+                      {item.description || (lang === "vi" ? "Chế biến theo kỹ thuật Sous-vide giữ trọn hương vị tươi ngon." : "Prepared using Sous-vide technique to retain pure flavor.")}
                     </p>
                   </div>
 
-                  {/* Scientific Macro Label layout */}
-                  <div className="grid grid-cols-3 gap-2 py-3 px-4 rounded-2xl bg-muted/40 border border-border/50 text-[11px] text-muted-foreground font-sans">
-                    <div className="flex flex-col items-center justify-center text-center border-r border-border/40">
+                  {/* Macros info */}
+                  <div className="grid grid-cols-3 gap-2 py-3 px-4 rounded-2xl bg-muted/40 text-xs border border-border/40">
+                    <div className="flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Protein</span>
-                      <span className="font-bold text-foreground mt-0.5 tabular-nums">~35g</span>
+                      <span className="font-bold text-primary mt-0.5 tabular-nums">{(item as any).proteinGrams || "~35g"}</span>
                     </div>
-                    <div className="flex flex-col items-center justify-center text-center border-r border-border/40">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Calories</span>
-                      <span className="font-bold text-foreground mt-0.5 tabular-nums">~250 kcal</span>
+                    <div className="flex flex-col items-center justify-center text-center border-x border-border/40">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Calo</span>
+                      <span className="font-bold text-foreground mt-0.5 tabular-nums">{(item as any).calories || "~250"}</span>
                     </div>
                     <div className="flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Trọng lượng</span>
@@ -360,8 +356,8 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         </div>
       </section>
 
-      {/* 5. HOW IT WORKS — Interactive Timeline Card Grid */}
-      <section className="section bg-transparent border-t border-border/30" aria-labelledby="how-heading">
+      {/* 5. HOW IT WORKS — Animated Flaticon GIF Cards */}
+      <section className="section bg-muted/20 border-y border-border/40" aria-labelledby="how-heading">
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
@@ -376,25 +372,33 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             </p>
           </header>
 
-          <div className="max-w-4xl mx-auto relative">
-            {/* Visual connector line */}
-            <div className="hidden md:block absolute left-[31px] top-10 bottom-10 w-[2px] bg-gradient-to-b from-primary/35 via-border to-transparent" />
-
-            <div className="space-y-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {howItWorks.map((step, i) => (
                 <article
                   key={i}
-                  className="group flex flex-col md:flex-row gap-6 items-start relative z-10 p-6 md:p-8 rounded-3xl bg-card border border-border/60 hover:border-primary/40 hover:shadow-card-hover transition-all duration-300"
+                  className="group relative flex flex-col justify-between p-6 sm:p-7 rounded-[28px] bg-card border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 overflow-hidden text-left space-y-5"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 relative transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    {React.createElement(step.icon, { className: "h-6 w-6" })}
-                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-background border border-border/80 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                  <div className="flex justify-between items-start">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted border border-primary/20 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-primary/50 transition-all duration-500 overflow-hidden shadow-sm">
+                      <img
+                        src={step.gifUrl}
+                        alt={t(step.titleKey, lang)}
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                      />
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-black font-mono tracking-wider">
                       {step.number}
                     </span>
                   </div>
-                  <div className="space-y-2 text-left pt-1">
-                    <h3 className="text-base md:text-lg font-bold text-foreground font-heading">{t(step.titleKey, lang)}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed font-sans max-w-xl">{t(step.descKey, lang)}</p>
+
+                  <div className="space-y-2">
+                    <h3 className="text-base font-bold text-foreground font-heading group-hover:text-primary transition-colors">
+                      {t(step.titleKey, lang)}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed font-sans">
+                      {t(step.descKey, lang)}
+                    </p>
                   </div>
                 </article>
               ))}
