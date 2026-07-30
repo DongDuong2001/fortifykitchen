@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faFire,
-  faSeedling,
-  faDrumstickBite,
-  faTruckFast,
-  faCartShopping,
-  faBowlFood,
-  faStar,
-  faChevronRight,
-} from "@fortawesome/free-solid-svg-icons";
+import { Fire, Leaf, ForkKnife, Truck, Cart, Star, ChevronRight } from "reicon-react";
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -31,17 +21,17 @@ interface HomeSectionProps {
 }
 
 const whyFortify = [
-  { icon: faFire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "Nấu chậm" },
-  { icon: faSeedling, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
-  { icon: faDrumstickBite, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
-  { icon: faTruckFast, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "Giao nhanh" },
+  { icon: Fire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "Nấu chậm" },
+  { icon: Leaf, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
+  { icon: ForkKnife, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
+  { icon: Truck, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "Giao nhanh" },
 ] as const;
 
 const howItWorks = [
-  { icon: faCartShopping, titleKey: "home_how_step1", descKey: "home_how_step1_desc", number: "01" },
-  { icon: faFire, titleKey: "home_how_step2", descKey: "home_how_step2_desc", number: "02" },
-  { icon: faTruckFast, titleKey: "home_how_step3", descKey: "home_how_step3_desc", number: "03" },
-  { icon: faBowlFood, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
+  { icon: Cart, titleKey: "home_how_step1", descKey: "home_how_step1_desc", number: "01" },
+  { icon: Fire, titleKey: "home_how_step2", descKey: "home_how_step2_desc", number: "02" },
+  { icon: Truck, titleKey: "home_how_step3", descKey: "home_how_step3_desc", number: "03" },
+  { icon: ForkKnife, titleKey: "home_how_step4", descKey: "home_how_step4_desc", number: "04" },
 ] as const;
 
 export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, homeFrames = [], isLoadingHomeFrames = false }: HomeSectionProps) {
@@ -146,7 +136,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             {/* Top Badge Overlay */}
             <div className="relative z-10 flex items-center justify-between">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-widest border border-white/20">
-                <FontAwesomeIcon icon={faStar} className="h-3 w-3 text-amber-400" />
+                <Star className="h-3 w-3 text-amber-400" />
                 Fortify Kitchen Experience
               </span>
               <div className="hidden sm:flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/15 text-white/90 text-xs font-semibold">
@@ -203,7 +193,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-              <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
+              <Fire className="h-3 w-3" />
               {t("home_why_label", lang)}
             </span>
             <h2 id="why-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
@@ -220,7 +210,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="space-y-4 max-w-md">
                   <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    <FontAwesomeIcon icon={whyFortify[0].icon} className="h-6 w-6" />
+                    {React.createElement(whyFortify[0].icon, { className: "h-6 w-6" })}
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-foreground font-heading">{t(whyFortify[0].titleKey, lang)}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t(whyFortify[0].descKey, lang)}</p>
@@ -235,7 +225,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             <article className="group relative p-8 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
               <div className="space-y-4">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                  <FontAwesomeIcon icon={whyFortify[1].icon} className="h-6 w-6" />
+                  {React.createElement(whyFortify[1].icon, { className: "h-6 w-6" })}
                 </div>
                 <h3 className="text-lg font-bold text-foreground font-heading">{t(whyFortify[1].titleKey, lang)}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t(whyFortify[1].descKey, lang)}</p>
@@ -249,7 +239,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             <article className="group relative p-8 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
               <div className="space-y-4">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                  <FontAwesomeIcon icon={whyFortify[2].icon} className="h-6 w-6" />
+                  {React.createElement(whyFortify[2].icon, { className: "h-6 w-6" })}
                 </div>
                 <h3 className="text-lg font-bold text-foreground font-heading">{t(whyFortify[2].titleKey, lang)}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t(whyFortify[2].descKey, lang)}</p>
@@ -264,7 +254,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="space-y-4 max-w-md">
                   <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    <FontAwesomeIcon icon={whyFortify[3].icon} className="h-6 w-6" />
+                    {React.createElement(whyFortify[3].icon, { className: "h-6 w-6" })}
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-foreground font-heading">{t(whyFortify[3].titleKey, lang)}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t(whyFortify[3].descKey, lang)}</p>
@@ -284,7 +274,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
           <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-16">
             <div className="space-y-3">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-                <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+                <Star className="h-3 w-3" />
                 {t("home_bestsellers_label", lang)}
               </span>
               <h2 id="bestsellers-heading" className="headline-section text-foreground">
@@ -296,7 +286,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               className="btn-secondary self-end whitespace-nowrap"
             >
               {t("home_bestsellers_cta", lang)}
-              <FontAwesomeIcon icon={faChevronRight} className="h-5 w-5 ml-2" />
+              <ChevronRight className="h-5 w-5 ml-2" />
             </button>
           </header>
 
@@ -374,7 +364,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-              <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
+              <Fire className="h-3 w-3" />
               {t("home_how_label", lang)}
             </span>
             <h2 id="how-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
@@ -396,7 +386,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                   className="group flex flex-col md:flex-row gap-6 items-start relative z-10 p-6 md:p-8 rounded-3xl bg-card border border-border/60 hover:border-primary/40 hover:shadow-card-hover transition-all duration-300"
                 >
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 relative transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    <FontAwesomeIcon icon={step.icon} className="h-6 w-6" />
+                    {React.createElement(step.icon, { className: "h-6 w-6" })}
                     <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-background border border-border/80 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
                       {step.number}
                     </span>
@@ -417,7 +407,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         <div className="container-design">
           <header className="text-center max-w-2xl mx-auto mb-12 space-y-4">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-input bg-primary/10 text-primary text-[12px] font-bold uppercase tracking-wider border border-primary/20">
-              <FontAwesomeIcon icon={faStar} className="h-3 w-3" />
+              <Star className="h-3 w-3" />
               FAQ
             </span>
             <h2 id="faq-heading" className="text-2xl md:text-3xl font-extrabold text-foreground font-heading">
@@ -457,7 +447,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                     >
                       <span>{item.q}</span>
                       <span className={`text-primary transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}>
-                        <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5" />
+                        <ChevronRight className="h-3.5 w-3.5" />
                       </span>
                     </button>
                     {isOpen && (
