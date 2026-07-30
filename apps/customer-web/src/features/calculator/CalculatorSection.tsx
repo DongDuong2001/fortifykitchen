@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { Plus } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import { formatVND } from "@fortifykitchen/shared";
 
@@ -329,7 +328,7 @@ export default function CalculatorSection({ lang }: CalculatorSectionProps) {
           <button
             className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
             {t("nav_calculator", lang) === "Calculator" ? "Add Combo to Cart" : "Thêm Combo vào giỏ"}
           </button>
         </div>
