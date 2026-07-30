@@ -25,6 +25,7 @@ import Footer from "@/features/shared/Footer";
 import PrivacyModal from "@/features/shared/PrivacyModal";
 import VietQRModal from "@/features/shared/VietQRModal";
 import MobileNav from "@/features/shared/MobileNav";
+import Loader from "@/components/Loader";
 import { DICTIONARY } from "@/constants/dictionary";
 import { formatVND, calculateCustomOrderPrice } from "@/lib/utils";
 
@@ -171,6 +172,15 @@ export default function CustomerPortalClient({
   const [walletBalance, setWalletBalance] = React.useState<number>(0);
   const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
   const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
+
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   const getAuthToken = React.useCallback(() => {
     return token || (typeof window !== "undefined" ? localStorage.getItem("fk_token") : null);
@@ -814,6 +824,22 @@ export default function CustomerPortalClient({
       setIsTrackingLoading(false);
     }
   };
+
+  if (isInitialLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-md transition-opacity duration-500">
+        <Loader />
+        <div className="mt-4 flex flex-col items-center space-y-2">
+          <span className="font-heading text-lg font-bold uppercase tracking-wider text-primary">
+            Fortify Kitchen
+          </span>
+          <span className="text-xs font-semibold tracking-widest text-muted-foreground animate-pulse">
+            Đang chuẩn bị trải nghiệm dinh dưỡng...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent text-foreground transition-colors duration-200 pb-20 md:pb-0">
