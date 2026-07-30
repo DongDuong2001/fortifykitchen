@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUtensils, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { ForkKnife, SearchNormal } from "reicon-react";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { getMenuItemLabel, PROTEIN_LABELS, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -61,7 +60,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
   if (isLoadingMenu) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <FontAwesomeIcon icon={faUtensils} className="h-10 w-10 animate-spin text-primary" />
+        <ForkKnife className="h-10 w-10 animate-spin text-primary" />
         <span className="text-xs text-muted-foreground font-semibold">
           {t("menu_title", lang)}
         </span>
@@ -72,7 +71,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
   if (filteredMenu.length === 0) {
     return (
       <div className="text-center py-20 border border-dashed border-border rounded-xl">
-        <FontAwesomeIcon icon={faSearch} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+        <SearchNormal className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground font-medium">
           {t("menu_subtitle", lang)}
         </p>
@@ -153,7 +152,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                             }}
                           />
                         ) : (
-                          <FontAwesomeIcon icon={faUtensils} className="h-12 w-12 text-muted-foreground/30" />
+                          <ForkKnife className="h-12 w-12 text-muted-foreground/30" />
                         )}
                         <span
                           className={`absolute top-4 left-4 text-[10px] font-bold px-2.5 py-1 rounded-md border ${
