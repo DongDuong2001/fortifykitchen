@@ -5,14 +5,14 @@ import { prisma } from "@fortifykitchen/database";
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
   readonly client = prisma;
-  private pingInterval: NodeJS.Timeout | null = null;
+  private pingInterval: ReturnType<typeof globalThis.setInterval> | null = null;
 
   async onModuleInit() {
     await this.client.$connect();
 
     // Periodically ping PostgreSQL every 5 minutes to keep TCP connections alive
     // and prevent cloud DB / Render idle timeouts (which causes "Error in PostgreSQL connection: Error { kind: Closed }").
-    this.pingInterval = setInterval(async () => {
+    this.pingInterval = globalThis.setInterval(async () => {
       try {
         await this.client.$queryRaw`SELECT 1`;
       } catch (error) {
@@ -37,7 +37,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.pingInterval) {
-      clearInterval(this.pingInterval);
+      globalThis.clearInterval(this.pingInterval);
     }
     await this.client.$disconnect();
   }
