@@ -257,20 +257,102 @@ h1, h2, h3, h4, h5, h6 {
   height: 100vh;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.14;
-  --s: 140px;
-  --c1: #EBE1D3; /* Warm cream matching site background */
-  --c2: #283828; /* Forest Green brand color */
+  opacity: 0.18;
+  --s: 60px;
+  --c1: #E8DFD1; /* Warm light beige matching site background */
+  --c2: #DDD0BE; /* Warm sandy beige tone */
+  --_g: radial-gradient(
+    25% 25% at 25% 25%,
+    var(--c1) 99%,
+    rgba(0, 0, 0, 0) 101%
+  );
+  background: var(--_g) var(--s) var(--s) / calc(2 * var(--s))
+      calc(2 * var(--s)),
+    var(--_g) 0 0 / calc(2 * var(--s)) calc(2 * var(--s)),
+    radial-gradient(50% 50%, var(--c2) 98%, rgba(0, 0, 0, 0)) 0 0 / var(--s)
+      var(--s),
+    repeating-conic-gradient(var(--c2) 0 50%, var(--c1) 0 100%)
+      calc(0.5 * var(--s)) 0 / calc(2 * var(--s)) var(--s);
+}
 
-  --_g: var(--c1) 0% 5%, var(--c2) 6% 15%, var(--c1) 16% 25%, var(--c2) 26% 35%,
-    var(--c1) 36% 45%, var(--c2) 46% 55%, var(--c1) 56% 65%, var(--c2) 66% 75%,
-    var(--c1) 76% 85%, var(--c2) 86% 95%, #0000 96%;
-  background: radial-gradient(50% 50% at 100% 0, var(--_g)),
-    radial-gradient(50% 50% at 0 100%, var(--_g)),
-    radial-gradient(50% 50%, var(--_g)),
-    radial-gradient(50% 50%, var(--_g)) calc(var(--s) / 2) calc(var(--s) / 2)
-      var(--c1);
-  background-size: var(--s) var(--s);
+/*
+ * Animated Rounded "Add to Cart" Button
+ */
+.btn-add-cart {
+  position: relative;
+  width: 100%;
+  max-width: 160px;
+  height: 44px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: 9999px; /* Bo tròn hoàn toàn */
+  border: 1px solid var(--primary);
+  background-color: var(--primary);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(40, 56, 40, 0.15);
+}
+
+.btn-add-cart,
+.btn-add-cart .button__icon,
+.btn-add-cart .button__text {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-add-cart .button__text {
+  transform: translateX(18px);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.btn-add-cart .button__icon {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  width: 44px;
+  background-color: #1d2a1d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+
+.btn-add-cart .svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+}
+
+.btn-add-cart:hover {
+  background-color: #1d2a1d;
+  box-shadow: 0 6px 18px rgba(40, 56, 40, 0.25);
+}
+
+.btn-add-cart:hover .button__text {
+  color: transparent;
+  opacity: 0;
+}
+
+.btn-add-cart:hover .button__icon {
+  width: 100%;
+  border-radius: 9999px;
+}
+
+.btn-add-cart:active {
+  transform: scale(0.97);
+  background-color: #141f14;
+}
+
+.btn-add-cart:active .button__icon {
+  background-color: #141f14;
 }
 
 /*
