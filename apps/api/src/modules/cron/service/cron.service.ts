@@ -1,15 +1,48 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { SubscriptionsService } from "../../subscriptions/service/subscriptions.service";
 
 @Injectable()
-export class CronService {
+export class CronService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CronService.name);
+  private pingTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly db: DatabaseService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
+
+  onModuleInit() {
+    this.startKeepAlivePing();
+  }
+
+  onModuleDestroy() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+    }
+  }
+
+  private startKeepAlivePing() {
+    const renderUrl =
+      process.env.RENDER_EXTERNAL_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "https://fortifykitchen-api.onrender.com";
+    const targetUrl = `${renderUrl.replace(/\/$/, "")}/api/health`;
+
+    // Internal keep-alive ping every 10 minutes to prevent Render free instance from sleeping
+    this.pingTimer = setInterval(async () => {
+      try {
+        const response = await fetch(targetUrl);
+        this.logger.log(`[KeepAlive] Self-ping to ${targetUrl} - Status: ${response.status}`);
+      } catch (error) {
+        this.logger.warn(
+          `[KeepAlive] Self-ping to ${targetUrl} failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+  }
 
   async processSubscriptionRenewals(cronJobName: string) {
     this.logger.log(`[${cronJobName}] Starting subscription renewal processing`);
