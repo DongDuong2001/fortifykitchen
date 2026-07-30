@@ -21,10 +21,10 @@ interface HomeSectionProps {
 }
 
 const whyFortify = [
-  { icon: Fire, titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "Nấu chậm" },
-  { icon: Leaf, titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
-  { icon: ForkKnife, titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
-  { icon: Truck, titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "Giao nhanh" },
+  { icon: Fire, gifUrl: "/assets/frying-pan.gif", titleKey: "home_why_slow", descKey: "home_why_slow_desc", number: "Nấu chậm" },
+  { icon: Leaf, gifUrl: "/assets/salad-bowl.gif", titleKey: "home_why_fresh", descKey: "home_why_fresh_desc", number: "Daily" },
+  { icon: ForkKnife, gifUrl: "/assets/meat-food.gif", titleKey: "home_why_protein", descKey: "home_why_protein_desc", number: "40g+" },
+  { icon: Truck, gifUrl: "/assets/truck.gif", titleKey: "home_why_delivery", descKey: "home_why_delivery_desc", number: "Giao nhanh" },
 ] as const;
 
 const howItWorks = [
@@ -205,12 +205,16 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {/* Box 1 (Nấu chậm) - Chiếm 2 cột (col-span-2) trên màn hình trung bình trở lên để tạo điểm nhấn chính */}
-            <article className="group relative p-8 md:p-10 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 md:col-span-2 flex flex-col justify-between text-left space-y-6">
+            {/* Box 1 (Nấu chậm) - Chiếm 2 cột */}
+            <article className="group relative p-8 md:p-10 rounded-[28px] bg-white border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 md:col-span-2 flex flex-col justify-between text-left space-y-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="space-y-4 max-w-md">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    {React.createElement(whyFortify[0].icon, { className: "h-6 w-6" })}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border border-border/40 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-500 overflow-hidden shadow-sm">
+                    <img
+                      src={whyFortify[0].gifUrl}
+                      alt={t(whyFortify[0].titleKey, lang)}
+                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-white"
+                    />
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-foreground font-heading">{t(whyFortify[0].titleKey, lang)}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t(whyFortify[0].descKey, lang)}</p>
@@ -222,10 +226,14 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             </article>
 
             {/* Box 2 (Nguyên liệu tươi) - Chiếm 1 cột */}
-            <article className="group relative p-8 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
+            <article className="group relative p-8 rounded-[28px] bg-white border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
               <div className="space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                  {React.createElement(whyFortify[1].icon, { className: "h-6 w-6" })}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border border-border/40 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-500 overflow-hidden shadow-sm">
+                  <img
+                    src={whyFortify[1].gifUrl}
+                    alt={t(whyFortify[1].titleKey, lang)}
+                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-white"
+                  />
                 </div>
                 <h3 className="text-lg font-bold text-foreground font-heading">{t(whyFortify[1].titleKey, lang)}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t(whyFortify[1].descKey, lang)}</p>
@@ -236,10 +244,14 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
             </article>
 
             {/* Box 3 (Protein cao) - Chiếm 1 cột */}
-            <article className="group relative p-8 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
+            <article className="group relative p-8 rounded-[28px] bg-white border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 flex flex-col justify-between text-left space-y-6">
               <div className="space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                  {React.createElement(whyFortify[2].icon, { className: "h-6 w-6" })}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border border-border/40 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-500 overflow-hidden shadow-sm">
+                  <img
+                    src={whyFortify[2].gifUrl}
+                    alt={t(whyFortify[2].titleKey, lang)}
+                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-white"
+                  />
                 </div>
                 <h3 className="text-lg font-bold text-foreground font-heading">{t(whyFortify[2].titleKey, lang)}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t(whyFortify[2].descKey, lang)}</p>
@@ -249,12 +261,16 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               </div>
             </article>
 
-            {/* Box 4 (Giao hàng) - Chiếm 2 cột (col-span-2) để cân bằng bố cục lưới */}
-            <article className="group relative p-8 md:p-10 rounded-[28px] bg-card border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 md:col-span-2 flex flex-col justify-between text-left space-y-6">
+            {/* Box 4 (Giao hàng) - Chiếm 2 cột */}
+            <article className="group relative p-8 md:p-10 rounded-[28px] bg-white border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 md:col-span-2 flex flex-col justify-between text-left space-y-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="space-y-4 max-w-md">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-105">
-                    {React.createElement(whyFortify[3].icon, { className: "h-6 w-6" })}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border border-border/40 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-500 overflow-hidden shadow-sm">
+                    <img
+                      src={whyFortify[3].gifUrl}
+                      alt={t(whyFortify[3].titleKey, lang)}
+                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-white"
+                    />
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-foreground font-heading">{t(whyFortify[3].titleKey, lang)}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t(whyFortify[3].descKey, lang)}</p>
@@ -377,14 +393,14 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               {howItWorks.map((step, i) => (
                 <article
                   key={i}
-                  className="group relative flex flex-col justify-between p-6 sm:p-7 rounded-[28px] bg-card border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 overflow-hidden text-left space-y-5"
+                  className="group relative flex flex-col justify-between p-6 sm:p-7 rounded-[28px] bg-white border border-border/70 hover:border-primary/50 hover:shadow-card-hover transition-all duration-500 overflow-hidden text-left space-y-5"
                 >
                   <div className="flex justify-between items-start">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted border border-primary/20 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-primary/50 transition-all duration-500 overflow-hidden shadow-sm">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border border-border/40 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-primary/50 transition-all duration-500 overflow-hidden shadow-sm">
                       <img
                         src={step.gifUrl}
                         alt={t(step.titleKey, lang)}
-                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-white"
                       />
                     </div>
                     <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-black font-mono tracking-wider">
