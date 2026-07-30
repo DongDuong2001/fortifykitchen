@@ -102,10 +102,10 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
 
         {/* Hero Pill Split Grid */}
         <div className="container-design relative z-10 w-full">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr] gap-8 items-stretch">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.3fr,0.7fr] gap-8 items-center">
             
             {/* KHỐI NỘI DUNG CHÍNH (PILL 1) */}
-            <div className="bg-card p-8 sm:p-10 lg:p-14 rounded-3xl sm:rounded-[3rem] shadow-card border border-border/80 flex flex-col justify-between text-left space-y-6 md:space-y-8">
+            <div className="bg-card p-8 sm:p-10 lg:p-12 rounded-3xl sm:rounded-[2.5rem] shadow-card border border-border/80 flex flex-col justify-between text-left space-y-6">
               <div className="space-y-6">
                 <div className="flex items-center space-x-2.5 bg-primary/10 border border-primary/20 px-4 py-2 rounded-full w-fit">
                   <FontAwesomeIcon icon={faStar} className="h-3.5 w-3.5 text-primary" />
@@ -114,7 +114,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                   </span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.1] uppercase font-heading">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-black text-foreground leading-[1.1] uppercase font-heading">
                   {t("home_hero_title", lang)}
                 </h1>
 
@@ -127,13 +127,13 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                 <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
                   <button
                     onClick={() => setActiveTab("menu")}
-                    className="btn-primary rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase cursor-pointer shadow-lg hover:scale-102 transition-all"
+                    className="btn-primary rounded-full inline-flex items-center justify-center py-3.5 px-7 text-sm font-bold tracking-wider uppercase cursor-pointer shadow-lg hover:scale-102 transition-all"
                   >
                     <span>{t("home_hero_cta_menu", lang)} &gt;</span>
                   </button>
                   <button
                     onClick={() => setActiveTab("order-now")}
-                    className="btn-secondary rounded-full inline-flex items-center justify-center py-4 px-8 text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-all"
+                    className="btn-secondary rounded-full inline-flex items-center justify-center py-3.5 px-7 text-sm font-bold tracking-wider uppercase whitespace-nowrap cursor-pointer transition-all"
                   >
                     {t("home_hero_cta_order", lang)}
                   </button>
@@ -157,10 +157,10 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
               </div>
             </div>
 
-            {/* KHỐI HÌNH ẢNH (PILL 2) */}
-            <div className="relative min-h-[360px] sm:min-h-[420px] lg:min-h-full overflow-hidden rounded-3xl sm:rounded-[3rem] shadow-2xl border border-border bg-card group flex items-center justify-center">
+            {/* KHỐI HÌNH ẢNH GỌN GÀNG, NỊNH MẮT (PILL 2) */}
+            <div className="relative aspect-[4/3] sm:aspect-[16/10] lg:aspect-[4/4.5] w-full max-w-md mx-auto lg:max-w-none overflow-hidden rounded-3xl sm:rounded-[2.5rem] shadow-xl border border-border/80 bg-card group flex items-center justify-center">
               {isLoadingHomeFrames ? (
-                <div className="w-full h-full bg-card animate-pulse flex items-center justify-center min-h-[360px]">
+                <div className="w-full h-full bg-card animate-pulse flex items-center justify-center">
                   <span className="text-xs text-muted-foreground/60">Loading banner...</span>
                 </div>
               ) : hasFrames ? (
@@ -170,7 +170,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                       <img
                         src={currentFrame.imageUrl}
                         alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
+                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-103"
                         onError={(e) => {
                           e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
                         }}
@@ -180,7 +180,7 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                     <img
                       src={currentFrame.imageUrl}
                       alt={currentFrame.title || t("home_hero_image_alt", lang)}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
                       onError={(e) => {
                         e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600";
                       }}
@@ -188,13 +188,13 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                   )}
                   {/* Slider Indicators */}
                   {homeFrames.length > 1 && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
                       {homeFrames.map((_, idx) => (
                         <button
                           key={idx}
                           onClick={() => setCurrentFrameIndex(idx)}
-                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                            idx === currentFrameIndex ? "bg-primary w-6" : "bg-white/50 hover:bg-white"
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            idx === currentFrameIndex ? "bg-primary w-5" : "bg-white/60 hover:bg-white"
                           }`}
                           aria-label={`Go to slide ${idx + 1}`}
                         />
@@ -206,17 +206,23 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                 <img
                   src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=1600"
                   alt={t("home_hero_image_alt", lang)}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
               )}
 
-              {/* Gradient Overlay for Rich Depth */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none rounded-3xl sm:rounded-[3rem]" />
+              {/* Gentle Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none rounded-3xl sm:rounded-[2.5rem]" />
 
-              {/* Floating Glassmorphism Nutrition Badge */}
-              <div className="absolute top-6 right-6 bg-card/85 backdrop-blur-md px-5 py-3.5 rounded-2xl shadow-xl border border-white/60 text-center min-w-[90px] animate-bounce-short pointer-events-none select-none">
-                <p className="text-2xl font-black text-primary font-mono leading-none">45g</p>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Protein</p>
+              {/* Top Right Floating Glassmorphism Nutrition Badge */}
+              <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-lg border border-white/60 text-center animate-bounce-short pointer-events-none select-none">
+                <p className="text-xl font-black text-primary font-mono leading-none">45g</p>
+                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Protein</p>
+              </div>
+
+              {/* Bottom Left Micro Badge */}
+              <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-md px-3.5 py-2 rounded-full shadow-md border border-white/60 text-center pointer-events-none select-none hidden sm:flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[11px] font-bold text-foreground">Slow-Cooked 16h</span>
               </div>
             </div>
 
