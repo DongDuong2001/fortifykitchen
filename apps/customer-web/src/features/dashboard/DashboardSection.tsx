@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShoppingBag, faWallet, faCalendarAlt, faTruck, faSearch, faCheckCircle, faClock, faCheck, faUtensils, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { BagShopping, Wallet, Calendar, Truck, SearchNormal, TickCircle, Clock, ForkKnife, CloseCircle } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS, PROTEIN_LABELS, ORDER_HISTORY_STATUS_GROUPS } from "@/constants/order-status";
 import { formatVND, formatGrams } from "@fortifykitchen/shared";
@@ -59,7 +58,7 @@ export default function DashboardSection({
     return (
       <div className="space-y-6">
         <div className="border border-dashed border-border rounded-2xl p-8 text-center bg-card shadow-sm">
-          <FontAwesomeIcon icon={faShoppingBag} className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <BagShopping className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h3 className="text-lg font-semibold mb-2">{t("dash_title", lang)}</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
             {lang === "vi" 
@@ -87,7 +86,7 @@ export default function DashboardSection({
                 disabled={isTrackingLoading || !trackPhone.trim()} 
                 className="px-4 py-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <FontAwesomeIcon icon={faSearch} className="h-4 w-4" />
+                <SearchNormal className="h-4 w-4" />
                 {isTrackingLoading ? "⋯" : (lang === "vi" ? "Tìm kiếm" : "Search")}
               </button>
             </div>
@@ -109,7 +108,7 @@ export default function DashboardSection({
   if (isLoadingDashboard) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <FontAwesomeIcon icon={faShoppingBag} className="h-8 w-8 animate-spin text-primary" />
+        <BagShopping className="h-8 w-8 animate-spin text-primary" />
         <span className="text-xs text-muted-foreground font-semibold">
           {lang === "vi" ? "Đang tải dữ liệu..." : "Loading dashboard..."}
         </span>
@@ -138,12 +137,11 @@ export default function DashboardSection({
 
       {dashboardSection === "overview" && (
         <div className="space-y-6">
-          {/* Stable Solid Card for Wallet Balance (No Gradient) */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  <FontAwesomeIcon icon={faWallet} className="h-5 w-5" />
+                  <Wallet className="h-5 w-5" />
                 </div>
                 <h3 className="text-sm font-bold font-heading">{t("dash_balance", lang)}</h3>
               </div>
@@ -159,32 +157,34 @@ export default function DashboardSection({
             </p>
           </div>
 
-          {/* Solid Stat Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: lang === "vi" ? "Tổng số đơn" : "Total Orders", value: myOrders.length, icon: faShoppingBag },
-              { label: lang === "vi" ? "Gói đang chạy" : "Active Subscriptions", value: mySubscriptions.filter((s: any) => s.status === "ACTIVE").length, icon: faCalendarAlt },
-              { label: lang === "vi" ? "Đơn đang giao" : "In Delivery", value: myOrders.filter((o: any) => ["PREPARING", "OUT_FOR_DELIVERY"].includes(o.status)).length, icon: faTruck },
-              { label: lang === "vi" ? "Đơn hoàn thành" : "Completed Orders", value: myOrders.filter((o: any) => o.status === "COMPLETED").length, icon: faCheckCircle }
-            ].map((item, idx) => (
-              <div key={idx} className="bg-card border border-border rounded-2xl px-5 py-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</span>
-                  <FontAwesomeIcon icon={item.icon} className="h-4 w-4 text-muted-foreground/40" />
+              { label: lang === "vi" ? "Tổng số đơn" : "Total Orders", value: myOrders.length, icon: BagShopping },
+              { label: lang === "vi" ? "Gói đang chạy" : "Active Subscriptions", value: mySubscriptions.filter((s: any) => s.status === "ACTIVE").length, icon: Calendar },
+              { label: lang === "vi" ? "Đơn đang giao" : "In Delivery", value: myOrders.filter((o: any) => ["PREPARING", "OUT_FOR_DELIVERY"].includes(o.status)).length, icon: Truck },
+              { label: lang === "vi" ? "Đơn hoàn thành" : "Completed Orders", value: myOrders.filter((o: any) => o.status === "COMPLETED").length, icon: TickCircle }
+            ].map((item, idx) => {
+              const IconComp = item.icon;
+              return (
+                <div key={idx} className="bg-card border border-border rounded-2xl px-5 py-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</span>
+                    <IconComp className="h-4 w-4 text-muted-foreground/40" />
+                  </div>
+                  <div className="text-2xl font-black font-heading mt-1 text-foreground">{item.value}</div>
                 </div>
-                <div className="text-2xl font-black font-heading mt-1 text-foreground">{item.value}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
             <h3 className="text-sm font-bold font-heading mb-4">
-              {lang === "vi" ? "Đơn hàng gần đây" : "Recent Orders"}
+              {lang === "vi" ? "Lịch sử đơn hàng gần đây" : "Recent Orders"}
             </h3>
             {myOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">{t("dash_orders_empty", lang)}</p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-3">
                 {myOrders.slice(0, 4).map((o: any) => (
                   <div 
                     key={o.id} 
@@ -216,7 +216,6 @@ export default function DashboardSection({
 
       {dashboardSection === "orders" && (
         <div className="space-y-4">
-          {/* Shopee-style status buckets */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {ORDER_HISTORY_STATUS_GROUPS.map((group) => {
               const statuses = group.statuses as string[] | null;
@@ -280,7 +279,7 @@ export default function DashboardSection({
                   {(order.items || []).map((item: any) => (
                     <div key={item.id} className="flex gap-3">
                       <div className="h-12 w-12 rounded-lg bg-muted/40 flex-shrink-0 overflow-hidden relative">
-                        {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<FontAwesomeIcon icon={faUtensils} className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
+                        {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<ForkKnife className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{item.flavor}</p>
@@ -298,10 +297,9 @@ export default function DashboardSection({
                   ))}
                 </div>
 
-                {/* Live Step Progress Indicator or Cancelled banner */}
                 {order.status === "CANCELLED" ? (
                   <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-xs font-semibold">
-                    <FontAwesomeIcon icon={faCheckCircle} className="h-3.5 w-3.5 shrink-0" />
+                    <TickCircle className="h-3.5 w-3.5 shrink-0" />
                     {lang === "vi" ? "Đơn hàng này đã bị hủy." : "This order was cancelled."}
                   </div>
                 ) : (
@@ -310,15 +308,15 @@ export default function DashboardSection({
                       {t("status_label", lang)}
                     </div>
                     <div className="grid grid-cols-5 gap-1.5 relative">
-                      {/* Horizontal connecting line */}
                       <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-border -z-10" />
                       {[
-                        { key: "PENDING_CONFIRMATION", label: lang === "vi" ? "Chờ xác nhận" : "Awaiting", icon: faClock },
-                        { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: faCheckCircle },
-                        { key: "PREPARING", label: lang === "vi" ? "Đang chuẩn bị" : "Preparing", icon: faUtensils },
-                        { key: "OUT_FOR_DELIVERY", label: lang === "vi" ? "Đang giao hàng" : "Out for delivery", icon: faTruck },
-                        { key: "COMPLETED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: faCheck },
+                        { key: "PENDING_CONFIRMATION", label: lang === "vi" ? "Chờ xác nhận" : "Awaiting", icon: Clock },
+                        { key: "CONFIRMED", label: lang === "vi" ? "Đã xác nhận" : "Confirmed", icon: TickCircle },
+                        { key: "PREPARING", label: lang === "vi" ? "Đang chuẩn bị" : "Preparing", icon: ForkKnife },
+                        { key: "OUT_FOR_DELIVERY", label: lang === "vi" ? "Đang giao hàng" : "Out for delivery", icon: Truck },
+                        { key: "COMPLETED", label: lang === "vi" ? "Đã giao" : "Delivered", icon: TickCircle },
                       ].map((step) => {
+                        const StepIcon = step.icon;
                         const statuses = ["PENDING_CONFIRMATION", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "COMPLETED"];
                         const currentIdx = statuses.indexOf(order.status);
                         const targetIdx = statuses.indexOf(step.key);
@@ -329,7 +327,7 @@ export default function DashboardSection({
                             <div
                               className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all ${isPassed ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/15" : "bg-muted border-border text-muted-foreground"}`}
                             >
-                              <FontAwesomeIcon icon={step.icon} className="h-3.5 w-3.5" />
+                              <StepIcon className="h-3.5 w-3.5" />
                             </div>
                             <span className="text-[9px] font-bold mt-2 text-muted-foreground leading-tight">{step.label}</span>
                           </div>
@@ -339,7 +337,6 @@ export default function DashboardSection({
                   </div>
                 )}
 
-                {/* Shipment details */}
                 <div className="pt-4 border-t border-border/50 text-[11px] text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
                   {order.shipmentCode && (
                     <span className="font-mono bg-muted/50 px-2 py-0.5 rounded border border-border/50">
@@ -368,7 +365,7 @@ export default function DashboardSection({
         <div className="space-y-4">
           {mySubscriptions.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-border rounded-xl">
-              <FontAwesomeIcon icon={faCalendarAlt} className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <Calendar className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground font-medium">{t("dash_subs_empty", lang)}</p>
             </div>
           ) : (
@@ -420,7 +417,7 @@ export default function DashboardSection({
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold font-heading">{t("order_id", lang)} FK{orderDetail.id.slice(0, 8)}</h3>
               <button onClick={() => setOrderDetail(null)} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer border-0 bg-transparent">
-                <FontAwesomeIcon icon={faTimes} className="h-5 w-5 text-muted-foreground" />
+                <CloseCircle className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
             <div className="space-y-4">
@@ -443,7 +440,7 @@ export default function DashboardSection({
                 {(orderDetail.items || []).map((item: any) => (
                   <div key={item.id} className="flex gap-3">
                     <div className="h-12 w-12 rounded-lg bg-muted/40 flex-shrink-0 overflow-hidden relative">
-                      {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<FontAwesomeIcon icon={faUtensils} className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
+                      {item.imageUrl ? (<img src={item.imageUrl} alt={item.flavor} className="w-full h-full object-cover" />) : (<ForkKnife className="h-5 w-5 text-muted-foreground/30 mx-auto my-auto" />)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{item.flavor}</p>
