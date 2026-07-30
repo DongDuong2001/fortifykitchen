@@ -1,6 +1,5 @@
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarAlt, faSearch, faWallet, faXmark, faClock } from "@fortawesome/free-solid-svg-icons";
+import { Calendar, SearchNormal, Wallet, CloseCircle, Clock } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import { formatVND, formatGrams, PROTEIN_LABELS } from "@fortifykitchen/shared";
 import { getPlanBenefits } from "@/lib/utils";
@@ -85,13 +84,11 @@ export default function SubscriptionsSection({
   const hasActivePlanDiscount = planDiscountPercent > 0 && !!planDiscountEndsAt && new Date(planDiscountEndsAt) > new Date();
   const pendingUpgradeRequest = myUpgradeRequests.find((r: any) => r.status === "PENDING");
 
-  const formatVND = (num: number) => `${num.toLocaleString()} ₫`;
-
   if (!user) {
     return (
       <div className="space-y-6">
         <div className="border border-dashed border-border rounded-xl p-8 text-center">
-          <FontAwesomeIcon icon={faCalendarAlt} className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h3 className="text-lg font-semibold mb-2">{t("dash_subs_title", lang)}</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">{t("filter_all", lang)}</p>
           <button onClick={() => setAuthModal("login")} className="bg-primary text-primary-foreground text-xs font-bold py-3 px-6 rounded-xl hover:bg-primary/95 transition-all cursor-pointer">{t("btn_signin", lang)}</button>
@@ -102,7 +99,7 @@ export default function SubscriptionsSection({
           <form onSubmit={handleLookupSubscription} className="space-y-4">
             <div className="flex gap-2">
               <input type="tel" placeholder={t("filter_all", lang)} value={lookupPhone} onChange={(e) => setLookupPhone(e.target.value)} className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none" />
-              <button type="submit" disabled={isLookupLoading || !lookupPhone.trim()} className="px-4 py-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"><FontAwesomeIcon icon={faSearch} className="h-4 w-4" />{isLookupLoading ? "⋯" : t("filter_all", lang)}</button>
+              <button type="submit" disabled={isLookupLoading || !lookupPhone.trim()} className="px-4 py-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"><SearchNormal className="h-4 w-4" />{isLookupLoading ? "⋯" : t("filter_all", lang)}</button>
             </div>
             {lookupError && <p className="text-xs text-red-500">{lookupError}</p>}
           </form>
@@ -125,7 +122,7 @@ export default function SubscriptionsSection({
       <div className="space-y-4">
         <h3 className="text-sm font-bold font-heading">{t("filter_all", lang)}</h3>
         {mySubscriptions.length === 0 ? (
-          <div className="border border-dashed border-border rounded-xl p-8 text-center"><FontAwesomeIcon icon={faCalendarAlt} className="h-10 w-10 mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">{t("dash_subs_empty", lang)}</p></div>
+          <div className="border border-dashed border-border rounded-xl p-8 text-center"><Calendar className="h-10 w-10 mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">{t("dash_subs_empty", lang)}</p></div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {mySubscriptions.map((sub) => (<SubscriptionCard key={sub.id} sub={sub} lang={lang} />))}
@@ -136,7 +133,7 @@ export default function SubscriptionsSection({
       <div className="border border-border bg-card rounded-2xl p-6 shadow-sm">
         <h3 className="text-sm font-bold font-heading mb-4">{t("filter_all", lang)}</h3>
         <form onSubmit={handleLookupSubscription} className="space-y-4">
-          <div className="flex gap-2"><input type="tel" placeholder={t("filter_all", lang)} value={lookupPhone} onChange={(e) => setLookupPhone(e.target.value)} className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none" /><button type="submit" disabled={isLookupLoading || !lookupPhone.trim()} className="px-4 py-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"><FontAwesomeIcon icon={faSearch} className="h-4 w-4" />{isLookupLoading ? "⋯" : t("filter_all", lang)}</button></div>
+          <div className="flex gap-2"><input type="tel" placeholder={t("filter_all", lang)} value={lookupPhone} onChange={(e) => setLookupPhone(e.target.value)} className="flex-1 bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none" /><button type="submit" disabled={isLookupLoading || !lookupPhone.trim()} className="px-4 py-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"><SearchNormal className="h-4 w-4" />{isLookupLoading ? "⋯" : t("filter_all", lang)}</button></div>
           {lookupError && <p className="text-xs text-red-500">{lookupError}</p>}
         </form>
         {hasLookedUp && myPoolSubscriptions.length > 0 && (
@@ -161,7 +158,7 @@ export default function SubscriptionsSection({
                 onClick={() => setShowWalletPlans(false)}
                 className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer"
               >
-                <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+                <CloseCircle className="h-4 w-4" />
               </button>
             </div>
 
@@ -170,7 +167,7 @@ export default function SubscriptionsSection({
                 if (pendingUpgradeRequest) {
                   return (
                     <div className="max-w-lg mx-auto text-center py-6 px-6 border border-primary/20 bg-primary/5 rounded-xl">
-                      <FontAwesomeIcon icon={faClock} className="h-5 w-5 text-primary mb-2" />
+                      <Clock className="h-5 w-5 text-primary mb-2 mx-auto" />
                       <p className="text-sm font-bold">
                         {lang === "vi" ? "Yêu cầu nâng cấp đang chờ duyệt" : "Upgrade request pending review"}
                       </p>
@@ -194,7 +191,7 @@ export default function SubscriptionsSection({
 
                     {isLoadingPlans ? (
                       <div className="flex justify-center py-6">
-                        <FontAwesomeIcon icon={faWallet} className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <Wallet className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -238,7 +235,7 @@ export default function SubscriptionsSection({
                       className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm py-3 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isSubmittingUpgradeRequest ? (
-                        <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 animate-spin" />
+                        <Wallet className="h-3.5 w-3.5 animate-spin" />
                       ) : lang === "vi" ? (
                         "Gửi yêu cầu nâng cấp"
                       ) : (
@@ -250,7 +247,7 @@ export default function SubscriptionsSection({
               })()
             ) : isLoadingPlans ? (
               <div className="flex justify-center py-10">
-                <FontAwesomeIcon icon={faWallet} className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Wallet className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : subscriptionPlans.length === 0 ? (
               <div className="text-center py-10 border border-dashed border-border rounded-xl">
@@ -263,44 +260,40 @@ export default function SubscriptionsSection({
                 {subscriptionPlans.map((plan) => {
                   const benefits = getPlanBenefits(plan.voucherPercent || 0, lang);
                   
-                  // Color theme based on voucher percent
                   const getPlanTheme = (voucherPercent: number) => {
                     if (voucherPercent >= 25) return { bg: "bg-gradient-to-br from-[linear-gradient(135deg,#1E2016_0%,#2E7D32_100%)]", border: "border-transparent", accent: "text-white", badge: "bg-amber-500/20 text-amber-400 border-amber-500/40", btn: "bg-amber-500 hover:bg-amber-400 text-white", iconColor: "text-amber-400" };
                     if (voucherPercent >= 20) return { bg: "bg-card", border: "border-border", accent: "text-amber-600", badge: "bg-amber-500/10 text-amber-600 border-amber-500/30", btn: "border-2 border-amber-500 text-amber-600 bg-transparent hover:bg-amber-500 hover:text-white", iconColor: "text-amber-600" };
                     if (voucherPercent >= 15) return { bg: "bg-gradient-to-br from-[linear-gradient(135deg,#1E2016_0%,#2E7D32_100%)]", border: "border-primary", accent: "text-white", badge: "bg-primary-foreground/10 text-white border-white/30", btn: "bg-white hover:bg-primary-foreground/90 text-primary", iconColor: "text-white" };
                     if (voucherPercent >= 10) return { bg: "bg-primary", border: "border-primary", accent: "text-primary-foreground", badge: "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30", btn: "bg-primary-foreground hover:bg-primary-foreground/90 text-primary", iconColor: "text-primary-foreground" };
-                    return { bg: "bg-card", border: "border-border", accent: "text-primary", badge: "bg-primary/10 text-primary border-primary/20", btn: "border-2 border-primary text-primary bg-transparent hover:bg-primary/5", iconColor: "text-primary" };
+                    return { bg: "bg-card", border: "border-border", accent: "text-foreground", badge: "bg-muted text-muted-foreground border-border", btn: "bg-primary hover:bg-primary/95 text-primary-foreground", iconColor: "text-primary" };
                   };
                   
                   const theme = getPlanTheme(plan.voucherPercent || 0);
-                  const isFeatured = plan.voucherPercent >= 10;
-                  
+
                   return (
-                    <div
-                      key={plan.id}
-                      className={`relative border rounded-2xl p-6 space-y-4 flex flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary ${theme.bg} ${theme.border}`}
-                    >
-                      {isFeatured && (
-                        <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full whitespace-nowrap ${theme.badge}`}>
-                          {lang === "vi" ? "Phổ biến nhất" : "Most popular"}
-                        </span>
-                      )}
-                      <div className="flex justify-between items-start gap-2 min-h-12">
-                        <h4 className="text-base font-bold font-heading {theme.accent}">{plan.name}</h4>
+                    <div key={plan.id} className={`rounded-2xl border p-6 flex flex-col justify-between space-y-6 ${theme.bg} ${theme.border}`}>
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <h4 className={`text-base font-bold font-heading ${theme.accent}`}>{plan.name}</h4>
+                          <p className={`text-xs ${theme.accent} opacity-80 mt-0.5`}>{plan.description || (lang === "vi" ? "Gói nạp ví ưu đãi" : "Wallet top-up plan")}</p>
+                        </div>
                         {plan.voucherPercent > 0 && (
                           <span className={`text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full border shrink-0 ${theme.accent} ${theme.badge}`}>
                             {lang === "vi" ? `-${plan.voucherPercent}% mọi đơn` : `-${plan.voucherPercent}% every order`}
                           </span>
                         )}
                       </div>
-                      <p className="text-3xl font-extrabold font-heading {theme.accent}">{formatVND(plan.price)}</p>
+                      <p className={`text-3xl font-extrabold font-heading ${theme.accent}`}>{formatVND(plan.price)}</p>
                       <ul className="space-y-2.5 flex-1">
-                        {benefits.map((b, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs leading-relaxed">
-                            <FontAwesomeIcon icon={b.icon} className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${theme.iconColor}`} />
-                            <span className={theme.accent}>{b.text}</span>
-                          </li>
-                        ))}
+                        {benefits.map((b, i) => {
+                          const BenefitIcon = b.icon;
+                          return (
+                            <li key={i} className="flex items-start gap-2.5 text-xs leading-relaxed">
+                              <BenefitIcon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${theme.iconColor}`} />
+                              <span className={theme.accent}>{b.text}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                       <button
                         onClick={() => handleBuyPlan(plan)}
@@ -308,10 +301,10 @@ export default function SubscriptionsSection({
                         className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${theme.btn}`}
                       >
                         {purchasingPlanId === plan.id ? (
-                          <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5 animate-spin" />
+                          <Wallet className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <>
-                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                            <Wallet className="h-3.5 w-3.5" />
                             {lang === "vi" ? "Nạp ví ngay" : "Top up now"}
                           </>
                         )}
