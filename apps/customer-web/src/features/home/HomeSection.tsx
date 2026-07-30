@@ -74,14 +74,14 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
         <div className="max-w-7xl mx-auto mb-6 overflow-hidden px-4">
           <div className="ticker-container rounded-full bg-primary text-primary-foreground py-3 px-6 shadow-md border border-primary/20">
             <div className="ticker-track text-xs sm:text-sm font-semibold tracking-wide">
-              <span className="flex items-center gap-2">🛵 Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
-              <span className="flex items-center gap-2">✦ Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
-              <span className="flex items-center gap-2">🌿 Fortify Kitchen Sous-Vide Nutrition</span>
-              <span className="flex items-center gap-2">💪 Minh Bạch Macro & Calo</span>
-              <span className="flex items-center gap-2">🛵 Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
-              <span className="flex items-center gap-2">✦ Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
-              <span className="flex items-center gap-2">🌿 Fortify Kitchen Sous-Vide Nutrition</span>
-              <span className="flex items-center gap-2">💪 Minh Bạch Macro & Calo</span>
+              <span className="flex items-center gap-2"><Truck className="h-4 w-4 shrink-0" /> Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
+              <span className="flex items-center gap-2"><Star className="h-3.5 w-3.5 shrink-0" /> Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
+              <span className="flex items-center gap-2"><Leaf className="h-4 w-4 shrink-0" /> Fortify Kitchen Sous-Vide Nutrition</span>
+              <span className="flex items-center gap-2"><Fire className="h-4 w-4 shrink-0" /> Minh Bạch Macro & Calo</span>
+              <span className="flex items-center gap-2"><Truck className="h-4 w-4 shrink-0" /> Giao Hàng Tận Nơi 10AM - 9PM Mỗi Ngày</span>
+              <span className="flex items-center gap-2"><Star className="h-3.5 w-3.5 shrink-0" /> Đặt Hàng Trực Tuyến Giao Nhanh Nhất Có Thể</span>
+              <span className="flex items-center gap-2"><Leaf className="h-4 w-4 shrink-0" /> Fortify Kitchen Sous-Vide Nutrition</span>
+              <span className="flex items-center gap-2"><Fire className="h-4 w-4 shrink-0" /> Minh Bạch Macro & Calo</span>
             </div>
           </div>
         </div>
