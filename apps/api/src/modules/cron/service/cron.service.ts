@@ -5,7 +5,7 @@ import { SubscriptionsService } from "../../subscriptions/service/subscriptions.
 @Injectable()
 export class CronService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CronService.name);
-  private pingTimer: NodeJS.Timeout | null = null;
+  private pingTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 
   constructor(
     private readonly db: DatabaseService,
@@ -18,7 +18,7 @@ export class CronService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     if (this.pingTimer) {
-      clearInterval(this.pingTimer);
+      globalThis.clearInterval(this.pingTimer);
     }
   }
 
@@ -30,9 +30,9 @@ export class CronService implements OnModuleInit, OnModuleDestroy {
     const targetUrl = `${renderUrl.replace(/\/$/, "")}/api/health`;
 
     // Internal keep-alive ping every 10 minutes to prevent Render free instance from sleeping
-    this.pingTimer = setInterval(async () => {
+    this.pingTimer = globalThis.setInterval(async () => {
       try {
-        const response = await fetch(targetUrl);
+        const response = await globalThis.fetch(targetUrl);
         this.logger.log(`[KeepAlive] Self-ping to ${targetUrl} - Status: ${response.status}`);
       } catch (error) {
         this.logger.warn(
