@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faShieldAlt, faFileContract, faTruck, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { CloseCircle, ShieldSecurity, Card, Truck, Undo } from "reicon-react";
 
 interface PrivacyModalProps {
   lang: "vi" | "en";
@@ -22,10 +21,10 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
   if (!showPrivacyModal) return null;
 
   const tabs = [
-    { id: "shipping", label: lang === "vi" ? "Giao hàng" : "Delivery", icon: faTruck },
-    { id: "refund", label: lang === "vi" ? "Đổi trả & Hoàn tiền" : "Refunds", icon: faUndo },
-    { id: "privacy", label: lang === "vi" ? "Bảo mật" : "Privacy", icon: faShieldAlt },
-    { id: "terms", label: lang === "vi" ? "Điều khoản" : "Terms", icon: faFileContract },
+    { id: "shipping", label: lang === "vi" ? "Giao hàng" : "Delivery", icon: Truck },
+    { id: "refund", label: lang === "vi" ? "Đổi trả & Hoàn tiền" : "Refunds", icon: Undo },
+    { id: "privacy", label: lang === "vi" ? "Bảo mật" : "Privacy", icon: ShieldSecurity },
+    { id: "terms", label: lang === "vi" ? "Điều khoản" : "Terms", icon: Card },
   ] as const;
 
   return (
@@ -43,7 +42,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
             </p>
           </div>
           <button onClick={() => setShowPrivacyModal(null)} className="text-muted-foreground hover:text-foreground p-1 transition-colors hover:bg-muted rounded-full cursor-pointer">
-            <FontAwesomeIcon icon={faTimes} className="h-5 w-5" />
+            <CloseCircle className="h-5 w-5" />
           </button>
         </div>
 
@@ -51,6 +50,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
         <div className="flex border-b border-border/60 mb-6 overflow-x-auto gap-2 shrink-0 pb-1 scrollbar-none">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
+            const IconComp = tab.icon;
             return (
               <button
                 key={tab.id}
@@ -61,7 +61,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <FontAwesomeIcon icon={tab.icon} className="h-3.5 w-3.5" />
+                <IconComp className="h-3.5 w-3.5" />
                 {tab.label}
               </button>
             );
@@ -74,7 +74,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
             <div className="space-y-5 animate-in fade-in duration-200">
               <section className="space-y-2">
                 <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
-                  <FontAwesomeIcon icon={faTruck} className="text-primary h-4 w-4" />
+                  <Truck className="text-primary h-4 w-4" />
                   {lang === "vi" ? "1. Khu vực giao nhận hàng" : "1. Delivery Coverage"}
                 </h4>
                 <p>
@@ -116,7 +116,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
             <div className="space-y-5 animate-in fade-in duration-200">
               <section className="space-y-2">
                 <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
-                  <FontAwesomeIcon icon={faUndo} className="text-primary h-4 w-4" />
+                  <Undo className="text-primary h-4 w-4" />
                   {lang === "vi" ? "1. Trường hợp áp dụng khiếu nại" : "1. Eligible Compensation Claims"}
                 </h4>
                 <p>
@@ -159,7 +159,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
             <div className="space-y-5 animate-in fade-in duration-200">
               <section className="space-y-2">
                 <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
-                  <FontAwesomeIcon icon={faShieldAlt} className="text-primary h-4 w-4" />
+                  <ShieldSecurity className="text-primary h-4 w-4" />
                   {lang === "vi" ? "1. Thu thập thông tin cá nhân" : "1. Information Collection"}
                 </h4>
                 <p>
@@ -197,7 +197,7 @@ export default function PrivacyModal({ lang, showPrivacyModal, setShowPrivacyMod
             <div className="space-y-5 animate-in fade-in duration-200">
               <section className="space-y-2">
                 <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
-                  <FontAwesomeIcon icon={faFileContract} className="text-primary h-4 w-4" />
+                  <Card className="text-primary h-4 w-4" />
                   {lang === "vi" ? "1. Điều khoản hoạt động của Ví & Gói Hội viên" : "1. Wallet & Subscription Membership Rules"}
                 </h4>
                 <p>
