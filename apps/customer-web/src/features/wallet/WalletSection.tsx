@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWallet, faCreditCard, faShoppingBag, faXmark, faClock } from "@fortawesome/free-solid-svg-icons";
+import { Wallet, Card, BagShopping, CloseCircle, Clock } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import { getPlanBenefits } from "@/lib/utils";
 
@@ -33,12 +32,12 @@ interface WalletSectionProps {
   myUpgradeRequests: any[];
 }
 
-export default function WalletSection({
+export function WalletSection({
   lang,
   user,
   walletBalance,
   planDiscountPercent,
-  planDiscountEndsAt,
+  planDiscountEndsAt: _planDiscountEndsAt,
   subscriptionPlans,
   isLoadingPlans,
   purchasingPlanId,
@@ -56,7 +55,7 @@ export default function WalletSection({
   myUpgradeRequests,
 }: WalletSectionProps) {
   const [showActivePlanWarningModal, setShowActivePlanWarningModal] = React.useState(false);
-  void planDiscountEndsAt;
+
   const hasActivePlanDiscount = walletBalance > 0 && planDiscountPercent > 0;
 
   const formatVND = (num: number) => `${num.toLocaleString()} ₫`;
@@ -69,7 +68,7 @@ export default function WalletSection({
         <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/20 text-primary"><FontAwesomeIcon icon={faWallet} className="h-5 w-5" /></div>
+              <div className="p-2 rounded-lg bg-primary/20 text-primary"><Wallet className="h-5 w-5" /></div>
               <h3 className="text-sm font-bold font-heading">{t("dash_balance", lang)}</h3>
             </div>
             {hasActivePlanDiscount && (
@@ -102,14 +101,14 @@ export default function WalletSection({
             }}
             className="mt-4 shrink-0 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg transition-all cursor-pointer whitespace-nowrap"
           >
-            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+            <Wallet className="h-3.5 w-3.5" />
             {lang === "vi" ? "Nạp thêm vào ví" : "Add Money to Wallet"}
           </button>
         </div>
       ) : (
         <div className="max-w-md mx-auto mb-8 text-center py-8 px-6 border border-dashed border-border rounded-2xl bg-card/50">
           <div className="p-3 rounded-full bg-primary/10 text-primary w-12 h-12 mx-auto flex items-center justify-center mb-4">
-            <FontAwesomeIcon icon={faWallet} className="h-6 w-6" />
+            <Wallet className="h-6 w-6" />
           </div>
           <h3 className="text-base font-bold font-heading mb-2">
             {lang === "vi" ? "Xem các gói nạp ưu đãi" : "View wallet top-up plans"}
@@ -166,12 +165,15 @@ export default function WalletSection({
                       </div>
                       <p className="text-3xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
                       <ul className="space-y-2.5 flex-1">
-                        {benefits.map((b, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
-                            <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <span>{b.text}</span>
-                          </li>
-                        ))}
+                        {benefits.map((b, i) => {
+                          const BenefitIcon = b.icon;
+                          return (
+                            <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
+                              <BenefitIcon className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span>{b.text}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                       <button
                         onClick={() => handleBuyPlan(plan)}
@@ -179,10 +181,10 @@ export default function WalletSection({
                         className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${isFeatured ? "bg-primary hover:bg-primary/95 text-primary-foreground" : "border-2 border-primary text-primary bg-transparent hover:bg-primary/5"}`}
                       >
                         {purchasingPlanId === plan.id ? (
-                          <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5 animate-spin" />
+                          <BagShopping className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <>
-                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                            <Wallet className="h-3.5 w-3.5" />
                             {lang === "vi" ? "Nạp ví ngay" : "Top up now"}
                           </>
                         )}
@@ -194,7 +196,7 @@ export default function WalletSection({
             )
           ) : (
             <div className="flex justify-center py-10">
-              <FontAwesomeIcon icon={faShoppingBag} className="h-6 w-6 animate-spin text-muted-foreground" />
+              <BagShopping className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
         </>
@@ -212,7 +214,7 @@ export default function WalletSection({
                 onClick={() => setShowWalletPlans(false)}
                 className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full hover:bg-foreground/5 transition-colors cursor-pointer"
               >
-                <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+                <CloseCircle className="h-4 w-4" />
               </button>
             </div>
 
@@ -221,7 +223,7 @@ export default function WalletSection({
                 if (pendingUpgradeRequest) {
                   return (
                     <div className="max-w-lg mx-auto text-center py-6 px-6 border border-primary/20 bg-primary/5 rounded-xl">
-                      <FontAwesomeIcon icon={faClock} className="h-5 w-5 text-primary mb-2" />
+                      <Clock className="h-5 w-5 text-primary mb-2 mx-auto" />
                       <p className="text-sm font-bold">
                         {lang === "vi" ? "Yêu cầu nâng cấp đang chờ duyệt" : "Upgrade request pending review"}
                       </p>
@@ -245,7 +247,7 @@ export default function WalletSection({
 
                     {isLoadingPlans ? (
                       <div className="flex justify-center py-6">
-                        <FontAwesomeIcon icon={faShoppingBag} className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <BagShopping className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -289,7 +291,7 @@ export default function WalletSection({
                       className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm py-3 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isSubmittingUpgradeRequest ? (
-                        <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5 animate-spin" />
+                        <BagShopping className="h-3.5 w-3.5 animate-spin" />
                       ) : lang === "vi" ? (
                         "Gửi yêu cầu nâng cấp"
                       ) : (
@@ -301,7 +303,7 @@ export default function WalletSection({
               })()
             ) : isLoadingPlans ? (
               <div className="flex justify-center py-10">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-6 w-6 animate-spin text-muted-foreground" />
+                <BagShopping className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : subscriptionPlans.length === 0 ? (
               <div className="text-center py-10 border border-dashed border-border rounded-xl">
@@ -334,12 +336,15 @@ export default function WalletSection({
                       </div>
                       <p className="text-3xl font-extrabold font-heading text-primary">{formatVND(plan.price)}</p>
                       <ul className="space-y-2.5 flex-1">
-                        {benefits.map((b, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
-                            <FontAwesomeIcon icon={b.icon} className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <span>{b.text}</span>
-                          </li>
-                        ))}
+                        {benefits.map((b, i) => {
+                          const BenefitIcon = b.icon;
+                          return (
+                            <li key={i} className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed">
+                              <BenefitIcon className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span>{b.text}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                       <button
                         onClick={() => handleBuyPlan(plan)}
@@ -347,10 +352,10 @@ export default function WalletSection({
                         className={`w-full font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${isFeatured ? "bg-primary hover:bg-primary/95 text-primary-foreground" : "border-2 border-primary text-primary bg-transparent hover:bg-primary/5"}`}
                       >
                         {purchasingPlanId === plan.id ? (
-                          <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5 animate-spin" />
+                          <BagShopping className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <>
-                            <FontAwesomeIcon icon={faWallet} className="h-3.5 w-3.5" />
+                            <Wallet className="h-3.5 w-3.5" />
                             {lang === "vi" ? "Nạp ví ngay" : "Top up now"}
                           </>
                         )}
@@ -368,7 +373,7 @@ export default function WalletSection({
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setPlanPurchaseResult(null)} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
-            <FontAwesomeIcon icon={faCreditCard} className="h-10 w-10 mx-auto text-primary" />
+            <Card className="h-10 w-10 mx-auto text-primary" />
             <h3 className="text-sm font-bold font-heading">
               {lang === "vi" ? "Yêu cầu mua gói thành công!" : "Plan Purchase Requested!"}
             </h3>
@@ -420,7 +425,7 @@ export default function WalletSection({
           <div className="absolute inset-0 cursor-pointer" onClick={() => setShowActivePlanWarningModal(false)} />
           <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 z-10 space-y-4 text-center">
             <div className="h-12 w-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
-              <FontAwesomeIcon icon={faClock} className="h-6 w-6" />
+              <Clock className="h-6 w-6" />
             </div>
             <h3 className="text-base font-bold font-heading text-foreground">
               {lang === "vi" ? "Bạn đã có gói nạp hoạt động!" : "Active plan discount in effect!"}
@@ -453,3 +458,5 @@ export default function WalletSection({
     </div>
   );
 }
+
+export default WalletSection;
