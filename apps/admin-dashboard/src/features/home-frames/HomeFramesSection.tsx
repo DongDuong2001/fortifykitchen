@@ -51,6 +51,11 @@ export default function HomeFramesSection({
   const handleHomeFrameImageUpload = async (file: File) => {
     if (!file) return;
 
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'Kích thước file vượt quá 20MB! Vui lòng chọn file nhỏ hơn.', type: 'error' });
+      return;
+    }
+
     const localPreview = URL.createObjectURL(file);
     setHomeFrameImagePreview(localPreview);
     setIsHomeFrameUploading(true);
@@ -371,8 +376,8 @@ export default function HomeFramesSection({
                           </p>
                           <p className="text-[10px] text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
                             {lang === 'vi' 
-                              ? 'Chấp nhận PNG, JPG, GIF tối đa 5MB. Tự động đồng bộ lên Cloudinary.' 
-                              : 'Accepts PNG, JPG, GIF up to 5MB. Auto-synced to Cloudinary.'}
+                              ? 'Chấp nhận PNG, JPG, GIF tối đa 20MB. Tự động đồng bộ lên Cloudinary.' 
+                              : 'Accepts PNG, JPG, GIF up to 20MB. Auto-synced to Cloudinary.'}
                           </p>
                         </div>
                       </div>
