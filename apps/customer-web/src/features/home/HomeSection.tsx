@@ -15,6 +15,7 @@ import {
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, formatVND } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
+import AddToCartButton from "@/components/AddToCartButton";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -347,13 +348,13 @@ export default function HomeSection({ lang, menuItems, setActiveTab, addToCart, 
                   </div>
 
                   {/* Add to cart action button */}
-                  <button
-                    onClick={() => addToCart(item, 1, undefined, lang)}
-                    className="w-full btn-primary py-3 text-xs tracking-wider uppercase font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>{t("btn_add_cart", lang)}</span>
-                    <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                  </button>
+                  <div className="w-full flex justify-center">
+                    <AddToCartButton
+                      text={t("btn_add_cart", lang)}
+                      onClick={() => addToCart(item, 1, undefined, lang)}
+                      className="w-full max-w-none justify-center"
+                    />
+                  </div>
                 </div>
               </article>
             ))}
