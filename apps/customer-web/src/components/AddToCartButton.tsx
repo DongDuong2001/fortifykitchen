@@ -2,7 +2,7 @@ import React from "react";
 
 interface AddToCartButtonProps {
   text: string;
-  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick: (e: React.MouseEvent<React.ElementRef<"button">>) => void;
   className?: string;
   disabled?: boolean;
 }
