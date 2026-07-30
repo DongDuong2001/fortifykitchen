@@ -210,6 +210,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                       <AddToCartButton
                         text={t("btn_add_cart", lang)}
                         onClick={() => addToCart(selected, 1, undefined, lang)}
+                        imageUrl={selected.imageUrl}
                       />
                     </div>
                   </div>
