@@ -816,7 +816,7 @@ export default function CustomerPortalClient({
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
+    <div className="min-h-screen bg-transparent text-foreground transition-colors duration-200 pb-20 md:pb-0">
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
