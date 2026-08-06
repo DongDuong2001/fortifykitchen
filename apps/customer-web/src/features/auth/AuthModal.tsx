@@ -14,9 +14,10 @@ interface AuthModalProps {
   setAuthModal: (modal: "login" | "signup" | null) => void;
   login: (email: string, password: string, lang: "vi" | "en") => Promise<{ success: boolean; message?: string }>;
   signup: (data: any, lang: "vi" | "en") => Promise<{ success: boolean; message?: string }>;
+  setActiveTab?: (tab: string) => void;
 }
 
-export default function AuthModal({ lang, authModal, setAuthModal, login, signup }: AuthModalProps) {
+export default function AuthModal({ lang, authModal, setAuthModal, login, signup, setActiveTab }: AuthModalProps) {
   const [loginEmail, setLoginEmail] = React.useState("");
   const [loginPass, setLoginPass] = React.useState("");
   const [rememberMe, setRememberMe] = React.useState(false);
@@ -163,8 +164,8 @@ export default function AuthModal({ lang, authModal, setAuthModal, login, signup
             >
               {t("btn_submit_login", lang)}
             </button>
-            <div className="text-center pt-2">
-              <span className="text-[11px] text-muted-foreground">
+            <div className="text-center pt-2 space-y-2">
+              <span className="text-[11px] text-muted-foreground block">
                 {lang === "vi" ? "Chưa có tài khoản? " : "Don't have an account? "}
                 <button
                   type="button"
@@ -174,6 +175,23 @@ export default function AuthModal({ lang, authModal, setAuthModal, login, signup
                   {lang === "vi" ? "Đăng ký ngay" : "Register here"}
                 </button>
               </span>
+              {setActiveTab && (
+                <div className="pt-2 border-t border-border/40">
+                  <p className="text-[10px] text-muted-foreground">
+                    {lang === "vi" ? "Hoặc đặt hàng nhanh không cần tài khoản?" : "Or order directly without an account?"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthModal(null);
+                      setActiveTab("order-now");
+                    }}
+                    className="mt-1 text-xs text-primary font-bold hover:underline cursor-pointer"
+                  >
+                    {lang === "vi" ? "👉 Sử dụng tính năng Đặt đơn nhanh" : "👉 Use Quick Order"}
+                  </button>
+                </div>
+              )}
             </div>
           </form>
         ) : (
@@ -274,8 +292,8 @@ export default function AuthModal({ lang, authModal, setAuthModal, login, signup
             >
               {t("btn_submit_register", lang)}
             </button>
-            <div className="text-center pt-2">
-              <span className="text-[11px] text-muted-foreground">
+            <div className="text-center pt-2 space-y-2">
+              <span className="text-[11px] text-muted-foreground block">
                 {lang === "vi" ? "Đã có tài khoản? " : "Already have an account? "}
                 <button
                   type="button"
@@ -285,6 +303,23 @@ export default function AuthModal({ lang, authModal, setAuthModal, login, signup
                   {lang === "vi" ? "Đăng nhập" : "Login"}
                 </button>
               </span>
+              {setActiveTab && (
+                <div className="pt-2 border-t border-border/40">
+                  <p className="text-[10px] text-muted-foreground">
+                    {lang === "vi" ? "Hoặc đặt hàng nhanh không cần tài khoản?" : "Or order directly without an account?"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthModal(null);
+                      setActiveTab("order-now");
+                    }}
+                    className="mt-1 text-xs text-primary font-bold hover:underline cursor-pointer"
+                  >
+                    {lang === "vi" ? "👉 Sử dụng tính năng Đặt đơn nhanh" : "👉 Use Quick Order"}
+                  </button>
+                </div>
+              )}
             </div>
           </form>
         )}
