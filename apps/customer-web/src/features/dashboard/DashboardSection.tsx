@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BagShopping, Wallet, Calendar, Truck, SearchNormal, TickCircle, Clock, ForkKnife, CloseCircle } from "reicon-react";
+import { BagShopping, Calendar, Truck, SearchNormal, TickCircle, Clock, ForkKnife, CloseCircle } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS, PROTEIN_LABELS, ORDER_HISTORY_STATUS_GROUPS } from "@/constants/order-status";
 import { formatVND, formatGrams } from "@fortifykitchen/shared";
@@ -137,25 +137,6 @@ export default function DashboardSection({
 
       {dashboardSection === "overview" && (
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  <Wallet className="h-5 w-5" />
-                </div>
-                <h3 className="text-sm font-bold font-heading">{t("dash_balance", lang)}</h3>
-              </div>
-              {user.planDiscountPercent > 0 && user.planDiscountEndsAt && new Date(user.planDiscountEndsAt) > new Date() && (
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {lang === "vi" ? "Khuyến mãi hội viên đang kích hoạt" : "Active Member Discount"}
-                </span>
-              )}
-            </div>
-            <div className="text-4xl font-extrabold font-heading text-foreground mb-2">{formatVND(user.walletBalance || 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              {lang === "vi" ? "Số dư khả dụng dùng để mua đồ ăn hoặc đăng ký gói định kỳ" : "Available balance for ordering meals or subscription packages"}
-            </p>
-          </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
