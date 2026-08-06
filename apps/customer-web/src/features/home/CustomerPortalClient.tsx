@@ -10,7 +10,7 @@ import HomeSection from "@/features/home/HomeSection";
 import MenuSection from "@/features/menu/MenuSection";
 import OrderNowSection from "@/features/order-now/OrderNowSection";
 import CalculatorSection from "@/features/calculator/CalculatorSection";
-import WalletSection from "@/features/wallet/WalletSection";
+
 import SubscriptionsSection from "@/features/subscriptions/SubscriptionsSection";
 import DashboardSection from "@/features/dashboard/DashboardSection";
 import CartDrawer from "@/features/cart/CartDrawer";
@@ -21,7 +21,7 @@ import VietQRModal from "@/features/shared/VietQRModal";
 import MobileNav from "@/features/shared/MobileNav";
 import Loader from "@/components/Loader";
 import { DICTIONARY } from "@/constants/dictionary";
-import { formatVND, calculateCustomOrderPrice } from "@/lib/utils";
+import { calculateCustomOrderPrice } from "@/lib/utils";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -229,7 +229,6 @@ export default function CustomerPortalClient({
   const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>(initialSubscriptionPlans);
   const [isLoadingPlans, setIsLoadingPlans] = React.useState(initialSubscriptionPlans.length === 0);
   const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
-  const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
   const [homeFrames, setHomeFrames] = React.useState<any[]>(initialHomeFrames);
   const [isLoadingHomeFrames, setIsLoadingHomeFrames] = React.useState(initialHomeFrames.length === 0);
 
@@ -587,7 +586,7 @@ export default function CustomerPortalClient({
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
-        setPlanPurchaseResult(result?.data);
+        // Purchase successful, no wallet result state needed
       } else {
         toast({
           title: translateApiError(
@@ -884,17 +883,7 @@ export default function CustomerPortalClient({
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("wallet")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "wallet" ? "text-foreground font-bold" : "text-muted-foreground"
-              }`}
-            >
-              {t("nav_wallet", lang)}
-              {activeTab === "wallet" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
-              )}
-            </button>
+
             <button
               onClick={() => setActiveTab("subscriptions")}
               className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
@@ -987,26 +976,30 @@ export default function CustomerPortalClient({
         </div>
       </header>
 
+      {/* Notice reminding guests they can place a quick order without registration */}
+      {!user && !dismissedBanners.includes("guest-info") && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="flex items-start justify-between gap-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 shadow-sm animate-in fade-in duration-300">
+            <span className="flex items-center gap-2 font-medium">
+              <InfoCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              {lang === "vi"
+                ? "💡 Bạn có thể Đặt đơn nhanh giao ngay mà không cần tạo tài khoản! Chỉ cần chọn món trong Thực đơn và thanh toán qua COD hoặc chuyển khoản QR Code."
+                : "💡 You can place a quick order instantly without creating an account! Just choose your meals and check out using COD or QR Code."}
+            </span>
+            <button
+              onClick={() => setDismissedBanners((prev) => [...prev, "guest-info"])}
+              className="text-emerald-800/70 hover:text-emerald-950 font-bold shrink-0 cursor-pointer"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {user &&
         notifications &&
-        (notifications.walletLow || (notifications.poolsLow && notifications.poolsLow.length > 0)) && (
+        notifications.poolsLow && notifications.poolsLow.length > 0 && (
           <div className="max-w-7xl mx-auto px-6 pt-4 space-y-2">
-            {notifications.walletLow && !dismissedBanners.includes("wallet") && (
-              <div className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
-                <span className="flex items-center gap-2">
-                  <InfoCircle className="h-4 w-4 shrink-0" />
-                  {lang === "vi"
-                    ? `Số dư Ví của bạn đang thấp (còn ${formatVND(notifications.walletBalance)}). Nạp thêm gói để tiếp tục thanh toán bằng Ví.`
-                    : `Your wallet balance is running low (${formatVND(notifications.walletBalance)} left). Buy a plan to top up.`}
-                </span>
-                <button
-                  onClick={() => setDismissedBanners((prev) => [...prev, "wallet"])}
-                  className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
-                >
-                  ×
-                </button>
-              </div>
-            )}
             {(notifications.poolsLow || []).map((p: any) => {
               const key = `pool:${p.subscriptionId}:${p.protein}`;
               if (dismissedBanners.includes(key)) return null;
@@ -1096,30 +1089,7 @@ export default function CustomerPortalClient({
             handleSubmitOrderNow={handleSubmitOrderNow}
           />
         )}
-        {activeTab === "wallet" && (
-          <WalletSection
-            lang={lang}
-            user={user}
-            walletBalance={walletBalance}
-            planDiscountPercent={planDiscountPercent}
-            planDiscountEndsAt={planDiscountEndsAt}
-            subscriptionPlans={subscriptionPlans}
-            isLoadingPlans={isLoadingPlans}
-            purchasingPlanId={purchasingPlanId}
-            planPurchaseResult={planPurchaseResult}
-            setPlanPurchaseResult={setPlanPurchaseResult}
-            handleBuyPlan={handleBuyPlan}
-            setShowWalletPlans={setShowWalletPlans}
-            showWalletPlans={showWalletPlans}
-            selectedUpgradePlanId={selectedUpgradePlanId}
-            setSelectedUpgradePlanId={setSelectedUpgradePlanId}
-            upgradeRequestNotes={upgradeRequestNotes}
-            setUpgradeRequestNotes={setUpgradeRequestNotes}
-            isSubmittingUpgradeRequest={isSubmittingUpgradeRequest}
-            handleSubmitUpgradeRequest={handleSubmitUpgradeRequest}
-            myUpgradeRequests={myUpgradeRequests}
-          />
-        )}
+
         {activeTab === "subscriptions" && (
           <SubscriptionsSection
             lang={lang}
@@ -1213,7 +1183,7 @@ export default function CustomerPortalClient({
         discountCodeError={discountCodeError}
       />
 
-      <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} />
+      <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} setActiveTab={handleSetActiveTab} />
       <PrivacyModal lang={lang} showPrivacyModal={showPrivacyModal} setShowPrivacyModal={setShowPrivacyModal} />
       <VietQRModal lang={lang} checkoutResult={checkoutResult} setCheckoutResult={setCheckoutResult} setCartOpen={setCartOpen} setActiveTab={handleSetActiveTab} clearCart={clearCart} setDiscountCode={setDiscountCode} />
       <MobileNav lang={lang} activeTab={activeTab} setActiveTab={handleSetActiveTab} user={user} setAuthModal={setAuthModal} />
