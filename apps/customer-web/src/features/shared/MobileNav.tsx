@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Home, ForkKnife, Calculator, Wallet, User } from "reicon-react";
+import { Home, ForkKnife, Calculator, User } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -21,7 +21,6 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuth
     { id: "home", icon: Home, label: t("nav_home", lang) },
     { id: "menu", icon: ForkKnife, label: t("nav_menu", lang) },
     { id: "calculator", icon: Calculator, label: t("nav_calculator", lang) },
-    { id: "wallet", icon: Wallet, label: t("nav_wallet", lang) },
   ];
 
   if (user) {
@@ -32,7 +31,7 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuth
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur-lg safe-area-bottom">
-      <div className="grid grid-cols-5 gap-1 px-2 py-1.5">
+      <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
         {tabs.map((tab) => {
           const IconComponent = tab.icon;
           return (
