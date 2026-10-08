@@ -5,6 +5,9 @@
 // fat, carbs (remainder), fiber, potassium, sodium, calcium, magnesium,
 // iron and zinc. Those drive the "running low" suggestions.
 //
+// Sodium follows the coach's salt rule: 4–6 g salt a day spread over meals,
+// plus 1–1.5 g salt per 20 minutes of training on training days.
+//
 // Nutrients the coach did not give a number for (vitamins A, D, E, K, C,
 // B-group, phosphorus, selenium, copper) are shown as reference values
 // from the Vietnamese RDA (Viện Dinh dưỡng 2016; WHO/IOM for gaps). The
@@ -121,7 +124,8 @@ const COACH = {
   fiberGPer1000Kcal: 14,
   fiberG: { male: [30, 40], female: [20, 30] } as const,
   potassiumMgPerKg: [80, 100] as const,
-  sodiumPctOfPotassium: [0.5, 0.75] as const,
+  dailySaltG: [4, 6] as const,
+  trainingSaltGPer20Min: [1, 1.5] as const,
   calciumMg: [1200, 1500] as const,
   magnesiumPctOfCalcium: 0.5,
   ironMg: { male: [8, 10], female: 18, femaleOnPeriod: 28 } as const,
@@ -154,7 +158,23 @@ const REFERENCE: Record<Sex, Partial<Record<NutrientKey, Banded>>> = {
 
 const r = Math.round;
 
-export function computeTargets(p: NutritionProfile): Targets {
+/** Grams of salt (NaCl) → milligrams of sodium. */
+export const SODIUM_MG_PER_G_SALT = 393;
+
+/** Coach's training-day salt: 1–1.5 g per 20 minutes. */
+export function trainingSaltG(minutes: number): [number, number] {
+  const blocks = Math.max(0, minutes) / 20;
+  return [COACH.trainingSaltGPer20Min[0] * blocks, COACH.trainingSaltGPer20Min[1] * blocks];
+}
+
+/** Coach's intra-workout fast carbs: 30–45 g per hour. */
+export function trainingCarbsG(minutes: number): [number, number] {
+  const hours = Math.max(0, minutes) / 60;
+  return [30 * hours, 45 * hours];
+}
+
+/** `trainingMinutes` is today's session length (0 on rest days). */
+export function computeTargets(p: NutritionProfile, trainingMinutes = 0): Targets {
   const w = p.weightKg;
   const goal = GOALS.find((g) => g.id === p.goal) ?? GOALS[1];
   const coach = (min: number, max?: number): Target => ({ min: r(min), max: max === undefined ? undefined : r(max), source: "coach" });
@@ -176,7 +196,11 @@ export function computeTargets(p: NutritionProfile): Targets {
   const fiber = coach(Math.min(fHi, Math.max(fLo, (COACH.fiberGPer1000Kcal * (kcal.min + kcal.max!)) / 2 / 1000)), fHi);
 
   const potassium = coach(COACH.potassiumMgPerKg[0] * w, COACH.potassiumMgPerKg[1] * w);
-  const sodium = coach(COACH.sodiumPctOfPotassium[0] * potassium.min, COACH.sodiumPctOfPotassium[1] * potassium.max!);
+  const [trainSaltMin, trainSaltMax] = trainingSaltG(trainingMinutes);
+  const sodium = coach(
+    (COACH.dailySaltG[0] + trainSaltMin) * SODIUM_MG_PER_G_SALT,
+    (COACH.dailySaltG[1] + trainSaltMax) * SODIUM_MG_PER_G_SALT,
+  );
   const calcium = coach(COACH.calciumMg[0], COACH.calciumMg[1]);
   const magnesium = coach(calcium.min * COACH.magnesiumPctOfCalcium, calcium.max! * COACH.magnesiumPctOfCalcium);
   const iron =

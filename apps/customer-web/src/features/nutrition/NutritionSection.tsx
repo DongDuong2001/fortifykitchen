@@ -23,6 +23,9 @@ import {
   computeTargets,
   normalizeProfile,
   targetStatus,
+  trainingSaltG,
+  trainingCarbsG,
+  SODIUM_MG_PER_G_SALT,
   addNutrients,
   formatAmount,
   formatTarget,
@@ -109,8 +112,8 @@ const GROUP_TITLES: Record<NutrientGroup, { vi: string; en: string; noteVi: stri
   electrolytes: {
     vi: "Điện giải & khoáng chất",
     en: "Electrolytes & minerals",
-    noteVi: "Theo Coach. Sodium là nền tảng — thiếu sodium thì tất cả tầng điện giải gãy hết.",
-    noteEn: "Coach targets. Sodium is the foundation of the electrolyte layer.",
+    noteVi: "Theo Coach. Sodium là nền tảng — thiếu sodium thì tất cả tầng điện giải gãy hết. Muối: 4–6 g/ngày chia theo bữa, cộng thêm muối trong tập vào ngày tập.",
+    noteEn: "Coach targets. Sodium is the foundation of the electrolyte layer. Salt: 4–6 g a day spread over meals, plus training salt on training days.",
   },
   reference: {
     vi: "Vitamin & vi chất (tham khảo)",
@@ -120,12 +123,10 @@ const GROUP_TITLES: Record<NutrientGroup, { vi: string; en: string; noteVi: stri
   },
 };
 
-// Coach's workout-day amounts (docs/coach-food-list.md §2).
-const TRAINING_TIPS: { vi: string; en: string; foodId?: string; grams?: number }[] = [
-  { vi: "30 g chà là trước tập", en: "30 g dates before training", foodId: "coach-dates", grams: 30 },
-  { vi: "1–2 g muối cho mỗi 20 phút trong tập", en: "1–2 g salt every 20 minutes of training" },
-  { vi: "30–45 g carb với Redbull trong 1 giờ ở ngưỡng", en: "30–45 g carbs with Red Bull per hour at threshold" },
-];
+const TRAINING_KEY = "fk.nutrition.training.v1";
+const SESSION_LENGTHS = [45, 60, 90, 120];
+
+const fmtG = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
 
 function barTone(status: TargetStatus, reference: boolean) {
   if (status === "ok") return reference ? "bg-emerald-500/60" : "bg-emerald-500";
@@ -152,12 +153,15 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
   const [day, setDay] = React.useState(() => dateKey(new Date()));
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [addingTo, setAddingTo] = React.useState<Meal | null>(null);
+  /** Training minutes per day key; missing or 0 = rest day. */
+  const [training, setTraining] = React.useState<Record<string, number>>({});
 
   // Load once on the client (localStorage isn't available during SSR).
   React.useEffect(() => {
     const storedProfile = readStorage<Partial<NutritionProfile> | null>(PROFILE_KEY, null);
     setProfile(normalizeProfile(storedProfile));
     setDiary(readStorage<Diary>(DIARY_KEY, {}));
+    setTraining(readStorage<Record<string, number>>(TRAINING_KEY, {}));
     setProfileOpen(!storedProfile);
     setLoaded(true);
   }, []);
@@ -170,13 +174,19 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
     if (loaded) writeStorage(DIARY_KEY, diary);
   }, [diary, loaded]);
 
+  React.useEffect(() => {
+    if (loaded) writeStorage(TRAINING_KEY, training);
+  }, [training, loaded]);
+
   const allFoods = React.useMemo<Food[]>(() => {
     const menuFoods = menuItems.length > 0 ? menuItemsToFoods(menuItems.filter((m) => m.isAvailable !== false)) : FORTIFY_FALLBACK_FOODS;
     return [...menuFoods, ...FOODS];
   }, [menuItems]);
 
   const entries = React.useMemo(() => diary[day] ?? [], [diary, day]);
-  const targets = React.useMemo(() => computeTargets(profile), [profile]);
+  const trainingMinutes = training[day] ?? 0;
+  const setTrainingMinutes = (minutes: number) => setTraining((t) => ({ ...t, [day]: minutes }));
+  const targets = React.useMemo(() => computeTargets(profile, trainingMinutes), [profile, trainingMinutes]);
   const totals = React.useMemo(
     () => entries.reduce((acc, e) => addNutrients(acc, e.per100, e.grams / 100), { ...ZERO_NUTRIENTS }),
     [entries],
@@ -355,30 +365,15 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
             </div>
           )}
 
-          <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-bold font-heading">{L("Ngày tập — theo Coach", "Training day — coach's rules")}</h3>
-            </div>
-            <ul className="space-y-2 text-xs">
-              {TRAINING_TIPS.map((tip) => {
-                const food = tip.foodId ? allFoods.find((f) => f.id === tip.foodId) : undefined;
-                return (
-                  <li key={tip.vi} className="flex items-center justify-between gap-3">
-                    <span>{L(tip.vi, tip.en)}</span>
-                    {food && tip.grams && (
-                      <button
-                        onClick={() => addEntry(food, tip.grams!, "snack")}
-                        className="shrink-0 text-[11px] font-bold text-primary px-2 py-1 rounded-lg hover:bg-primary/5 cursor-pointer"
-                      >
-                        + {L("Bữa phụ", "Snack")}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <TrainingCard
+            lang={lang}
+            minutes={trainingMinutes}
+            onMinutesChange={setTrainingMinutes}
+            onQuickAdd={(foodId, grams) => {
+              const food = allFoods.find((f) => f.id === foodId);
+              if (food) addEntry(food, grams, "snack");
+            }}
+          />
         </div>
       </div>
 
@@ -404,6 +399,12 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
                       </span>
                       <span className="font-mono text-muted-foreground whitespace-nowrap">
                         {formatAmount(totals[n.key])} / {formatTarget(t)} {n.unit}
+                        {n.key === "sodium" && (
+                          <span className="block text-right text-[10px]">
+                            ≈ {fmtG(Math.round((totals.sodium / SODIUM_MG_PER_G_SALT) * 10) / 10)} / {fmtG(Math.round((t.min / SODIUM_MG_PER_G_SALT) * 10) / 10)}–
+                            {fmtG(Math.round(((t.max ?? t.min) / SODIUM_MG_PER_G_SALT) * 10) / 10)} g {L("muối", "salt")}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -444,6 +445,103 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
 }
 
 // ---------------------------------------------------------------------------
+
+function TrainingCard({
+  lang,
+  minutes,
+  onMinutesChange,
+  onQuickAdd,
+}: {
+  lang: Lang;
+  minutes: number;
+  onMinutesChange: (m: number) => void;
+  onQuickAdd: (foodId: string, grams: number) => void;
+}) {
+  const L = (vi: string, en: string) => (lang === "vi" ? vi : en);
+  const [saltMin, saltMax] = trainingSaltG(minutes);
+  const [carbMin, carbMax] = trainingCarbsG(minutes);
+  const chip = (active: boolean) =>
+    `px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${active ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted"}`;
+  const addBtn = (label: string, foodId: string, grams: number) => (
+    <button
+      key={foodId}
+      onClick={() => onQuickAdd(foodId, grams)}
+      className="shrink-0 text-[11px] font-bold text-primary px-2 py-1 rounded-lg border border-primary/30 hover:bg-primary/5 cursor-pointer"
+    >
+      + {label}
+    </button>
+  );
+
+  return (
+    <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold font-heading">{L("Muối & ngày tập — theo Coach", "Salt & training — coach's rules")}</h3>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <button className={chip(minutes === 0)} onClick={() => onMinutesChange(0)}>{L("Ngày nghỉ", "Rest day")}</button>
+        {SESSION_LENGTHS.map((m) => (
+          <button key={m} className={chip(minutes === m)} onClick={() => onMinutesChange(m)}>
+            {L(`Tập ${m} phút`, `Train ${m} min`)}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-xs">
+        <span className="font-bold">{L("Cả ngày:", "All day:")}</span> {L("4–6 g muối, dùng kèm các bữa ăn và chia ra.", "4–6 g salt, taken with meals and spread out.")}
+      </p>
+
+      {minutes > 0 && (
+        <>
+          <div className="space-y-2 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{L("Đầu buổi tập", "Before training")}</p>
+            <div className="flex items-center justify-between gap-3">
+              <span>{L("30 g chà là — carb chậm đầu buổi tập", "30 g dates — slow carbs to start the session")}</span>
+              {addBtn(L("Chà là", "Dates"), "coach-dates", 30)}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>{L("3 g củ dền — tăng lưu chuyển dinh dưỡng, tiết kiệm thời gian khởi động", "3 g beetroot — better nutrient delivery, shorter warm-up")}</span>
+              {addBtn(L("Củ dền", "Beet"), "coach-beet", 3)}
+            </div>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {L(`Trong tập (${minutes} phút)`, `During training (${minutes} min)`)}
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                <span className="font-bold">{L(`Muối ${fmtG(saltMin)}–${fmtG(saltMax)} g`, `Salt ${fmtG(saltMin)}–${fmtG(saltMax)} g`)}</span>{" "}
+                {L("(1–1,5 g mỗi 20 phút, tuỳ lượng cơ và mồ hôi đổ ra)", "(1–1.5 g every 20 min, depending on muscle mass and sweat)")}
+              </span>
+              {addBtn("1 g", "coach-salt", 1)}
+            </div>
+            <div className="space-y-1.5">
+              <span>
+                <span className="font-bold">{L(`Carb nhanh ${fmtG(carbMin)}–${fmtG(carbMax)} g`, `Fast carbs ${fmtG(carbMin)}–${fmtG(carbMax)} g`)}</span>{" "}
+                {L(
+                  "(30–45 g / giờ): Redbull, Redbull + mật mía, hoặc chỉ mật mía (Golden Barrel).",
+                  "(30–45 g / hour): Red Bull, Red Bull + molasses, or molasses alone (Golden Barrel).",
+                )}
+              </span>
+              <div className="flex gap-2">
+                {addBtn(L("Redbull 1 lon", "Red Bull 1 can"), "coach-redbull", 250)}
+                {addBtn(L("Mật mía 1 muỗng", "Molasses 1 tbsp"), "coach-molasses", 20)}
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {L(
+                "Nhấp nhẹ theo từng set ở ngưỡng nặng — nặng mới đốt đường. Tập isolation hoặc tập nhẹ thì như không.",
+                "Sip a little each set at heavy effort — only heavy work burns the sugar. Isolation or light work barely uses it.",
+              )}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function EnergySummary({ lang, totals, targets }: { lang: Lang; totals: Nutrients; targets: Targets }) {
   const L = (vi: string, en: string) => (lang === "vi" ? vi : en);
