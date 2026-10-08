@@ -142,7 +142,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
     return [...menuFoods, ...FOODS];
   }, [menuItems]);
 
-  const entries = diary[day] ?? [];
+  const entries = React.useMemo(() => diary[day] ?? [], [diary, day]);
   const targets = React.useMemo(() => computeTargets(profile), [profile]);
   const totals = React.useMemo(
     () => entries.reduce((acc, e) => addNutrients(acc, e.per100, e.grams / 100), { ...ZERO_NUTRIENTS }),
@@ -507,7 +507,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
   const [qty, setQty] = React.useState(1);
 
   React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: { key: string }) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
