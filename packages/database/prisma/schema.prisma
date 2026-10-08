@@ -226,8 +226,15 @@ model Category {
 // A sellable SKU: one protein + flavor + portion size combination.
 // e.g. chicken / xá xíu / 150g. price is in whole VND (no subunit).
 model MenuItem {
-  id          String    @id @default(uuid())
-  protein     Protein
+  id      String  @id @default(uuid())
+  protein Protein
+  // Cut/type within a protein that carries its own price — e.g. "Ức gà"
+  // (breast) vs "Má đùi" (thigh) for CHICKEN, "Tôm thẻ" vs "Tôm sú" for
+  // SHRIMP. Null for proteins sold as a single type (BEEF). Deliberately
+  // NOT a new Protein enum value: the enum is also used to key subscription
+  // meal pools (see Subscription.pools below), which should keep pooling by
+  // protein regardless of which cut/type was delivered.
+  variant     String?
   flavor      String
   sizeGrams   Int
   price       Int

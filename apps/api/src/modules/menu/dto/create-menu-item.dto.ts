@@ -19,6 +19,15 @@ export class CreateMenuItemDto {
   @IsEnum(Protein)
   protein!: Protein;
 
+  @ApiProperty({
+    example: "Ức gà",
+    required: false,
+    description: "Cut/type within the protein that carries its own price (e.g. 'Ức gà' vs 'Má đùi' for CHICKEN, 'Tôm thẻ' vs 'Tôm sú' for SHRIMP). Omit for proteins sold as a single type.",
+  })
+  @IsString()
+  @IsOptional()
+  variant?: string;
+
   @ApiProperty({ example: "xá xíu" })
   @IsString()
   @IsNotEmpty()

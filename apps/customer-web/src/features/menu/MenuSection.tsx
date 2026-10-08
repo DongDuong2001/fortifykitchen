@@ -12,20 +12,20 @@ type Dictionary = typeof DICTIONARY.vi;
 const t = (key: keyof Dictionary, lang: "vi" | "en") => (DICTIONARY[lang] as Dictionary)[key] || DICTIONARY.vi[key] || key;
 
 function groupByFlavor(items: MenuItem[]) {
-  const map = new Map<string, { protein: Protein; flavor: string; sizes: MenuItem[] }>();
+  const map = new Map<string, { protein: Protein; variant?: string; flavor: string; sizes: MenuItem[] }>();
   for (const item of items) {
-    const key = `${item.protein}::${item.flavor}`;
-    if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+    const key = `${item.protein}::${item.variant ?? ""}::${item.flavor}`;
+    if (!map.has(key)) map.set(key, { protein: item.protein, variant: item.variant, flavor: item.flavor, sizes: [] });
     map.get(key)!.sizes.push(item);
   }
   for (const dish of map.values()) {
     dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
   }
-  return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
+  return Array.from(map.values()).sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? "") || a.flavor.localeCompare(b.flavor));
 }
 
-function getSelectedSize(dish: { protein: Protein; flavor: string; sizes: MenuItem[] }, selectedSizeByDish: Record<string, string>): MenuItem {
-  const key = `${dish.protein}::${dish.flavor}`;
+function getSelectedSize(dish: { protein: Protein; variant?: string; flavor: string; sizes: MenuItem[] }, selectedSizeByDish: Record<string, string>): MenuItem {
+  const key = `${dish.protein}::${dish.variant ?? ""}::${dish.flavor}`;
   const selectedId = selectedSizeByDish[key];
   return dish.sizes.find((s) => s.id === selectedId) ?? dish.sizes[0];
 }
@@ -132,7 +132,7 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {dishes.map((dish) => {
-                const dishKey = `${dish.protein}::${dish.flavor}`;
+                const dishKey = `${dish.protein}::${dish.variant ?? ""}::${dish.flavor}`;
                 const selected = getSelectedSize(dish, selectedSizeByDish);
                 return (
                   <div
@@ -165,6 +165,11 @@ export default function MenuSection({ lang, menuItems, isLoadingMenu, selectedPr
                       </div>
 
                       <div className="p-6">
+                        {dish.variant && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                            {dish.variant}
+                          </span>
+                        )}
                         <h3 className="text-lg font-bold font-heading mb-2 leading-tight group-hover:text-primary transition-colors">
                           {dish.flavor}
                         </h3>

@@ -61,6 +61,9 @@ export interface Category {
 export interface MenuItem {
   id: string;
   protein: Protein;
+  // Cut/type within a protein carrying its own price (e.g. "Ức gà" vs "Má
+  // đùi" for CHICKEN). Undefined for proteins sold as a single type.
+  variant?: string;
   flavor: string;
   sizeGrams: number;
   price: number;

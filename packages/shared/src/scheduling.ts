@@ -16,8 +16,8 @@ export const PROTEIN_LABELS: Record<Protein, string> = {
  * protein+flavor+size combination needs a single readable string (order
  * line items, subscription templates, the customer storefront menu grid).
  */
-export function getMenuItemLabel(item: { protein: Protein; flavor: string; sizeGrams: number }): string {
-  const proteinLabel = PROTEIN_LABELS[item.protein] || item.protein;
+export function getMenuItemLabel(item: { protein: Protein; variant?: string | null; flavor: string; sizeGrams: number }): string {
+  const proteinLabel = item.variant || PROTEIN_LABELS[item.protein] || item.protein;
   return `${proteinLabel} ${item.flavor} (${item.sizeGrams}g)`;
 }
 

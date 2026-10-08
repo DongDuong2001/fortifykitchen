@@ -45,20 +45,20 @@ const SAUCE_OPTIONS = [
 ];
 
 function groupByFlavor(items: MenuItem[]) {
-  const map = new Map<string, { protein: Protein; flavor: string; sizes: MenuItem[] }>();
+  const map = new Map<string, { protein: Protein; variant?: string; flavor: string; sizes: MenuItem[] }>();
   for (const item of items) {
-    const key = `${item.protein}::${item.flavor}`;
-    if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+    const key = `${item.protein}::${item.variant ?? ""}::${item.flavor}`;
+    if (!map.has(key)) map.set(key, { protein: item.protein, variant: item.variant, flavor: item.flavor, sizes: [] });
     map.get(key)!.sizes.push(item);
   }
   for (const dish of map.values()) {
     dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
   }
-  return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
+  return Array.from(map.values()).sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? "") || a.flavor.localeCompare(b.flavor));
 }
 
-function getSelectedSize(dish: { protein: Protein; flavor: string; sizes: MenuItem[] }, selectedSizeByDish: Record<string, string>): MenuItem {
-  const key = `${dish.protein}::${dish.flavor}`;
+function getSelectedSize(dish: { protein: Protein; variant?: string; flavor: string; sizes: MenuItem[] }, selectedSizeByDish: Record<string, string>): MenuItem {
+  const key = `${dish.protein}::${dish.variant ?? ""}::${dish.flavor}`;
   const selectedId = selectedSizeByDish[key];
   return dish.sizes.find((s) => s.id === selectedId) ?? dish.sizes[0];
 }
@@ -434,14 +434,17 @@ export default function OrderNowSection({
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {groupByFlavor(filteredReadyNowItems).map((dish) => {
-                    const dishKey = `${dish.protein}::${dish.flavor}`;
+                    const dishKey = `${dish.protein}::${dish.variant ?? ""}::${dish.flavor}`;
                     const selected = getSelectedSize(dish, selectedSizeByDish);
                     const inCart = orderNowCart.find((l) => l.menuItem.id === selected.id);
                     return (
                       <div key={dishKey} className="border border-border bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between">
                         <div className="space-y-2">
                           <div className="flex justify-between items-start gap-2">
-                            <h4 className="text-sm font-bold font-heading truncate">{dish.flavor}</h4>
+                            <h4 className="text-sm font-bold font-heading truncate">
+                              {dish.variant && <span className="text-primary">{dish.variant} · </span>}
+                              {dish.flavor}
+                            </h4>
                             <span className="text-xs font-bold text-primary shrink-0">{formatVND(selected.price)}</span>
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{selected.description}</p>

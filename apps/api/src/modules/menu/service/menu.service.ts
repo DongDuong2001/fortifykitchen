@@ -62,6 +62,7 @@ export class MenuService {
     const item = await this.db.client.menuItem.create({
       data: {
         protein: dto.protein,
+        variant: dto.variant,
         flavor: dto.flavor,
         sizeGrams: dto.sizeGrams,
         price: dto.price,
@@ -99,6 +100,7 @@ export class MenuService {
       where: { id },
       data: {
         protein: dto.protein,
+        variant: dto.variant ?? null,
         flavor: dto.flavor,
         sizeGrams: dto.sizeGrams,
         price: dto.price,
@@ -162,6 +164,7 @@ export class MenuService {
   private mapMenuItem(item: {
     id: string;
     protein: string;
+    variant?: string | null;
     flavor: string;
     sizeGrams: number;
     price: number;
@@ -176,6 +179,7 @@ export class MenuService {
     return {
       id: item.id,
       protein: item.protein as MenuItem["protein"],
+      variant: item.variant ?? undefined,
       flavor: item.flavor,
       sizeGrams: item.sizeGrams,
       price: item.price,

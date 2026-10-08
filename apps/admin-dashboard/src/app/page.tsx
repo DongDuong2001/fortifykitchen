@@ -165,16 +165,16 @@ function formatGroupKeyLabel(key: string, groupBy: "day" | "week" | "month"): st
 // one dish card with a portion-size toggle, instead of one card per exact
 // protein+flavor+size row — matches the same grouping used on customer-web.
 function groupMenuByFlavor(items: any[]) {
-  const map = new Map<string, { protein: Protein; flavor: string; sizes: any[] }>();
+  const map = new Map<string, { protein: Protein; variant?: string; flavor: string; sizes: any[] }>();
   for (const item of items) {
-    const key = `${item.protein}::${item.flavor}`;
-    if (!map.has(key)) map.set(key, { protein: item.protein, flavor: item.flavor, sizes: [] });
+    const key = `${item.protein}::${item.variant ?? ""}::${item.flavor}`;
+    if (!map.has(key)) map.set(key, { protein: item.protein, variant: item.variant, flavor: item.flavor, sizes: [] });
     map.get(key)!.sizes.push(item);
   }
   for (const dish of map.values()) {
     dish.sizes.sort((a, b) => a.sizeGrams - b.sizeGrams);
   }
-  return Array.from(map.values()).sort((a, b) => a.flavor.localeCompare(b.flavor));
+  return Array.from(map.values()).sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? "") || a.flavor.localeCompare(b.flavor));
 }
 
 // Slices an already-filtered/sorted array down to one page's worth of rows.
@@ -560,6 +560,10 @@ export default function AdminDashboard() {
   const [menuModal, setMenuModal] = React.useState<"create" | "edit" | null>(null);
   const [editingMenuItemId, setEditingMenuItemId] = React.useState<string | null>(null);
   const [menuItemProtein, setMenuItemProtein] = React.useState<Protein>("CHICKEN");
+  // Cut/type within the protein (e.g. "Ức gà"/"Má đùi" for CHICKEN, "Tôm
+  // thẻ"/"Tôm sú" for SHRIMP) — free text so staff aren't blocked waiting on
+  // a schema change to add a new cut. Blank = no variant (e.g. BEEF).
+  const [menuItemVariant, setMenuItemVariant] = React.useState("");
   const [menuItemFlavor, setMenuItemFlavor] = React.useState("");
   const [menuItemSizeGrams, setMenuItemSizeGrams] = React.useState(150);
   const [menuItemPrice, setMenuItemPrice] = React.useState(25000);
@@ -1377,6 +1381,7 @@ export default function AdminDashboard() {
     try {
       const payload = {
         protein: menuItemProtein,
+        variant: menuItemVariant.trim() || undefined,
         flavor: menuItemFlavor,
         sizeGrams: Number(menuItemSizeGrams),
         price: Number(menuItemPrice),
@@ -1444,6 +1449,7 @@ export default function AdminDashboard() {
   const handleEditMenuItemTrigger = (item: any) => {
     setEditingMenuItemId(item.id);
     setMenuItemProtein(item.protein);
+    setMenuItemVariant(item.variant || "");
     setMenuItemFlavor(item.flavor);
     setMenuItemSizeGrams(item.sizeGrams);
     setMenuItemPrice(item.price);
@@ -1458,6 +1464,7 @@ export default function AdminDashboard() {
   const resetMenuForm = () => {
     setEditingMenuItemId(null);
     setMenuItemProtein("CHICKEN");
+    setMenuItemVariant("");
     setMenuItemFlavor("");
     setMenuItemSizeGrams(150);
     setMenuItemPrice(25000);
@@ -3077,14 +3084,21 @@ export default function AdminDashboard() {
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                           {pagedDishes.map((dish) => {
-                            const dishKey = `${dish.protein}::${dish.flavor}`;
+                            const dishKey = `${dish.protein}::${dish.variant ?? ""}::${dish.flavor}`;
                             const selectedId = menuSelectedSizeByDish[dishKey];
                             const item = dish.sizes.find((s: any) => s.id === selectedId) ?? dish.sizes[0];
                             return (
                               <div key={dishKey} className="border border-border bg-card rounded-lg p-4 flex flex-col justify-between hover:border-primary/30 transition-colors">
                                 <div>
                                   <div className="flex justify-between items-start gap-3">
-                                    <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
+                                    <div className="min-w-0">
+                                      {dish.variant && (
+                                        <span className="block text-[10px] font-bold uppercase tracking-wider text-primary">
+                                          {dish.variant}
+                                        </span>
+                                      )}
+                                      <h4 className="font-semibold font-heading text-sm truncate">{item.flavor}</h4>
+                                    </div>
                                     <span className="text-xs font-bold text-primary shrink-0 ">{formatVND(item.price)}</span>
                                   </div>
 
@@ -4452,6 +4466,43 @@ export default function AdminDashboard() {
                     className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground py-2.5 px-3 rounded-lg outline-none transition-colors"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-foreground/60 uppercase tracking-wider">
+                  Loại/Phân loại (tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  list="menu-item-variant-suggestions"
+                  placeholder={
+                    menuItemProtein === "CHICKEN"
+                      ? "vd: Ức gà, Má đùi"
+                      : menuItemProtein === "SHRIMP"
+                        ? "vd: Tôm thẻ, Tôm sú"
+                        : "Để trống nếu chỉ có 1 loại"
+                  }
+                  value={menuItemVariant}
+                  onChange={(e) => setMenuItemVariant(e.target.value)}
+                  className="w-full bg-white border border-foreground/20 focus:border-primary text-xs text-foreground placeholder:text-foreground/30 py-2.5 px-3 rounded-lg outline-none transition-colors"
+                />
+                <datalist id="menu-item-variant-suggestions">
+                  {menuItemProtein === "CHICKEN" && (
+                    <>
+                      <option value="Ức gà" />
+                      <option value="Má đùi" />
+                    </>
+                  )}
+                  {menuItemProtein === "SHRIMP" && (
+                    <>
+                      <option value="Tôm thẻ" />
+                      <option value="Tôm sú" />
+                    </>
+                  )}
+                </datalist>
+                <p className="text-[10px] text-foreground/40">
+                  Dùng khi cùng một protein có nhiều loại/giá khác nhau — vd: Gà có Ức gà (17k/100g) và Má đùi (20k/100g).
+                </p>
               </div>
 
               <div className="space-y-1.5">
