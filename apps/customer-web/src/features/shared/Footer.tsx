@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faMapMarkerAlt, faPhone, faEnvelope, faClock, faShieldAlt } from "@fortawesome/free-solid-svg-icons";
-import { faFacebook, faInstagram, faYoutube } from "@fortawesome/free-brands-svg-icons";
+import { Location, Call, Sms, Clock, ShieldSecurity, Instagram, Global } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -51,13 +49,13 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
             </p>
             <div className="flex gap-3.5 pt-1">
               <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-all duration-200" aria-label="Facebook">
-                <FontAwesomeIcon icon={faFacebook} className="h-4 w-4" />
+                <Global className="h-4 w-4" />
               </a>
               <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-all duration-200" aria-label="Instagram">
-                <FontAwesomeIcon icon={faInstagram} className="h-4 w-4" />
+                <Instagram className="h-4 w-4" />
               </a>
               <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-all duration-200" aria-label="Youtube">
-                <FontAwesomeIcon icon={faYoutube} className="h-4 w-4" />
+                <Global className="h-4 w-4" />
               </a>
             </div>
           </div>
@@ -105,19 +103,19 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
             <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/80 border-l-2 border-primary pl-2">{lang === 'vi' ? 'Thông tin liên hệ' : 'Contact Us'}</h4>
             <ul className="space-y-3 text-xs text-muted-foreground">
               <li className="flex items-start gap-2.5">
-                <FontAwesomeIcon icon={faMapMarkerAlt} className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <Location className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <span>{lang === 'vi' ? 'TP. Hồ Chí Minh, Việt Nam (Chỉ giao hàng nội thành)' : 'Ho Chi Minh City, Vietnam (Inner city delivery only)'}</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <FontAwesomeIcon icon={faPhone} className="h-4 w-4 text-primary shrink-0" />
+                <Call className="h-4 w-4 text-primary shrink-0" />
                 <span className="font-semibold text-foreground">{hotline}</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <FontAwesomeIcon icon={faEnvelope} className="h-4 w-4 text-primary shrink-0" />
+                <Sms className="h-4 w-4 text-primary shrink-0" />
                 <span>hello@fortifykitchen.com</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <FontAwesomeIcon icon={faClock} className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <Clock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
                   <p className="font-semibold text-foreground/80">{lang === 'vi' ? 'Giờ phục vụ:' : 'Hours:'}</p>
                   <p className="text-[11px]">{lang === 'vi' ? 'T2 - T6: 07:00 - 21:00 | T7 - CN: 08:00 - 20:00' : 'Mon - Fri: 07:00 - 21:00 | Sat - Sun: 08:00 - 20:00'}</p>
@@ -133,7 +131,7 @@ export default function Footer({ lang, setShowPrivacyModal }: FooterProps) {
             &copy; {new Date().getFullYear()} Fortify Kitchen. All rights reserved.
           </p>
           <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full border border-border/40">
-            <FontAwesomeIcon icon={faShieldAlt} className="text-primary h-3.5 w-3.5" />
+            <ShieldSecurity className="text-primary h-3.5 w-3.5" />
             <span className="text-[10px] font-semibold text-foreground/70">{lang === 'vi' ? 'Thanh toán trực tuyến bảo mật VietQR' : 'Secure Online Payment with VietQR'}</span>
           </div>
         </div>

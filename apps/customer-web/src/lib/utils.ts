@@ -1,7 +1,7 @@
 "use client";
 
 import type { Protein, MenuItem } from "@fortifykitchen/types";
-import { faWallet, faTag, faGift, faUtensils, faMagic } from "@fortawesome/free-solid-svg-icons";
+import { Wallet, Tag, Gift, ForkKnife, MagicStar } from "reicon-react";
 
 const PROTEIN_OPTIONS = [
   {
@@ -88,17 +88,17 @@ export function translateApiError(
 export function getPlanBenefits(
   voucherPercent: number,
   lang: "vi" | "en"
-): { icon: typeof faWallet; text: string }[] {
-  const benefits: { icon: typeof faWallet; text: string }[] = [
+): { icon: any; text: string }[] {
+  const benefits: { icon: any; text: string }[] = [
     {
-      icon: faWallet,
+      icon: Wallet,
       text:
         lang === "vi"
           ? "Nạp bao nhiêu là có bấy nhiêu trong ví, dùng thoải mái cho mọi đơn hàng."
           : "Top up any amount and get the exact same credit in your wallet to spend however you like.",
     },
     {
-      icon: faTag,
+      icon: Tag,
       text:
         lang === "vi"
           ? `Mọi đơn hàng tự động giảm ${voucherPercent}%, không cần nhớ mã giảm giá.`
@@ -107,7 +107,7 @@ export function getPlanBenefits(
   ];
   if (voucherPercent >= 5) {
     benefits.push({
-      icon: faGift,
+      icon: Gift,
       text:
         lang === "vi"
           ? "Tặng kèm 1 món ăn miễn phí mỗi tháng (áp dụng cho gói 5% trở lên)."
@@ -116,7 +116,7 @@ export function getPlanBenefits(
   }
   if (voucherPercent >= 10) {
     benefits.push({
-      icon: faUtensils,
+      icon: ForkKnife,
       text:
         lang === "vi"
           ? "Ưu tiên xử lý đơn hàng, giao trước giờ cao điểm."
@@ -125,7 +125,7 @@ export function getPlanBenefits(
   }
   if (voucherPercent >= 15) {
     benefits.push({
-      icon: faMagic,
+      icon: MagicStar,
       text:
         lang === "vi"
           ? "Hỗ trợ tư vấn dinh dưỡng 1-1 hàng tháng từ chuyên gia Fortify."
@@ -134,7 +134,7 @@ export function getPlanBenefits(
   }
   if (voucherPercent >= 20) {
     benefits.push({
-      icon: faMagic,
+      icon: MagicStar,
       text:
         lang === "vi"
           ? "Miễn phí hoàn toàn phí giao hàng trọn đời."

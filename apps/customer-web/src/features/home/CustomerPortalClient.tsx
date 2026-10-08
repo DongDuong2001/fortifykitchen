@@ -1,13 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faShoppingBag,
-  faUser,
-  faSignOutAlt,
-  faInfoCircle,
-} from "@fortawesome/free-solid-svg-icons";
+import { BagShopping, User, Logout, InfoCircle } from "reicon-react";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { PROTEIN_LABELS, translateApiError, formatGrams } from "@fortifykitchen/shared";
 import { useApp } from "@/providers/app-context";
@@ -17,7 +11,6 @@ import MenuSection from "@/features/menu/MenuSection";
 import OrderNowSection from "@/features/order-now/OrderNowSection";
 import CalculatorSection from "@/features/calculator/CalculatorSection";
 import NutritionSection from "@/features/nutrition/NutritionSection";
-import WalletSection from "@/features/wallet/WalletSection";
 import SubscriptionsSection from "@/features/subscriptions/SubscriptionsSection";
 import DashboardSection from "@/features/dashboard/DashboardSection";
 import CartDrawer from "@/features/cart/CartDrawer";
@@ -26,8 +19,9 @@ import Footer from "@/features/shared/Footer";
 import PrivacyModal from "@/features/shared/PrivacyModal";
 import VietQRModal from "@/features/shared/VietQRModal";
 import MobileNav from "@/features/shared/MobileNav";
+import Loader from "@/components/Loader";
 import { DICTIONARY } from "@/constants/dictionary";
-import { formatVND, calculateCustomOrderPrice } from "@/lib/utils";
+import { calculateCustomOrderPrice } from "@/lib/utils";
 
 type Dictionary = typeof DICTIONARY.vi;
 
@@ -173,10 +167,25 @@ export default function CustomerPortalClient({
   const [planDiscountPercent, setPlanDiscountPercent] = React.useState<number>(0);
   const [planDiscountEndsAt, setPlanDiscountEndsAt] = React.useState<string | null>(null);
 
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+
   React.useEffect(() => {
-    if (user) {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const getAuthToken = React.useCallback(() => {
+    return token || (typeof window !== "undefined" ? localStorage.getItem("fk_token") : null);
+  }, [token]);
+
+  React.useEffect(() => {
+    const activeToken = getAuthToken();
+    if (user && activeToken) {
       fetch(`${API_URL}/customers/me`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("fk_token")}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       })
         .then((res) => res.json())
         .then((result) => {
@@ -193,7 +202,7 @@ export default function CustomerPortalClient({
       setPlanDiscountPercent(0);
       setPlanDiscountEndsAt(null);
     }
-  }, [user, API_URL]);
+  }, [user, API_URL, getAuthToken]);
 
   // Checkout states - must be declared before useEffects that use them
   const [checkoutNotes, setCheckoutNotes] = React.useState("");
@@ -220,7 +229,6 @@ export default function CustomerPortalClient({
   const [subscriptionPlans, setSubscriptionPlans] = React.useState<any[]>(initialSubscriptionPlans);
   const [isLoadingPlans, setIsLoadingPlans] = React.useState(initialSubscriptionPlans.length === 0);
   const [purchasingPlanId, setPurchasingPlanId] = React.useState<string | null>(null);
-  const [planPurchaseResult, setPlanPurchaseResult] = React.useState<any | null>(null);
   const [homeFrames, setHomeFrames] = React.useState<any[]>(initialHomeFrames);
   const [isLoadingHomeFrames, setIsLoadingHomeFrames] = React.useState(initialHomeFrames.length === 0);
 
@@ -265,9 +273,11 @@ export default function CustomerPortalClient({
 
   const loadNotifications = React.useCallback(async () => {
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
+      if (!activeToken) return;
       const res = await fetch(`${API_URL}/notifications/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       }).catch(() => null);
       if (res && res.ok) {
         const result = await res.json().catch(() => null);
@@ -276,7 +286,7 @@ export default function CustomerPortalClient({
     } catch (err) {
       console.error(err);
     }
-  }, [API_URL]);
+  }, [API_URL, getAuthToken]);
 
   React.useEffect(() => {
     if (user) {
@@ -296,10 +306,10 @@ export default function CustomerPortalClient({
   const loadDashboard = React.useCallback(async () => {
     try {
       setIsLoadingDashboard(true);
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const [resOrders, resSubs] = await Promise.all([
-        fetch(`${API_URL}/orders/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch(`${API_URL}/subscriptions/me`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch(`${API_URL}/orders/me`, { headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined, credentials: "include" }).catch(() => null),
+        fetch(`${API_URL}/subscriptions/me`, { headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined, credentials: "include" }).catch(() => null),
       ]);
       if (resOrders && resSubs && resOrders.ok && resSubs.ok) {
         const orderData = await resOrders.json();
@@ -502,9 +512,10 @@ export default function CustomerPortalClient({
     setLookupError(null);
     setHasLookedUp(true);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -567,14 +578,15 @@ export default function CustomerPortalClient({
     }
     setPurchasingPlanId(plan.id);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscription-plans/public/${plan.id}/purchase`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
-        setPlanPurchaseResult(result?.data);
+        // Purchase successful, no wallet result state needed
       } else {
         toast({
           title: translateApiError(
@@ -602,10 +614,11 @@ export default function CustomerPortalClient({
     setPayingSubscriptionId(subscriptionId);
     setPayFromWalletError(null);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/subscriptions/${subscriptionId}/pay-from-wallet`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+        credentials: "include",
       });
       const result = await res.json().catch(() => null);
       if (res.ok) {
@@ -623,7 +636,8 @@ export default function CustomerPortalClient({
           handleLookupSubscription({ preventDefault: () => {} } as React.FormEvent);
         }
         fetch(`${API_URL}/customers/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
+          credentials: "include",
         })
           .then((r) => r.json())
           .then((rr) => {
@@ -659,13 +673,14 @@ export default function CustomerPortalClient({
     if (!selectedUpgradePlanId || !user?.id) return;
     setIsSubmittingUpgradeRequest(true);
     try {
-      const token = localStorage.getItem("fk_token");
+      const activeToken = getAuthToken();
       const res = await fetch(`${API_URL}/wallet/upgrade-request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({
           targetPlanId: selectedUpgradePlanId,
           notes: upgradeRequestNotes.trim() || undefined,
@@ -803,8 +818,24 @@ export default function CustomerPortalClient({
     }
   };
 
+  if (isInitialLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-md transition-opacity duration-500">
+        <Loader />
+        <div className="mt-4 flex flex-col items-center space-y-2">
+          <span className="font-heading text-lg font-bold uppercase tracking-wider text-primary">
+            Fortify Kitchen
+          </span>
+          <span className="text-xs font-semibold tracking-widest text-muted-foreground animate-pulse">
+            Đang chuẩn bị trải nghiệm dinh dưỡng...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-200 pb-20 md:pb-0">
+    <div className="min-h-screen bg-transparent text-foreground transition-colors duration-200 pb-20 md:pb-0">
       <header className="sticky top-0 z-40 w-full border-b border-border bg-card/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab("home")}>
@@ -864,17 +895,6 @@ export default function CustomerPortalClient({
               )}
             </button>
             <button
-              onClick={() => setActiveTab("wallet")}
-              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
-                activeTab === "wallet" ? "text-foreground font-bold" : "text-muted-foreground"
-              }`}
-            >
-              {t("nav_wallet", lang)}
-              {activeTab === "wallet" && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
-              )}
-            </button>
-            <button
               onClick={() => setActiveTab("subscriptions")}
               className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
                 activeTab === "subscriptions" ? "text-foreground font-bold" : "text-muted-foreground"
@@ -924,10 +944,11 @@ export default function CustomerPortalClient({
             </div>
 
             <button
+              id="header-cart-btn"
               onClick={() => setCartOpen(true)}
-              className="relative p-2.5 hover:text-primary text-foreground transition-colors cursor-pointer rounded-full hover:bg-black/5"
+              className="relative p-2.5 hover:text-primary text-foreground transition-all duration-300 cursor-pointer rounded-full hover:bg-black/5"
             >
-              <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+              <BagShopping className="h-4 w-4" />
               {cartCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-primary rounded-full" />
               )}
@@ -940,7 +961,7 @@ export default function CustomerPortalClient({
                     onClick={() => setActiveTab("dashboard")}
                     className="flex items-center gap-2 cursor-pointer border border-border/40 rounded-full py-1.5 px-3.5 bg-black/5 hover:bg-black/10 transition-all text-xs font-medium text-foreground"
                   >
-                    <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                    <User className="h-2.5 w-2.5 text-primary" />
                     <span>{user.firstName}</span>
                   </div>
                   <button
@@ -948,7 +969,7 @@ export default function CustomerPortalClient({
                     className="p-2 rounded-full hover:text-primary text-muted-foreground transition-colors cursor-pointer"
                     title={t("btn_logout", lang)}
                   >
-                    <FontAwesomeIcon icon={faSignOutAlt} className="h-3.5 w-3.5" />
+                    <Logout className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
@@ -956,7 +977,7 @@ export default function CustomerPortalClient({
                   onClick={() => setAuthModal("login")}
                   className="border border-border/80 hover:border-primary/60 text-foreground hover:text-primary text-xs font-semibold py-1.5 px-4.5 rounded-full bg-card hover:bg-muted/30 transition-all duration-300 flex items-center gap-2 cursor-pointer font-sans"
                 >
-                  <FontAwesomeIcon icon={faUser} className="h-2.5 w-2.5 text-primary" />
+                  <User className="h-2.5 w-2.5 text-primary" />
                   <span>{t("btn_signin", lang)}</span>
                 </button>
               )}
@@ -965,26 +986,30 @@ export default function CustomerPortalClient({
         </div>
       </header>
 
+      {/* Notice reminding guests they can place a quick order without registration */}
+      {!user && !dismissedBanners.includes("guest-info") && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="flex items-start justify-between gap-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 shadow-sm animate-in fade-in duration-300">
+            <span className="flex items-center gap-2 font-medium">
+              <InfoCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              {lang === "vi"
+                ? "💡 Bạn có thể Đặt đơn nhanh giao ngay mà không cần tạo tài khoản! Chỉ cần chọn món trong Thực đơn và thanh toán qua COD hoặc chuyển khoản QR Code."
+                : "💡 You can place a quick order instantly without creating an account! Just choose your meals and check out using COD or QR Code."}
+            </span>
+            <button
+              onClick={() => setDismissedBanners((prev) => [...prev, "guest-info"])}
+              className="text-emerald-800/70 hover:text-emerald-950 font-bold shrink-0 cursor-pointer"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {user &&
         notifications &&
-        (notifications.walletLow || (notifications.poolsLow && notifications.poolsLow.length > 0)) && (
+        notifications.poolsLow && notifications.poolsLow.length > 0 && (
           <div className="max-w-7xl mx-auto px-6 pt-4 space-y-2">
-            {notifications.walletLow && !dismissedBanners.includes("wallet") && (
-              <div className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3">
-                <span className="flex items-center gap-2">
-                  <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
-                  {lang === "vi"
-                    ? `Số dư Ví của bạn đang thấp (còn ${formatVND(notifications.walletBalance)}). Nạp thêm gói để tiếp tục thanh toán bằng Ví.`
-                    : `Your wallet balance is running low (${formatVND(notifications.walletBalance)} left). Buy a plan to top up.`}
-                </span>
-                <button
-                  onClick={() => setDismissedBanners((prev) => [...prev, "wallet"])}
-                  className="text-amber-700/70 hover:text-amber-900 font-bold shrink-0 cursor-pointer"
-                >
-                  ×
-                </button>
-              </div>
-            )}
             {(notifications.poolsLow || []).map((p: any) => {
               const key = `pool:${p.subscriptionId}:${p.protein}`;
               if (dismissedBanners.includes(key)) return null;
@@ -994,7 +1019,7 @@ export default function CustomerPortalClient({
                   className="flex items-start justify-between gap-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3"
                 >
                   <span className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0" />
+                    <InfoCircle className="h-4 w-4 shrink-0" />
                     {lang === "vi"
                       ? `Gói "${p.packageName}" của bạn sắp hết ${PROTEIN_LABELS[p.protein as keyof typeof PROTEIN_LABELS] || p.protein} (còn ${formatGrams(p.remainingGrams)}).`
                       : `Your "${p.packageName}" plan is running low on ${PROTEIN_LABELS[p.protein as keyof typeof PROTEIN_LABELS] || p.protein} (${formatGrams(p.remainingGrams)} left).`}
@@ -1075,30 +1100,7 @@ export default function CustomerPortalClient({
             handleSubmitOrderNow={handleSubmitOrderNow}
           />
         )}
-        {activeTab === "wallet" && (
-          <WalletSection
-            lang={lang}
-            user={user}
-            walletBalance={walletBalance}
-            planDiscountPercent={planDiscountPercent}
-            planDiscountEndsAt={planDiscountEndsAt}
-            subscriptionPlans={subscriptionPlans}
-            isLoadingPlans={isLoadingPlans}
-            purchasingPlanId={purchasingPlanId}
-            planPurchaseResult={planPurchaseResult}
-            setPlanPurchaseResult={setPlanPurchaseResult}
-            handleBuyPlan={handleBuyPlan}
-            setShowWalletPlans={setShowWalletPlans}
-            showWalletPlans={showWalletPlans}
-            selectedUpgradePlanId={selectedUpgradePlanId}
-            setSelectedUpgradePlanId={setSelectedUpgradePlanId}
-            upgradeRequestNotes={upgradeRequestNotes}
-            setUpgradeRequestNotes={setUpgradeRequestNotes}
-            isSubmittingUpgradeRequest={isSubmittingUpgradeRequest}
-            handleSubmitUpgradeRequest={handleSubmitUpgradeRequest}
-            myUpgradeRequests={myUpgradeRequests}
-          />
-        )}
+
         {activeTab === "subscriptions" && (
           <SubscriptionsSection
             lang={lang}
@@ -1192,7 +1194,7 @@ export default function CustomerPortalClient({
         discountCodeError={discountCodeError}
       />
 
-      <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} />
+      <AuthModal lang={lang} authModal={authModal} setAuthModal={setAuthModal} login={login} signup={signup} setActiveTab={handleSetActiveTab} />
       <PrivacyModal lang={lang} showPrivacyModal={showPrivacyModal} setShowPrivacyModal={setShowPrivacyModal} />
       <VietQRModal lang={lang} checkoutResult={checkoutResult} setCheckoutResult={setCheckoutResult} setCartOpen={setCartOpen} setActiveTab={handleSetActiveTab} clearCart={clearCart} setDiscountCode={setDiscountCode} />
       <MobileNav lang={lang} activeTab={activeTab} setActiveTab={handleSetActiveTab} user={user} setAuthModal={setAuthModal} />

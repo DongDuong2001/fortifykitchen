@@ -19,6 +19,8 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { PrepListModule } from "./modules/prep-list/prep-list.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { HomeFramesModule } from "./modules/home-frames/home-frames.module";
+import { CronModule } from "./modules/cron/cron.module";
+import { HealthController } from "./common/health/health.controller";
 
 @Module({
   imports: [
@@ -39,6 +41,7 @@ import { HomeFramesModule } from "./modules/home-frames/home-frames.module";
     PrepListModule,
     UploadModule,
     HomeFramesModule,
+    CronModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -50,11 +53,8 @@ import { HomeFramesModule } from "./modules/home-frames/home-frames.module";
       ],
     }),
   ],
+  controllers: [HealthController],
   providers: [
-    // ThrottlerModule only registers the tracker; without binding the guard
-    // globally, rate limiting was configured but never actually enforced on
-    // any route — this closes that gap for the unauthenticated public
-    // endpoints (orders/public, subscriptions/public) in particular.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

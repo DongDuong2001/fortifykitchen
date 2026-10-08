@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faQrcode, faInfoCircle, faCheckCircle, faWallet, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
+import { CloseCircle, Scan, InfoCircle, TickCircle, Wallet, Card } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -45,15 +44,15 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
           <h3 className="text-sm font-bold font-heading">
             {isCOD || isWallet ? t("success_title", lang) : t("cart_vietqr", lang)}
           </h3>
-          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground p-1">
-            <FontAwesomeIcon icon={faTimes} className="h-5 w-5" />
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground p-1 cursor-pointer">
+            <CloseCircle className="h-5 w-5" />
           </button>
         </div>
 
         {isCOD ? (
           <>
             <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
-              <FontAwesomeIcon icon={faCheckCircle} className="h-8 w-8" />
+              <TickCircle className="h-8 w-8" />
             </div>
             <h4 className="text-base font-bold text-foreground mt-2">{t("success_title", lang)}</h4>
             <p className="text-xs text-muted-foreground leading-relaxed px-2">
@@ -68,7 +67,7 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("cart_payment", lang)}</span>
                 <span className="font-semibold flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faMoneyBillWave} className="text-emerald-500" />
+                  <Card className="text-emerald-500 h-4 w-4" />
                   {t("payment_cod", lang)}
                 </span>
               </div>
@@ -81,7 +80,7 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
         ) : isWallet ? (
           <>
             <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
-              <FontAwesomeIcon icon={faCheckCircle} className="h-8 w-8" />
+              <TickCircle className="h-8 w-8" />
             </div>
             <h4 className="text-base font-bold text-foreground mt-2">{t("success_title", lang)}</h4>
             <p className="text-xs text-muted-foreground leading-relaxed px-2">
@@ -96,7 +95,7 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("cart_payment", lang)}</span>
                 <span className="font-semibold flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faWallet} className="text-primary" />
+                  <Wallet className="text-primary h-4 w-4" />
                   {lang === "vi" ? "Ví thành viên" : "Member Wallet"}
                 </span>
               </div>
@@ -108,7 +107,7 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
           </>
         ) : (
           <>
-            <FontAwesomeIcon icon={faQrcode} className="h-10 w-10 mx-auto text-primary" />
+            <Scan className="h-10 w-10 mx-auto text-primary" />
             <p className="text-xs text-muted-foreground leading-relaxed">{t("success_vietqr_desc", lang)}</p>
 
             <div className="bg-white p-2.5 rounded-lg border border-border w-56 h-56 mx-auto flex items-center justify-center">
@@ -125,7 +124,7 @@ export default function VietQRModal({ lang, checkoutResult, setCheckoutResult, s
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed">
               <p className="font-semibold mb-1 flex items-center gap-1">
-                <FontAwesomeIcon icon={faInfoCircle} className="h-3.5 w-3.5" />
+                <InfoCircle className="h-3.5 w-3.5" />
                 {lang === "vi" ? "Lưu ý chuyển khoản" : "Transfer Note"}
               </p>
               <p>{t("transfer_confirmed", lang)}</p>

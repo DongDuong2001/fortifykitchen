@@ -20,9 +20,9 @@ import { Roles } from "../../common/decorators/roles.decorator";
 // supported by Cloudinary's auto-format pipeline.
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-// 5 MB hard limit per upload — generous enough for a hi-res food photo,
-// tight enough to keep Cloudinary bandwidth costs reasonable.
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+// 20 MB hard limit per upload — generous enough for high-res photos and animated GIFs,
+// tight enough to protect server memory and Cloudinary limits.
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 @ApiTags("upload")
 @Controller("upload")

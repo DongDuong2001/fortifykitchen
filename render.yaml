@@ -1,0 +1,135 @@
+services:
+  # API Service (NestJS) - Singapore region
+  - type: web
+    name: fortifykitchen-api
+    env: node
+    region: singapore
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: pnpm --filter=api start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: https://fortifykitchen.onrender.com
+      - key: CUSTOMER_WEB_URL
+        value: https://fortifykitchen.vercel.app
+
+  # Admin Dashboard (Next.js) - MAIN DOMAIN: fortifykitchen.onrender.com - Global region
+  - type: web
+    name: fortifykitchen
+    env: node
+    region: global
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=admin-dashboard build
+    startCommand: pnpm --filter=admin-dashboard start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://fortifykitchen-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://fortifykitchen.onrender.com
+
+  # PostgreSQL Database (Neon equivalent on Render) - Singapore region
+  # NOTE: For Neon, use the neon-cron-jobs.sql file instead
+  - type: pserv
+    name: fortifykitchen-db
+    env: postgres
+    region: singapore
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fortifykitchen-db
+          property: connectionString
+
+  # ============================================
+  # CRON JOBS (Render Cron Jobs) - Singapore region
+  # ============================================
+
+  # Daily subscription renewal check (2 AM UTC daily)
+  - type: cron
+    name: fortifykitchen-cron-subscription-renewal
+    env: node
+    region: singapore
+    schedule: "0 2 * * *"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/cron/subscriptions/renew', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.CRON_SECRET } }).then(r => console.log('Status:', r.status)).catch(e => console.error(e))"
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+
+  # Daily expired sessions cleanup (3 AM UTC daily)
+  - type: cron
+    name: fortifykitchen-cron-cleanup-sessions
+    env: node
+    region: singapore
+    schedule: "0 3 * * *"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/cron/sessions/cleanup', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.CRON_SECRET } }).then(r => console.log('Status:', r.status)).catch(e => console.error(e))"
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+
+  # Daily old orders cleanup (4 AM UTC daily)
+  - type: cron
+    name: fortifykitchen-cron-cleanup-orders
+    env: node
+    region: singapore
+    schedule: "0 4 * * *"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/cron/orders/cleanup', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.CRON_SECRET } }).then(r => console.log('Status:', r.status)).catch(e => console.error(e))"
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+
+  # Weekly subscription sync (Sunday 5 AM UTC)
+  - type: cron
+    name: fortifykitchen-cron-weekly-sync
+    env: node
+    region: singapore
+    schedule: "0 5 * * 0"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/cron/subscriptions/sync', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.CRON_SECRET } }).then(r => console.log('Status:', r.status)).catch(e => console.error(e))"
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+
+  # Hourly health check / keep-alive (prevents spin-down on free tier)
+  - type: cron
+    name: fortifykitchen-cron-keepalive
+    env: node
+    region: singapore
+    schedule: "0 * * * *"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/health').then(r => console.log('Health check:', r.status)).catch(e => console.error(e))"
+
+  # Daily admin dashboard data sync (6 AM UTC)
+  - type: cron
+    name: fortifykitchen-cron-admin-sync
+    env: node
+    region: singapore
+    schedule: "0 6 * * *"
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter=api build
+    startCommand: node -e "fetch('https://fortifykitchen-api.onrender.com/api/cron/admin/sync', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.CRON_SECRET } }).then(r => console.log('Status:', r.status)).catch(e => console.error(e))"
+    envVars:
+      - key: CRON_SECRET
+        sync: false

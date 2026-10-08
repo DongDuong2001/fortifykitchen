@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional, IsBoolean } from "class-validator";
+import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional, IsBoolean, IsArray } from "class-validator";
 
 export class UpdateSubscriptionPlanDto {
   @ApiProperty({ required: false })
@@ -26,8 +26,15 @@ export class UpdateSubscriptionPlanDto {
   @IsOptional()
   description?: string;
 
+  @ApiProperty({ required: false, description: "Itemised benefits / inclusions for this plan tier" })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  features?: string[];
+
   @ApiProperty({ required: false })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }
+

@@ -13,18 +13,24 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
+    
+    let token: string | undefined;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Extract from HttpOnly Cookie (Primary)
+    if (request.cookies && (request.cookies.fk_token || request.cookies.access_token)) {
+      token = request.cookies.fk_token || request.cookies.access_token;
+    }
+    // 2. Fallback to Authorization Header (Bearer <token>)
+    else if (request.headers.authorization && request.headers.authorization.startsWith("Bearer ")) {
+      token = request.headers.authorization.split(" ")[1];
+    }
+
+    if (!token || token === "null" || token === "undefined") {
       throw new UnauthorizedException("Missing or invalid authorization token");
     }
 
-    const token = authHeader.split(" ")[1];
-
     try {
-      // Verifies the HMAC-SHA256 signature against JWT_SECRET and checks
-      // expiry — previously this only base64-decoded the payload with no
-      // signature check at all, so any hand-crafted token was accepted.
+      // Verifies the HMAC-SHA256 signature against JWT_SECRET and checks expiry
       const payload = verifyJwt(token, this.configService.get("JWT_SECRET"));
       request.user = payload;
       return true;

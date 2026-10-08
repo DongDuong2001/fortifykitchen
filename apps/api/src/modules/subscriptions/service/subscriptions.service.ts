@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from "@nestjs/common";
 import { DatabaseService } from "../../../database/database.service";
 import { CreateSubscriptionDto } from "../dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "../dto/update-subscription.dto";
@@ -20,6 +20,8 @@ const MAX_ORDERS_PER_SYNC = 60; // safety guard against runaway generation
 
 @Injectable()
 export class SubscriptionsService {
+  private readonly logger = new Logger(SubscriptionsService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly ordersService: OrdersService,
@@ -530,5 +532,45 @@ export class SubscriptionsService {
       createdAt: sub.createdAt,
       updatedAt: sub.updatedAt,
     };
+  }
+
+  async processRenewal(subscriptionId: string): Promise<void> {
+    const subscription = await this.db.client.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { customer: true },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(`Subscription ${subscriptionId} not found`);
+    }
+
+    if (subscription.status !== "ACTIVE") {
+      throw new BadRequestException(`Subscription ${subscriptionId} is not active`);
+    }
+
+    // Use deliveryIntervalDays from the subscription itself
+    const intervalDays = subscription.deliveryIntervalDays || 30;
+    
+    // Calculate next billing date based on start date and interval
+    // For simplicity, use current date + interval
+    const nextBillingDate = new Date();
+    nextBillingDate.setDate(nextBillingDate.getDate() + intervalDays);
+
+    // Update subscription - we don't have nextBillingDate in schema, 
+    // but we can track it via a custom field or just log it
+    // For now, just log and sync upcoming orders
+    await this.db.client.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        // If we add nextBillingDate to schema later, we can update it here
+        // For now, trigger order sync which will create upcoming orders
+        updatedAt: new Date(),
+      },
+    });
+
+    // Sync upcoming orders for this subscription (creates orders for next 7 days)
+    await this.syncUpcomingOrders(subscriptionId);
+
+    this.logger.log(`Processed renewal for subscription ${subscriptionId}, next billing in ${intervalDays} days`);
   }
 }

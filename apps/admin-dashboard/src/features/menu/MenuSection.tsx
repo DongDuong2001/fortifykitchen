@@ -149,6 +149,11 @@ export default function MenuSection({
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'Kích thước file vượt quá 20MB! Vui lòng chọn file nhỏ hơn.', type: 'error' });
+      return;
+    }
+
     const localPreview = URL.createObjectURL(file);
     setMenuItemImagePreview(localPreview);
     setMenuItemUploading(true);
@@ -332,7 +337,7 @@ export default function MenuSection({
                   )}
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={menuItemUploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = ''; }} />
                 </label>
-                <p className="text-[10px] text-foreground/40">Hỗ trợ: JPG, PNG, WEBP, GIF · Tối đa 5 MB</p>
+                <p className="text-[10px] text-foreground/40">Hỗ trợ: JPG, PNG, WEBP, GIF · Tối đa 20 MB</p>
               </div>
 
               <div className="space-y-1.5">

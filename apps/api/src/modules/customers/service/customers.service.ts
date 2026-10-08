@@ -88,12 +88,24 @@ export class CustomersService {
   }
 
   async findByUserId(userId: string): Promise<Customer> {
-    const customer = await this.db.client.customer.findFirst({
+    let customer = await this.db.client.customer.findFirst({
       where: { userId },
       include: { currentPlan: true },
     });
     if (!customer) {
-      throw new NotFoundException(`Customer for user ID ${userId} not found`);
+      const user = await this.db.client.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new NotFoundException(`Customer for user ID ${userId} not found`);
+      }
+      customer = await this.db.client.customer.create({
+        data: {
+          userId: user.id,
+          name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        },
+        include: { currentPlan: true },
+      });
     }
     return this.mapCustomer(customer);
   }

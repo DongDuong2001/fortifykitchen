@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShoppingBag, faPlus, faMinus, faTrashAlt, faCheckCircle, faUtensils, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { BagShopping, Plus, Minus, Trash, TickCircle, ForkKnife, CloseCircle } from "reicon-react";
 import { MenuItem } from "@fortifykitchen/types";
 import { getMenuItemLabel, calculateOrderTotal } from "@fortifykitchen/shared";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -23,7 +22,7 @@ function CartItem({ item, lang, onUpdateQty, onRemove }: { item: { menuItem: Men
           {menuItem.imageUrl ? (
             <img src={menuItem.imageUrl} alt={getMenuItemLabel(menuItem)} className="w-full h-full object-cover" />
           ) : (
-            <FontAwesomeIcon icon={faUtensils} className="h-6 w-6 text-muted-foreground/30 mx-auto my-auto" />
+            <ForkKnife className="h-6 w-6 text-muted-foreground/30 mx-auto my-auto" />
           )}
           {(menuItem.stockQuantity ?? 0) <= 0 && (
             <span className="absolute inset-0 bg-black/50 flex items-center justify-center text-xs font-bold text-white">
@@ -46,7 +45,7 @@ function CartItem({ item, lang, onUpdateQty, onRemove }: { item: { menuItem: Men
               disabled={quantity <= 1}
               className="h-7 w-7 flex items-center justify-center rounded text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <FontAwesomeIcon icon={faMinus} className="h-3.5 w-3.5" />
+              <Minus className="h-3.5 w-3.5" />
             </button>
             <span className="text-sm font-bold w-8 text-center">{quantity}</span>
             <button
@@ -54,7 +53,7 @@ function CartItem({ item, lang, onUpdateQty, onRemove }: { item: { menuItem: Men
               disabled={quantity >= maxQty}
               className="h-7 w-7 flex items-center justify-center rounded text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
           <button
@@ -62,7 +61,7 @@ function CartItem({ item, lang, onUpdateQty, onRemove }: { item: { menuItem: Men
             className="text-red-500 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
             aria-label="Remove"
           >
-            <FontAwesomeIcon icon={faTrashAlt} className="h-4.5 w-4.5" />
+            <Trash className="h-4.5 w-4.5" />
           </button>
         </div>
       </div>
@@ -194,7 +193,7 @@ export default function CartDrawer({
               onClick={() => { setCartOpen(false); setCheckoutStep("cart"); }} 
               className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-muted transition-colors"
             >
-              <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
+              <CloseCircle className="h-5 w-5" />
             </button>
           </div>
 
@@ -203,7 +202,7 @@ export default function CartDrawer({
             {isGuest && (
               <div className="space-y-3">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                  <BagShopping className="h-4 w-4 text-primary" />
                   {lang === "vi" ? "Thông tin liên hệ" : "Contact Info"}
                 </label>
                 <div className="space-y-3">
@@ -230,7 +229,7 @@ export default function CartDrawer({
             {/* Delivery Address */}
             <div className="space-y-4">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                <BagShopping className="h-4 w-4 text-primary" />
                 {t("cart_address", lang)}
               </label>
               <div className="space-y-3">
@@ -256,7 +255,7 @@ export default function CartDrawer({
             {/* Discount Code */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                <BagShopping className="h-4 w-4 text-primary" />
                 {t("cart_coupon", lang)}
               </label>
               <div className="relative">
@@ -271,7 +270,7 @@ export default function CartDrawer({
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">⋯</span>
                 )}
                 {discountCodeStatus === "valid" && (
-                  <FontAwesomeIcon icon={faCheckCircle} className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
+                  <TickCircle className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
                 )}
               </div>
               {discountCodeStatus === "valid" && verifiedDiscount && (
@@ -287,7 +286,7 @@ export default function CartDrawer({
             {/* Order Notes */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                <BagShopping className="h-4 w-4 text-primary" />
                 {t("cart_notes", lang)}
               </label>
               <textarea 
@@ -302,7 +301,7 @@ export default function CartDrawer({
             {/* Payment Method */}
             <div className="space-y-3">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4 text-primary" />
+                <BagShopping className="h-4 w-4 text-primary" />
                 {t("cart_payment", lang)}
               </label>
               <div className="flex gap-3">
@@ -337,8 +336,7 @@ export default function CartDrawer({
                   className="peer h-5 w-5 rounded border-2 border-border text-primary focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 appearance-none cursor-pointer transition-all"
                   required 
                 />
-                <FontAwesomeIcon 
-                  icon={faCheckCircle} 
+                <TickCircle 
                   className="absolute inset-0 h-5 w-5 text-primary opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" 
                 />
               </div>
@@ -349,7 +347,7 @@ export default function CartDrawer({
             {/* Order Summary */}
             <div className="border border-border bg-muted/25 rounded-xl p-4 space-y-3">
               <p className="text-sm font-bold text-foreground text-center flex items-center justify-center gap-2">
-                <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+                <BagShopping className="h-4 w-4" />
                 {lang === "vi" ? "Tóm tắt đơn hàng" : "Order Summary"}
               </p>
               <div className="space-y-2 text-sm">
@@ -361,7 +359,7 @@ export default function CartDrawer({
                 {proteinDiscountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 py-1 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5" />
+                      <BagShopping className="h-3.5 w-3.5" />
                       {lang === "vi" ? "Giảm protein (≥1kg/loại)" : "Protein discount (≥1kg/type)"}
                     </span>
                     <span className="font-semibold">-{formatVND(proteinDiscountAmount)}</span>
@@ -371,7 +369,7 @@ export default function CartDrawer({
                 {orderDiscountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 py-1 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5" />
+                      <BagShopping className="h-3.5 w-3.5" />
                       {lang === "vi" ? `Giảm đơn hàng (${cartPricing.orderDiscountPercent || 0}%)` : `Order discount (${cartPricing.orderDiscountPercent || 0}%)`}
                     </span>
                     <span className="font-semibold">-{formatVND(orderDiscountAmount)}</span>
@@ -381,7 +379,7 @@ export default function CartDrawer({
                 {hasActivePlanDiscount && (
                   <div className="flex justify-between text-emerald-600 py-1 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5" />
+                      <BagShopping className="h-3.5 w-3.5" />
                       {lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}
                     </span>
                     <span className="font-semibold">-{formatVND(planDiscountAmount)}</span>
@@ -391,7 +389,7 @@ export default function CartDrawer({
                 {couponDiscountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 py-1 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-3.5 w-3.5" />
+                      <BagShopping className="h-3.5 w-3.5" />
                       {t("cart_discount", lang)}
                     </span>
                     <span className="font-semibold">-{formatVND(couponDiscountAmount)}</span>
@@ -413,13 +411,13 @@ export default function CartDrawer({
             >
               {isSubmittingOrder ? (
                 <>
-                  <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5 animate-spin" />
+                  <BagShopping className="h-5 w-5 animate-spin" />
                   {lang === "vi" ? "Đang xử lý..." : "Processing..."}
                 </>
               ) : (
                 <>
                   {t("btn_checkout", lang)}
-                  <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5" />
+                  <BagShopping className="h-5 w-5" />
                 </>
               )}
             </button>
@@ -445,7 +443,7 @@ export default function CartDrawer({
         <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card z-10">
           <h3 className="font-semibold font-heading">{t("cart_title", lang)} ({cartCount})</h3>
           <button onClick={() => setCartOpen(false)} className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-muted transition-colors">
-            <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
+            <CloseCircle className="h-5 w-5" />
           </button>
         </div>
         
@@ -453,7 +451,7 @@ export default function CartDrawer({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {cart.length === 0 ? (
             <div className="text-center py-16">
-              <FontAwesomeIcon icon={faShoppingBag} className="h-14 w-14 text-muted-foreground/30 mx-auto mb-4" />
+              <BagShopping className="h-14 w-14 text-muted-foreground/30 mx-auto mb-4" />
               <p className="text-base text-muted-foreground font-medium">{t("cart_empty", lang)}</p>
             </div>
           ) : (
@@ -471,7 +469,7 @@ export default function CartDrawer({
                 {proteinDiscountAmount > 0 && (
                   <div className="flex justify-between text-sm text-emerald-600">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+                      <BagShopping className="h-4 w-4" />
                       {lang === "vi" ? "Giảm protein (≥1kg/loại)" : "Protein discount (≥1kg/type)"}
                     </span>
                     <span className="font-semibold">-{formatVND(proteinDiscountAmount)}</span>
@@ -481,7 +479,7 @@ export default function CartDrawer({
                 {orderDiscountAmount > 0 && (
                   <div className="flex justify-between text-sm text-emerald-600">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+                      <BagShopping className="h-4 w-4" />
                       {lang === "vi" ? `Giảm đơn hàng (${cartPricing.orderDiscountPercent || 0}%)` : `Order discount (${cartPricing.orderDiscountPercent || 0}%)`}
                     </span>
                     <span className="font-semibold">-{formatVND(orderDiscountAmount)}</span>
@@ -491,7 +489,7 @@ export default function CartDrawer({
                 {hasActivePlanDiscount && (
                   <div className="flex justify-between text-sm text-emerald-600">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+                      <BagShopping className="h-4 w-4" />
                       {lang === "vi" ? `Ưu đãi thành viên (${planDiscountPercent}%)` : `Member discount (${planDiscountPercent}%)`}
                     </span>
                     <span className="font-semibold">-{formatVND(planDiscountAmount)}</span>
@@ -501,7 +499,7 @@ export default function CartDrawer({
                 {couponDiscountAmount > 0 && (
                   <div className="flex justify-between text-sm text-emerald-600">
                     <span className="flex items-center gap-1.5">
-                      <FontAwesomeIcon icon={faShoppingBag} className="h-4 w-4" />
+                      <BagShopping className="h-4 w-4" />
                       {t("cart_discount", lang)}
                     </span>
                     <span className="font-semibold">-{formatVND(couponDiscountAmount)}</span>
@@ -519,7 +517,7 @@ export default function CartDrawer({
                   className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-sm font-bold py-4 rounded-xl transition-all cursor-pointer shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                 >
                   {t("btn_checkout", lang)}
-                  <FontAwesomeIcon icon={faShoppingBag} className="h-5 w-5" />
+                  <BagShopping className="h-5 w-5" />
                 </button>
               </div>
             </>

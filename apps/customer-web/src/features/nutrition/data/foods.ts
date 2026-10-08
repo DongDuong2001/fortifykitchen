@@ -252,10 +252,14 @@ export const FOODS: Food[] = [
 // Live Fortify menu → foods
 // ---------------------------------------------------------------------------
 
+// The cut/part of the protein (e.g. "Ức", "Má đùi", "Cánh"), from the menu
+// item's food subtype when one is set.
+const cutOf = (item: MenuItem) => item.foodSubtype?.name || undefined;
+
 function baseFor(item: MenuItem): Nutrients {
   if (item.protein === "BEEF") return FORTIFY_BASES.beef;
   if (item.protein === "SHRIMP") return FORTIFY_BASES.shrimp;
-  const v = (item.variant ?? "").toLowerCase();
+  const v = (cutOf(item) ?? "").toLowerCase();
   if (v.includes("đùi") || v.includes("dui") || v.includes("thigh")) return FORTIFY_BASES.chickenThigh;
   return FORTIFY_BASES.chickenBreast;
 }
@@ -263,7 +267,7 @@ function baseFor(item: MenuItem): Nutrients {
 /** One food per live menu SKU, scaled from the protein base by box size. */
 export function menuItemsToFoods(menuItems: MenuItem[]): Food[] {
   return menuItems.map((item) => {
-    const name = [item.variant, item.flavor].filter(Boolean).join(" · ");
+    const name = [cutOf(item), item.flavor].filter(Boolean).join(" · ");
     return {
       id: `menu-${item.id}`,
       category: "fortify" as const,

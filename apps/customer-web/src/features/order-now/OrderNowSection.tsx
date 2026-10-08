@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faClock,
-  faMagic,
-  faPlus,
-  faMinus,
-  faInfoCircle,
-  faCheckCircle,
-  faUtensils,
-  faSpinner,
-} from "@fortawesome/free-solid-svg-icons";
+import { Clock, MagicStar, Plus, Minus, InfoCircle, TickCircle, ForkKnife } from "reicon-react";
 import { MenuItem, Protein } from "@fortifykitchen/types";
 import { DICTIONARY } from "@/constants/dictionary";
 import { calculateCustomOrderPrice } from "@/lib/utils";
@@ -124,7 +114,7 @@ interface OrderNowSectionProps {
 function OrderResultView({ lang, orderNowResult, setOrderNowResult, setOrderNowName, setOrderNowPhone, setOrderNowAddress, setOrderNowNotes, setOrderNowProvince, setOrderNowWard, setOrderNowStreet, setOrderNowDiscountCode, setOrderNowAgreeTerms, t, formatVND }: any) {
   return (
     <div className="max-w-md mx-auto border border-border bg-card rounded-2xl p-6 text-center space-y-5 shadow-sm">
-      <FontAwesomeIcon icon={faCheckCircle} className="h-10 w-10 mx-auto text-emerald-500" />
+      <TickCircle className="h-10 w-10 mx-auto text-emerald-500" />
       <h3 className="text-sm font-bold font-heading">{t("success_title", lang)}</h3>
       <p className="text-xs text-muted-foreground leading-relaxed">
         {orderNowResult.fulfillmentType === "IMMEDIATE"
@@ -274,8 +264,8 @@ export default function OrderNowSection({
   setCustomOrderToppings,
   customOrderSauce,
   setCustomOrderSauce,
-  customOrderDeliveryDate,
-  setCustomOrderDeliveryDate,
+  customOrderDeliveryDate: _customOrderDeliveryDate,
+  setCustomOrderDeliveryDate: _setCustomOrderDeliveryDate,
   customOrderQty,
   setCustomOrderQty,
   handleSubmitOrderNow,
@@ -364,7 +354,7 @@ export default function OrderNowSection({
                 : "text-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
             }`}
           >
-            <FontAwesomeIcon icon={faClock} className="h-3.5 w-3.5" />
+            <Clock className="h-3.5 w-3.5" />
             {lang === "vi" ? "Giao Ngay (Hôm nay)" : "Order Today's Menu"}
           </button>
           <button
@@ -376,7 +366,7 @@ export default function OrderNowSection({
                 : "text-secondary hover:text-foreground"
             }`}
           >
-            <FontAwesomeIcon icon={faMagic} className="h-3.5 w-3.5" />
+            <MagicStar className="h-3.5 w-3.5" />
             {lang === "vi" ? "Đặt Theo Yêu Cầu (Custom)" : "Custom Order Request"}
           </button>
         </div>
@@ -420,11 +410,11 @@ export default function OrderNowSection({
 
               {isLoadingMenu ? (
                 <div className="flex justify-center py-16">
-                  <FontAwesomeIcon icon={faUtensils} className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <ForkKnife className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredReadyNowItems.length === 0 ? (
                 <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <FontAwesomeIcon icon={faInfoCircle} className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <InfoCircle className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-xs text-muted-foreground font-semibold">
                     {lang === "vi"
                       ? "Bếp đang chuẩn bị mẻ mới — chưa có món giao ngay. Quay lại sau ít phút nhé."
@@ -477,7 +467,7 @@ export default function OrderNowSection({
                                   onClick={() => updateOrderNowQty(selected.id, inCart.qty - 1)}
                                   className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer"
                                 >
-                                  <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
+                                  <Minus className="h-3 w-3" />
                                 </button>
                                 <span className="text-xs font-bold w-4 text-center">{inCart.qty}</span>
                                 <button
@@ -486,7 +476,7 @@ export default function OrderNowSection({
                                   disabled={inCart.qty >= selected.stockQuantity}
                                   className="h-6 w-6 flex items-center justify-center rounded border border-border hover:bg-muted cursor-pointer disabled:opacity-30"
                                 >
-                                  <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+                                  <Plus className="h-3 w-3" />
                                 </button>
                               </div>
                             ) : (
@@ -509,7 +499,7 @@ export default function OrderNowSection({
           ) : (
             <div>
               <div className="flex gap-3 bg-amber-50/50 border border-amber-200/50 p-4 rounded-xl text-amber-800 text-xs mb-6 text-left">
-                <FontAwesomeIcon icon={faInfoCircle} className="h-4 w-4 shrink-0 mt-0.5" />
+                <InfoCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold">{lang === "vi" ? "Lưu ý Đặt Món Theo Yêu Cầu (24h trước)" : "Custom Order Requirement (24h in advance)"}</p>
                   <p className="mt-0.5 opacity-90 leading-relaxed text-[11px]">
@@ -529,7 +519,7 @@ export default function OrderNowSection({
                         key={opt.id}
                         type="button"
                         onClick={() => setCustomOrderProtein(opt.id)}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                           customOrderProtein === opt.id
                             ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
                             : "border-border bg-card hover:bg-muted"
@@ -542,43 +532,35 @@ export default function OrderNowSection({
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "1.5 Chọn Định Lượng (Portion)" : "1.5 Select Portion"}</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "2. Chọn Định Lượng" : "2. Select Portion Size"}</label>
                   <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setCustomOrderSize(150)}
-                      className={`px-6 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        customOrderSize === 150
-                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                          : "border-border bg-card hover:bg-muted"
-                      }`}
-                    >
-                      150g
-                    </button>
-                    <button
-                      type="button"
-                      disabled={customOrderProtein !== "chicken"}
-                      onClick={() => setCustomOrderSize(250)}
-                      className={`px-6 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
-                        customOrderSize === 250
-                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                          : "border-border bg-card hover:bg-muted"
-                      }`}
-                    >
-                      250g {customOrderProtein !== "chicken" && (lang === "vi" ? "(Chỉ có cho Gà)" : "(Chicken only)")}
-                    </button>
+                    {[150, 250].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        disabled={size === 250 && customOrderProtein !== "chicken"}
+                        onClick={() => setCustomOrderSize(size)}
+                        className={`px-5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-30 ${
+                          customOrderSize === size
+                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                            : "border-border bg-card hover:bg-muted"
+                        }`}
+                      >
+                        {size}g {size === 250 && customOrderProtein !== "chicken" ? "(Chỉ có Gà)" : ""}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "2. Chọn Tinh Bột (Carbohydrates)" : "2. Select Carbohydrates"}</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "3. Chọn Tinh Bột (Carb)" : "3. Select Carb"}</label>
                   <div className="grid grid-cols-3 gap-3">
                     {CARB_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
                         type="button"
                         onClick={() => setCustomOrderCarb(opt.id)}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                           customOrderCarb === opt.id
                             ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
                             : "border-border bg-card hover:bg-muted"
@@ -591,21 +573,23 @@ export default function OrderNowSection({
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "3. Chọn Rau Củ & Toppings" : "3. Select Sides & Toppings"}</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "4. Rau củ & Topping" : "4. Toppings"}</label>
                   <div className="grid grid-cols-3 gap-3">
                     {TOPPING_OPTIONS.map((opt) => {
-                      const isSelected = customOrderToppings.includes(opt.id);
+                      const isSel = customOrderToppings.includes(opt.id);
                       return (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => {
-                            setCustomOrderToppings((prev) =>
-                              isSelected ? prev.filter((t) => t !== opt.id) : [...prev, opt.id]
-                            );
+                            if (isSel) {
+                              setCustomOrderToppings(customOrderToppings.filter((x) => x !== opt.id));
+                            } else {
+                              setCustomOrderToppings([...customOrderToppings, opt.id]);
+                            }
                           }}
-                          className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                            isSelected
+                          className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                            isSel
                               ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
                               : "border-border bg-card hover:bg-muted"
                           }`}
@@ -618,14 +602,14 @@ export default function OrderNowSection({
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "4. Chọn Xốt" : "4. Select Sauce"}</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "5. Chọn Xốt" : "5. Select Sauce"}</label>
                   <div className="grid grid-cols-3 gap-3">
                     {SAUCE_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
                         type="button"
                         onClick={() => setCustomOrderSauce(opt.id)}
-                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                           customOrderSauce === opt.id
                             ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
                             : "border-border bg-card hover:bg-muted"
@@ -637,38 +621,25 @@ export default function OrderNowSection({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Thời gian giao hàng (Dự kiến)" : "Delivery Date (Scheduled)"}</label>
-                    <input
-                      type="date"
-                      required
-                      min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
-                      value={customOrderDeliveryDate}
-                      onChange={(e) => setCustomOrderDeliveryDate(e.target.value)}
-                      className="w-full bg-input border border-border focus:border-primary text-xs py-2.5 px-3 rounded-lg outline-none text-foreground cursor-pointer font-bold font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "Số lượng phần ăn" : "Quantity"}</label>
-                    <div className="flex items-center gap-3 pt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setCustomOrderQty((prev) => Math.max(1, prev - 1))}
-                        className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer"
-                      >
-                        <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
-                      </button>
-                      <span className="text-sm font-extrabold w-8 text-center font-mono">{customOrderQty}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomOrderQty((prev) => prev + 1)}
-                        className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer"
-                      >
-                        <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
-                      </button>
-                    </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">{lang === "vi" ? "6. Số Lượng Suất" : "6. Quantity"}</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCustomOrderQty((prev) => Math.max(1, prev - 1))}
+                      disabled={customOrderQty <= 1}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer disabled:opacity-30"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="text-sm font-extrabold w-8 text-center font-mono">{customOrderQty}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomOrderQty((prev) => prev + 1)}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted cursor-pointer"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -726,7 +697,7 @@ export default function OrderNowSection({
                 onClick={() => {}}
                 className="w-full bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 {lang === "vi" ? "Tiếp tục thanh toán" : "Proceed to Checkout"}
               </button>
             </div>
@@ -865,7 +836,7 @@ export default function OrderNowSection({
               className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-bold py-3 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {isSubmittingOrderNow
-                ? <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />
+                ? <Clock className="h-4 w-4 animate-spin" />
                 : t("btn_checkout", lang)}
             </button>
           </div>

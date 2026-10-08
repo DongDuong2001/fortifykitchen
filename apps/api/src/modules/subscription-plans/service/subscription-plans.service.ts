@@ -11,6 +11,7 @@ type RawPlan = {
   price: number;
   voucherPercent: number;
   description: string | null;
+  features: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +28,7 @@ export class SubscriptionPlansService {
         price: dto.price,
         voucherPercent: dto.voucherPercent ?? 0,
         description: dto.description,
+        features: dto.features ?? [],
         isActive: dto.isActive ?? true,
       },
     });
@@ -65,6 +67,7 @@ export class SubscriptionPlansService {
         price: dto.price,
         voucherPercent: dto.voucherPercent,
         description: dto.description,
+        features: dto.features,
         isActive: dto.isActive,
       },
     });
@@ -86,21 +89,18 @@ export class SubscriptionPlansService {
       throw new NotFoundException(`Subscription plan with ID ${planId} not found`);
     }
 
-    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    let customer = await this.db.client.customer.findFirst({ where: { userId } });
     if (!customer) {
-      throw new BadRequestException("No customer profile found for this account");
-    }
-
-    // Decided: a customer can only hold one plan's recurring discount at a
-    // time. The discount is indefinite — no calendar expiry — it just stays
-    // in effect until walletBalance is spent down to 0, so THAT'S the guard:
-    // self-serve buying a new plan while money from the current one is still
-    // sitting in the wallet is blocked; use requestUpgrade() instead, which
-    // prorates the new tier against this leftover balance.
-    if (customer.walletBalance > 0) {
-      throw new BadRequestException(
-        "You already have an active plan discount. Submit a plan upgrade request instead if you'd like to move to a higher tier.",
-      );
+      const user = await this.db.client.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        throw new BadRequestException("No customer profile found for this account");
+      }
+      customer = await this.db.client.customer.create({
+        data: {
+          userId: user.id,
+          name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        },
+      });
     }
 
     const payment = await this.db.client.payment.create({
@@ -238,9 +238,18 @@ export class SubscriptionPlansService {
       throw new NotFoundException(`Subscription plan with ID ${requestedPlanId} not found`);
     }
 
-    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    let customer = await this.db.client.customer.findFirst({ where: { userId } });
     if (!customer) {
-      throw new BadRequestException("No customer profile found for this account");
+      const user = await this.db.client.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        throw new BadRequestException("No customer profile found for this account");
+      }
+      customer = await this.db.client.customer.create({
+        data: {
+          userId: user.id,
+          name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        },
+      });
     }
 
     const existingPending = await this.db.client.planUpgradeRequest.findFirst({
@@ -263,9 +272,18 @@ export class SubscriptionPlansService {
 
   // Customer's own view of their upgrade-request history.
   async findMyUpgradeRequests(userId: string) {
-    const customer = await this.db.client.customer.findFirst({ where: { userId } });
+    let customer = await this.db.client.customer.findFirst({ where: { userId } });
     if (!customer) {
-      throw new BadRequestException("No customer profile found for this account");
+      const user = await this.db.client.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return [];
+      }
+      customer = await this.db.client.customer.create({
+        data: {
+          userId: user.id,
+          name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        },
+      });
     }
     const list = await this.db.client.planUpgradeRequest.findMany({
       where: { customerId: customer.id },
@@ -414,6 +432,7 @@ export class SubscriptionPlansService {
       price: p.price,
       voucherPercent: p.voucherPercent,
       description: p.description ?? undefined,
+      features: p.features ?? [],
       isActive: p.isActive,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
