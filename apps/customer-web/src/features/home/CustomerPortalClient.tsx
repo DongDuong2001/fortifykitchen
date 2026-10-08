@@ -16,6 +16,7 @@ import HomeSection from "@/features/home/HomeSection";
 import MenuSection from "@/features/menu/MenuSection";
 import OrderNowSection from "@/features/order-now/OrderNowSection";
 import CalculatorSection from "@/features/calculator/CalculatorSection";
+import NutritionSection from "@/features/nutrition/NutritionSection";
 import WalletSection from "@/features/wallet/WalletSection";
 import SubscriptionsSection from "@/features/subscriptions/SubscriptionsSection";
 import DashboardSection from "@/features/dashboard/DashboardSection";
@@ -104,7 +105,7 @@ export default function CustomerPortalClient({
   } = useApp();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = React.useState<"home" | "menu" | "order-now" | "calculator" | "wallet" | "subscriptions" | "dashboard">("home");
+  const [activeTab, setActiveTab] = React.useState<"home" | "menu" | "order-now" | "calculator" | "nutrition" | "wallet" | "subscriptions" | "dashboard">("home");
 
   const [orderNowCart, setOrderNowCart] = React.useState<{ menuItem: MenuItem; qty: number }[]>([]);
   const [orderNowName, setOrderNowName] = React.useState("");
@@ -400,7 +401,7 @@ export default function CustomerPortalClient({
 
   // Wrap setActiveTab to match component prop type
   const handleSetActiveTab = (tab: string) => {
-    setActiveTab(tab as "home" | "menu" | "order-now" | "calculator" | "wallet" | "subscriptions" | "dashboard");
+    setActiveTab(tab as "home" | "menu" | "order-now" | "calculator" | "nutrition" | "wallet" | "subscriptions" | "dashboard");
   };
 
   const [authModal, setAuthModal] = React.useState<"login" | "signup" | null>(null);
@@ -852,6 +853,17 @@ export default function CustomerPortalClient({
               )}
             </button>
             <button
+              onClick={() => setActiveTab("nutrition")}
+              className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
+                activeTab === "nutrition" ? "text-foreground font-bold" : "text-muted-foreground"
+              }`}
+            >
+              {t("nav_nutrition", lang)}
+              {activeTab === "nutrition" && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-[3px] bg-primary rounded-full" />
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab("wallet")}
               className={`hover:text-foreground transition-colors py-2 relative cursor-pointer ${
                 activeTab === "wallet" ? "text-foreground font-bold" : "text-muted-foreground"
@@ -1003,6 +1015,7 @@ export default function CustomerPortalClient({
         {activeTab === "home" && <HomeSection lang={lang} menuItems={menuItems} setActiveTab={handleSetActiveTab} addToCart={addToCart} homeFrames={homeFrames} isLoadingHomeFrames={isLoadingHomeFrames} />}
         {activeTab === "menu" && <MenuSection lang={lang} menuItems={menuItems} isLoadingMenu={isLoadingMenu} selectedProtein={selectedProtein} setSelectedProtein={setSelectedProtein} addToCart={addToCart} />}
         {activeTab === "calculator" && <CalculatorSection lang={lang} />}
+        {activeTab === "nutrition" && <NutritionSection lang={lang} menuItems={menuItems} />}
         {activeTab === "order-now" && (
           <OrderNowSection
             lang={lang}
