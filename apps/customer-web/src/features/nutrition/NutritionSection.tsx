@@ -12,19 +12,26 @@ import {
   faUserPen,
   faCopy,
   faLightbulb,
+  faDumbbell,
 } from "@fortawesome/free-solid-svg-icons";
 import type { MenuItem } from "@fortifykitchen/types";
 import {
   NUTRIENTS,
   ZERO_NUTRIENTS,
   DEFAULT_PROFILE,
+  GOALS,
   computeTargets,
+  normalizeProfile,
+  targetStatus,
   addNutrients,
   formatAmount,
+  formatTarget,
   type Nutrients,
-  type NutrientDef,
   type NutrientGroup,
   type NutritionProfile,
+  type Target,
+  type Targets,
+  type TargetStatus,
 } from "./data/nutrients";
 import { FOODS, FOOD_CATEGORIES, FORTIFY_FALLBACK_FOODS, menuItemsToFoods, type Food, type FoodCategory } from "./data/foods";
 
@@ -92,17 +99,43 @@ function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const GROUP_TITLES: Record<NutrientGroup, { vi: string; en: string }> = {
-  energy: { vi: "Năng lượng & Macro", en: "Energy & macros" },
-  vitamins: { vi: "Vitamin", en: "Vitamins" },
-  minerals: { vi: "Khoáng chất", en: "Minerals" },
+const GROUP_TITLES: Record<NutrientGroup, { vi: string; en: string; noteVi: string; noteEn: string }> = {
+  energy: {
+    vi: "Năng lượng & Macro",
+    en: "Energy & macros",
+    noteVi: "Theo Coach. Carb: 50% là carb chậm. Fat: tối ưu (MUFA + PUFA) : SAT = 4 : 1.",
+    noteEn: "Coach targets. Carbs: 50% slow carbs. Fat: aim for (MUFA + PUFA) : SAT = 4 : 1.",
+  },
+  electrolytes: {
+    vi: "Điện giải & khoáng chất",
+    en: "Electrolytes & minerals",
+    noteVi: "Theo Coach. Sodium là nền tảng — thiếu sodium thì tất cả tầng điện giải gãy hết.",
+    noteEn: "Coach targets. Sodium is the foundation of the electrolyte layer.",
+  },
+  reference: {
+    vi: "Vitamin & vi chất (tham khảo)",
+    en: "Vitamins & trace minerals (reference)",
+    noteVi: "Coach chưa đưa con số — hiển thị mức khuyến nghị Viện Dinh dưỡng để tham khảo. Coach lưu ý B1, B6, B9, B12.",
+    noteEn: "No coach numbers yet — shown against the Vietnamese RDA for reference. Coach flags B1, B6, B9, B12.",
+  },
 };
 
-function barTone(def: NutrientDef, pct: number) {
-  if (def.kind === "max") return pct > 100 ? "bg-rose-500" : "bg-emerald-500";
-  if (pct >= 100) return "bg-emerald-500";
-  if (pct >= 50) return "bg-amber-500";
-  return "bg-rose-400";
+// Coach's workout-day amounts (docs/coach-food-list.md §2).
+const TRAINING_TIPS: { vi: string; en: string; foodId?: string; grams?: number }[] = [
+  { vi: "30 g chà là trước tập", en: "30 g dates before training", foodId: "coach-dates", grams: 30 },
+  { vi: "1–2 g muối cho mỗi 20 phút trong tập", en: "1–2 g salt every 20 minutes of training" },
+  { vi: "30–45 g carb với Redbull trong 1 giờ ở ngưỡng", en: "30–45 g carbs with Red Bull per hour at threshold" },
+];
+
+function barTone(status: TargetStatus, reference: boolean) {
+  if (status === "ok") return reference ? "bg-emerald-500/60" : "bg-emerald-500";
+  if (status === "over") return "bg-amber-500";
+  if (status === "near") return reference ? "bg-amber-400/60" : "bg-amber-400";
+  return reference ? "bg-rose-400/60" : "bg-rose-400";
+}
+
+function pctOf(value: number, t: Target) {
+  return t.min > 0 ? (value / t.min) * 100 : 0;
 }
 
 interface NutritionSectionProps {
@@ -122,8 +155,8 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
 
   // Load once on the client (localStorage isn't available during SSR).
   React.useEffect(() => {
-    const storedProfile = readStorage<NutritionProfile | null>(PROFILE_KEY, null);
-    setProfile(storedProfile ?? DEFAULT_PROFILE);
+    const storedProfile = readStorage<Partial<NutritionProfile> | null>(PROFILE_KEY, null);
+    setProfile(normalizeProfile(storedProfile));
     setDiary(readStorage<Diary>(DIARY_KEY, {}));
     setProfileOpen(!storedProfile);
     setLoaded(true);
@@ -149,7 +182,6 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
     [entries],
   );
 
-  const pct = (key: keyof Nutrients) => (targets[key] > 0 ? (totals[key] / targets[key]) * 100 : 0);
 
   const addEntry = (food: Food, grams: number, meal: Meal) => {
     const entry: DiaryEntry = { id: newId(), foodId: food.id, name: { vi: food.vi, en: food.en }, meal, grams, per100: food.per100 };
@@ -166,22 +198,26 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
     setDiary((d) => ({ ...d, [day]: [...(d[day] ?? []), ...yesterday.map((e) => ({ ...e, id: newId() }))] }));
   };
 
-  // Lowest-covered nutrients + foods richest in them per 100 kcal.
+  // Coach-targeted nutrients (plus the B vitamins the coach flagged) that are
+  // furthest below target, each with the coach-list foods that supply the
+  // most of it per normal serving. Only foods on the coach's list are used.
+  const coachFoods = React.useMemo(() => allFoods.filter((f) => f.coach), [allFoods]);
   const gaps = React.useMemo(() => {
     if (entries.length === 0) return [];
-    return NUTRIENTS.filter((n) => n.kind === "min" && n.key !== "kcal" && n.key !== "carbs" && targets[n.key] > 0)
-      .map((n) => ({ def: n, pct: (totals[n.key] / targets[n.key]) * 100 }))
+    return NUTRIENTS.filter((n) => n.key !== "kcal" && n.key !== "carbs" && n.key !== "fat" && (targets[n.key].source === "coach" || n.coachWatch))
+      .map((n) => ({ def: n, pct: pctOf(totals[n.key], targets[n.key]) }))
       .filter((g) => g.pct < 70)
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 4)
       .map((g) => {
-        const picks = allFoods
-          .filter((f) => f.per100[g.def.key] > 0 && f.per100.kcal > 0)
-          .sort((a, b) => b.per100[g.def.key] / b.per100.kcal - a.per100[g.def.key] / a.per100.kcal)
+        const perServing = (f: Food) => (f.per100[g.def.key] * f.servings[0].grams) / 100;
+        const picks = coachFoods
+          .filter((f) => perServing(f) > 0)
+          .sort((a, b) => perServing(b) - perServing(a))
           .slice(0, 3);
         return { ...g, picks };
       });
-  }, [entries.length, totals, targets, allFoods]);
+  }, [entries.length, totals, targets, coachFoods]);
 
   const isToday = day === dateKey(new Date());
   const dayLabel = (() => {
@@ -197,8 +233,8 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
         <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading">{L("Nhật ký dinh dưỡng", "Nutrition tracker")}</h2>
         <p className="text-sm text-muted-foreground">
           {L(
-            "Ghi lại bữa ăn mỗi ngày và so sánh calo, macro, vitamin, khoáng chất với nhu cầu dinh dưỡng khuyến nghị cho người Việt Nam.",
-            "Log your meals each day and compare calories, macros, vitamins and minerals against the Vietnamese recommended daily intake.",
+            "Ghi lại bữa ăn mỗi ngày và so sánh calo, macro, điện giải, vitamin, khoáng chất với mục tiêu của Coach Fortify Kitchen.",
+            "Log your meals each day and compare calories, macros, electrolytes, vitamins and minerals against the Fortify Kitchen coach's targets.",
           )}
         </p>
       </div>
@@ -223,8 +259,12 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
         </div>
         <button onClick={() => setProfileOpen((o) => !o)} className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold flex items-center gap-2 cursor-pointer self-start sm:self-auto">
           <FontAwesomeIcon icon={faUserPen} className="h-3.5 w-3.5 text-primary" />
-          {profile.sex === "male" ? L("Nam", "Male") : L("Nữ", "Female")} · {profile.age} {L("tuổi", "y")} · {profile.weightKg} kg ·{" "}
-          {targets.kcal} kcal
+          {profile.sex === "male" ? L("Nam", "Male") : L("Nữ", "Female")} · {profile.weightKg} kg ·{" "}
+          {(() => {
+            const g = GOALS.find((x) => x.id === profile.goal)!;
+            return L(g.vi, g.en);
+          })()}{" "}
+          · {formatTarget(targets.kcal)} kcal
         </button>
       </div>
 
@@ -286,46 +326,91 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
             <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-bold font-heading">{L("Đang thiếu — nên bổ sung", "Running low — try adding")}</h3>
+                <h3 className="text-sm font-bold font-heading">{L("Đang thiếu — Coach gợi ý bổ sung", "Running low — coach's picks")}</h3>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {gaps.map((g) => (
-                  <li key={g.def.key} className="text-xs">
+                  <li key={g.def.key} className="text-xs space-y-1.5">
                     <div className="flex justify-between font-bold">
                       <span>{L(g.def.vi, g.def.en)}</span>
                       <span className="font-mono text-rose-500">{Math.round(g.pct)}%</span>
                     </div>
-                    <p className="text-muted-foreground mt-0.5">{g.picks.map((f) => L(f.vi, f.en)).join(" · ")}</p>
+                    <ul className="space-y-1">
+                      {g.picks.map((f) => (
+                        <li key={f.id} className="flex items-baseline justify-between gap-3 text-muted-foreground">
+                          <span className="min-w-0">
+                            <span className="text-foreground">{L(f.vi, f.en)}</span>
+                            {f.coach?.brand && <span> · {f.coach.brand}</span>}
+                            {f.coach?.benefit && <span className="text-primary"> · {f.coach.benefit}</span>}
+                          </span>
+                          <span className="font-mono whitespace-nowrap">
+                            +{formatAmount((f.per100[g.def.key] * f.servings[0].grams) / 100)} {g.def.unit} / {L(f.servings[0].vi, f.servings[0].en)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold font-heading">{L("Ngày tập — theo Coach", "Training day — coach's rules")}</h3>
+            </div>
+            <ul className="space-y-2 text-xs">
+              {TRAINING_TIPS.map((tip) => {
+                const food = tip.foodId ? allFoods.find((f) => f.id === tip.foodId) : undefined;
+                return (
+                  <li key={tip.vi} className="flex items-center justify-between gap-3">
+                    <span>{L(tip.vi, tip.en)}</span>
+                    {food && tip.grams && (
+                      <button
+                        onClick={() => addEntry(food, tip.grams!, "snack")}
+                        className="shrink-0 text-[11px] font-bold text-primary px-2 py-1 rounded-lg hover:bg-primary/5 cursor-pointer"
+                      >
+                        + {L("Bữa phụ", "Snack")}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </div>
 
       {/* Nutrient targets */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {(["energy", "vitamins", "minerals"] as NutrientGroup[]).map((group) => (
+        {(["energy", "electrolytes", "reference"] as NutrientGroup[]).map((group) => (
           <div key={group} className="border border-border/80 bg-card rounded-2xl p-5 space-y-4 min-w-0">
-            <h3 className="text-sm font-bold font-heading">{L(GROUP_TITLES[group].vi, GROUP_TITLES[group].en)}</h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold font-heading">{L(GROUP_TITLES[group].vi, GROUP_TITLES[group].en)}</h3>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{L(GROUP_TITLES[group].noteVi, GROUP_TITLES[group].noteEn)}</p>
+            </div>
             <ul className="space-y-3">
               {NUTRIENTS.filter((n) => n.group === group).map((n) => {
-                const p = pct(n.key);
+                const t = targets[n.key];
+                const p = pctOf(totals[n.key], t);
+                const status = targetStatus(totals[n.key], t);
                 return (
                   <li key={n.key} className="space-y-1">
                     <div className="flex justify-between gap-2 text-xs">
-                      <span className="font-medium truncate">{L(n.vi, n.en)}</span>
+                      <span className="font-medium truncate">
+                        {L(n.vi, n.en)}
+                        {n.coachWatch && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-primary">Coach</span>}
+                      </span>
                       <span className="font-mono text-muted-foreground whitespace-nowrap">
-                        {formatAmount(totals[n.key])} / {n.kind === "max" ? "≤" : ""}
-                        {formatAmount(targets[n.key])} {n.unit}
+                        {formatAmount(totals[n.key])} / {formatTarget(t)} {n.unit}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${barTone(n, p)}`} style={{ width: `${Math.min(100, p)}%` }} />
+                        <div className={`h-full rounded-full transition-all ${barTone(status, t.source === "reference")}`} style={{ width: `${Math.min(100, p)}%` }} />
                       </div>
-                      <span className="w-10 text-right text-[11px] font-mono font-bold">{Math.round(p)}%</span>
+                      <span className={`w-10 text-right text-[11px] font-mono font-bold ${status === "over" ? "text-amber-600" : ""}`}>{Math.round(p)}%</span>
                     </div>
                   </li>
                 );
@@ -337,8 +422,8 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
 
       <p className="text-[11px] text-muted-foreground leading-relaxed max-w-3xl">
         {L(
-          "Mục tiêu theo Nhu cầu dinh dưỡng khuyến nghị cho người Việt Nam (Viện Dinh dưỡng, 2016); B1, B2, B6, B12, chất xơ, kali, natri và đồng theo khuyến nghị của WHO/FAO và IOM. Giá trị dinh dưỡng của thực phẩm là ước tính dựa trên USDA FoodData Central; món ăn hỗn hợp có thể khác tuỳ công thức. Nhật ký được lưu trên thiết bị này. Thông tin chỉ mang tính tham khảo, không thay thế tư vấn của chuyên gia dinh dưỡng — phụ nữ mang thai hoặc cho con bú có nhu cầu khác.",
-          "Targets follow the Vietnamese Recommended Dietary Allowances (National Institute of Nutrition, 2016); B1, B2, B6, B12, fiber, potassium, sodium and copper use WHO/FAO and IOM values. Food values are estimates based on USDA FoodData Central; mixed dishes vary by recipe. Your diary is saved on this device. For general guidance only, not a substitute for a dietitian — pregnancy and breastfeeding needs differ.",
+          "Mục tiêu năng lượng, macro, chất xơ và điện giải theo hướng dẫn của Coach Fortify Kitchen. Vitamin và vi chất khác hiển thị theo Nhu cầu dinh dưỡng khuyến nghị cho người Việt Nam (Viện Dinh dưỡng, 2016) để tham khảo. Gợi ý thực phẩm chỉ lấy từ danh sách của Coach. Giá trị dinh dưỡng của thực phẩm là ước tính dựa trên USDA FoodData Central. Nhật ký được lưu trên thiết bị này. Thông tin chỉ mang tính tham khảo, không thay thế tư vấn y tế — phụ nữ mang thai, cho con bú hoặc người có bệnh lý cần hỏi ý kiến bác sĩ.",
+          "Energy, macro, fiber and electrolyte targets follow the Fortify Kitchen coach's guidance. Other vitamins and minerals are shown against the Vietnamese RDA (National Institute of Nutrition, 2016) for reference. Food suggestions come only from the coach's list. Food values are estimates based on USDA FoodData Central. Your diary is saved on this device. For general guidance only, not medical advice — if pregnant, breastfeeding or managing a health condition, check with your doctor.",
         )}
       </p>
 
@@ -360,12 +445,14 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
 
 // ---------------------------------------------------------------------------
 
-function EnergySummary({ lang, totals, targets }: { lang: Lang; totals: Nutrients; targets: Nutrients }) {
+function EnergySummary({ lang, totals, targets }: { lang: Lang; totals: Nutrients; targets: Targets }) {
   const L = (vi: string, en: string) => (lang === "vi" ? vi : en);
-  const kcalPct = targets.kcal > 0 ? Math.min(1, totals.kcal / targets.kcal) : 0;
+  const kcal = targets.kcal;
+  const kcalPct = kcal.min > 0 ? Math.min(1, totals.kcal / kcal.min) : 0;
   const r = 52;
   const circ = 2 * Math.PI * r;
-  const remaining = Math.round(targets.kcal - totals.kcal);
+  const toMin = Math.round(kcal.min - totals.kcal);
+  const overMax = Math.round(totals.kcal - (kcal.max ?? kcal.min));
 
   const macros = [
     { key: "protein" as const, label: "Protein", color: "bg-primary" },
@@ -394,22 +481,26 @@ function EnergySummary({ lang, totals, targets }: { lang: Lang; totals: Nutrient
         <div className="space-y-1">
           <span className="text-[9px] font-bold text-secondary uppercase tracking-[0.2em]">{L("Năng lượng", "Energy")}</span>
           <p className="text-2xl font-extrabold font-heading">
-            {Math.round(totals.kcal)} <span className="text-sm font-medium text-muted-foreground">/ {targets.kcal} kcal</span>
+            {Math.round(totals.kcal)} <span className="text-sm font-medium text-muted-foreground">/ {formatTarget(kcal)} kcal</span>
           </p>
-          <p className={`text-xs font-bold ${remaining >= 0 ? "text-muted-foreground" : "text-rose-500"}`}>
-            {remaining >= 0 ? L(`Còn ${remaining} kcal`, `${remaining} kcal left`) : L(`Vượt ${-remaining} kcal`, `${-remaining} kcal over`)}
+          <p className={`text-xs font-bold ${overMax > 0 ? "text-amber-600" : toMin > 0 ? "text-muted-foreground" : "text-emerald-600"}`}>
+            {overMax > 0
+              ? L(`Vượt ${overMax} kcal`, `${overMax} kcal over`)
+              : toMin > 0
+                ? L(`Còn ${toMin} kcal`, `${toMin} kcal to go`)
+                : L("Đạt mục tiêu", "On target")}
           </p>
         </div>
       </div>
       <div className="space-y-3">
         {macros.map((m) => {
-          const p = targets[m.key] > 0 ? (totals[m.key] / targets[m.key]) * 100 : 0;
+          const p = pctOf(totals[m.key], targets[m.key]);
           return (
             <div key={m.key} className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="font-bold">{m.label}</span>
                 <span className="font-mono text-muted-foreground">
-                  {totals[m.key].toFixed(0)} / {targets[m.key]} g
+                  {totals[m.key].toFixed(0)} / {formatTarget(targets[m.key])} g
                 </span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -437,7 +528,7 @@ function ProfileEditor({ lang, profile, onChange, onClose }: { lang: Lang; profi
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold font-heading">{L("Thông tin của bạn", "Your profile")}</h3>
-          <p className="text-xs text-muted-foreground mt-1">{L("Dùng để tính nhu cầu khuyến nghị theo giới, tuổi và mức vận động.", "Used to set your targets by sex, age and activity level.")}</p>
+          <p className="text-xs text-muted-foreground mt-1">{L("Dùng để tính mục tiêu theo cân nặng, giới tính và mục tiêu tập luyện (theo Coach).", "Used to set your targets from weight, sex and training goal (coach's rules).")}</p>
         </div>
         <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Đóng", "Close")}>
           <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
@@ -476,21 +567,21 @@ function ProfileEditor({ lang, profile, onChange, onClose }: { lang: Lang; profi
           </label>
         </div>
         <div className="space-y-2">
-          <span className="text-xs font-bold">{L("Mức vận động", "Activity level")}</span>
+          <span className="text-xs font-bold">{L("Mục tiêu", "Goal")}</span>
           <div className="flex flex-wrap gap-2">
-            <button className={chip(profile.activity === "light")} onClick={() => set("activity", "light")}>{L("Nhẹ", "Light")}</button>
-            <button className={chip(profile.activity === "moderate")} onClick={() => set("activity", "moderate")}>{L("Vừa", "Moderate")}</button>
-            <button className={chip(profile.activity === "heavy")} onClick={() => set("activity", "heavy")}>{L("Nặng", "Heavy")}</button>
+            {GOALS.map((g) => (
+              <button key={g.id} className={chip(profile.goal === g.id)} onClick={() => set("goal", g.id)}>
+                {L(g.vi, g.en)} <span className="font-mono font-normal text-muted-foreground">{g.kcalPerKg[0]}–{g.kcalPerKg[1]} kcal/kg</span>
+              </button>
+            ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <span className="text-xs font-bold">{L("Mục tiêu protein", "Protein target")}</span>
-          <div className="flex flex-wrap gap-2">
-            <button className={chip(profile.proteinMode === "rni")} onClick={() => set("proteinMode", "rni")}>{L("Khuyến nghị 1,13 g/kg", "RDA 1.13 g/kg")}</button>
-            <button className={chip(profile.proteinMode === "gym")} onClick={() => set("proteinMode", "gym")}>{L("Tập gym 1,6 g/kg", "Gym 1.6 g/kg")}</button>
-            <button className={chip(profile.proteinMode === "bulk")} onClick={() => set("proteinMode", "bulk")}>{L("Tăng cơ 2,0 g/kg", "Bulk 2.0 g/kg")}</button>
-          </div>
-        </div>
+        {profile.sex === "female" && (
+          <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer self-end">
+            <input type="checkbox" checked={profile.onPeriod} onChange={(e) => set("onPeriod", e.target.checked)} className="h-4 w-4 accent-[var(--color-primary)]" />
+            {L("Gần tới kỳ hoặc đang trong kỳ (sắt 28 mg)", "Near or during period (iron 28 mg)")}
+          </label>
+        )}
       </div>
     </div>
   );
@@ -501,7 +592,7 @@ function ProfileEditor({ lang, profile, onChange, onClose }: { lang: Lang; profi
 function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal: Meal; foods: Food[]; onAdd: (food: Food, grams: number) => void; onClose: () => void }) {
   const L = (vi: string, en: string) => (lang === "vi" ? vi : en);
   const [query, setQuery] = React.useState("");
-  const [category, setCategory] = React.useState<FoodCategory | "all">("all");
+  const [category, setCategory] = React.useState<FoodCategory | "all" | "coach">("all");
   const [selected, setSelected] = React.useState<Food | null>(null);
   const [servingIdx, setServingIdx] = React.useState(0);
   const [qty, setQty] = React.useState(1);
@@ -515,7 +606,8 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
   const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
   const results = React.useMemo(() => {
     const q = normalize(query.trim());
-    return foods.filter((f) => (category === "all" || f.category === category) && (!q || normalize(f.vi).includes(q) || normalize(f.en).includes(q)));
+    const inCategory = (f: Food) => category === "all" || (category === "coach" ? !!f.coach : f.category === category);
+    return foods.filter((f) => inCategory(f) && (!q || normalize(f.vi).includes(q) || normalize(f.en).includes(q)));
   }, [foods, query, category]);
 
   const serving = selected?.servings[servingIdx];
@@ -554,7 +646,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {[{ id: "all" as const, vi: "Tất cả", en: "All" }, ...FOOD_CATEGORIES].map((c) => (
+                {[{ id: "all" as const, vi: "Tất cả", en: "All" }, { id: "coach" as const, vi: "Coach khuyên dùng", en: "Coach's picks" }, ...FOOD_CATEGORIES].map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setCategory(c.id)}
@@ -580,6 +672,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
                     <span className="text-sm">
                       {L(f.vi, f.en)}
                       {f.category === "fortify" && <span className="ml-2 text-[9px] font-bold uppercase tracking-wider text-primary">Fortify</span>}
+                      {f.coach && <span className="ml-2 text-[9px] font-bold uppercase tracking-wider text-amber-600">Coach</span>}
                     </span>
                     <span className="text-[11px] font-mono text-muted-foreground">
                       {Math.round((f.per100.kcal * f.servings[0].grams) / 100)} kcal / {L(f.servings[0].vi, f.servings[0].en)}
@@ -596,6 +689,14 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
             </button>
             <div>
               <p className="text-base font-bold font-heading">{L(selected.vi, selected.en)}</p>
+              {selected.coach && (
+                <p className="text-[11px] mt-1">
+                  <span className="font-bold text-amber-600">Coach</span>
+                  {selected.coach.brand && <span className="text-muted-foreground"> · {selected.coach.brand}</span>}
+                  {selected.coach.note && <span className="text-muted-foreground"> · {selected.coach.note}</span>}
+                  {selected.coach.benefit && <span className="text-primary"> · {selected.coach.benefit}</span>}
+                </p>
+              )}
               {selected.estimate && <p className="text-[11px] text-muted-foreground mt-1">{L("Giá trị ước tính theo công thức phổ biến.", "Estimated from a typical recipe.")}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
