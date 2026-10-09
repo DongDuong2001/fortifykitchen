@@ -1,19 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronLeft,
-  faChevronRight,
-  faPlus,
-  faTrash,
-  faXmark,
-  faMagnifyingGlass,
-  faUserPen,
-  faCopy,
-  faLightbulb,
-  faDumbbell,
-} from "@fortawesome/free-solid-svg-icons";
+import { Add, ArrowLeft2, ArrowRight2, CloseCircle, Copy, Dumbbell, Edit2, LampCharge, SearchNormal, Trash } from "reicon-react";
 import type { MenuItem } from "@fortifykitchen/types";
 import {
   NUTRIENTS,
@@ -253,13 +241,13 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => setDay(shiftDate(day, -1))} className="h-10 w-10 shrink-0 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Ngày trước", "Previous day")}>
-            <FontAwesomeIcon icon={faChevronLeft} className="h-3.5 w-3.5" />
+            <ArrowLeft2 className="h-3.5 w-3.5" />
           </button>
           <div className="px-4 h-10 rounded-xl border border-border bg-card flex items-center text-sm font-bold font-heading min-w-0">
             <span className="truncate">{isToday ? L("Hôm nay · ", "Today · ") : ""}{dayLabel}</span>
           </div>
           <button onClick={() => setDay(shiftDate(day, 1))} className="h-10 w-10 shrink-0 rounded-xl border border-border bg-card hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Ngày sau", "Next day")}>
-            <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5" />
+            <ArrowRight2 className="h-3.5 w-3.5" />
           </button>
           {!isToday && (
             <button onClick={() => setDay(dateKey(new Date()))} className="shrink-0 text-xs font-bold text-primary px-2 cursor-pointer">
@@ -268,7 +256,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
           )}
         </div>
         <button onClick={() => setProfileOpen((o) => !o)} className="h-10 px-4 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold flex items-center gap-2 cursor-pointer self-start sm:self-auto">
-          <FontAwesomeIcon icon={faUserPen} className="h-3.5 w-3.5 text-primary" />
+          <Edit2 className="h-3.5 w-3.5 text-primary" />
           {profile.sex === "male" ? L("Nam", "Male") : L("Nữ", "Female")} · {profile.weightKg} kg ·{" "}
           {(() => {
             const g = GOALS.find((x) => x.id === profile.goal)!;
@@ -285,7 +273,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
         <div className="lg:col-span-7 space-y-4 min-w-0">
           {entries.length === 0 && yesterday.length > 0 && (
             <button onClick={copyYesterday} className="w-full border border-dashed border-border rounded-2xl p-4 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted flex items-center justify-center gap-2 cursor-pointer">
-              <FontAwesomeIcon icon={faCopy} className="h-3.5 w-3.5" />
+              <Copy className="h-3.5 w-3.5" />
               {L(`Sao chép thực đơn hôm trước (${yesterday.length} món)`, `Copy the previous day's plan (${yesterday.length} items)`)}
             </button>
           )}
@@ -312,7 +300,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
                           </div>
                           <span className="text-xs font-mono font-bold whitespace-nowrap">{Math.round(nut.kcal)} kcal</span>
                           <button onClick={() => removeEntry(e.id)} className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Xoá", "Remove")}>
-                            <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+                            <Trash className="h-3 w-3" />
                           </button>
                         </li>
                       );
@@ -320,7 +308,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
                   </ul>
                 )}
                 <button onClick={() => setAddingTo(meal.id)} className="w-full px-5 py-3 text-xs font-bold text-primary hover:bg-primary/5 flex items-center gap-2 cursor-pointer">
-                  <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+                  <Add className="h-3 w-3" />
                   {L("Thêm món", "Add food")}
                 </button>
               </div>
@@ -335,7 +323,7 @@ export default function NutritionSection({ lang, menuItems }: NutritionSectionPr
           {gaps.length > 0 && (
             <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-amber-500" />
+                <LampCharge className="h-4 w-4 text-amber-500" />
                 <h3 className="text-sm font-bold font-heading">{L("Đang thiếu — Coach gợi ý bổ sung", "Running low — coach's picks")}</h3>
               </div>
               <ul className="space-y-4">
@@ -475,7 +463,7 @@ function TrainingCard({
   return (
     <div className="border border-border/80 bg-card rounded-2xl p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4 text-primary" />
+        <Dumbbell className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-bold font-heading">{L("Muối & ngày tập — theo Coach", "Salt & training — coach's rules")}</h3>
       </div>
 
@@ -629,7 +617,7 @@ function ProfileEditor({ lang, profile, onChange, onClose }: { lang: Lang; profi
           <p className="text-xs text-muted-foreground mt-1">{L("Dùng để tính mục tiêu theo cân nặng, giới tính và mục tiêu tập luyện (theo Coach).", "Used to set your targets from weight, sex and training goal (coach's rules).")}</p>
         </div>
         <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Đóng", "Close")}>
-          <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
+          <CloseCircle className="h-3.5 w-3.5" />
         </button>
       </div>
       <div className="grid sm:grid-cols-2 gap-5">
@@ -693,7 +681,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
   const [category, setCategory] = React.useState<FoodCategory | "all" | "coach">("all");
   const [selected, setSelected] = React.useState<Food | null>(null);
   const [servingIdx, setServingIdx] = React.useState(0);
-  const [qty, setQty] = React.useState(1);
+  const [qty, setQty] = React.useState("1");
 
   React.useEffect(() => {
     const onKey = (e: { key: string }) => e.key === "Escape" && onClose();
@@ -709,7 +697,8 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
   }, [foods, query, category]);
 
   const serving = selected?.servings[servingIdx];
-  const grams = serving ? serving.grams * qty : 0;
+  const qtyNum = Math.max(0, Number(qty) || 0);
+  const grams = serving ? serving.grams * qtyNum : 0;
   const preview = selected ? addNutrients(ZERO_NUTRIENTS, selected.per100, grams / 100) : ZERO_NUTRIENTS;
   const mealName = MEALS.find((m) => m.id === meal)!;
 
@@ -726,7 +715,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
             {L("Thêm vào", "Add to")} {L(mealName.vi, mealName.en).toLowerCase()}
           </h3>
           <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center cursor-pointer" aria-label={L("Đóng", "Close")}>
-            <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
+            <CloseCircle className="h-3.5 w-3.5" />
           </button>
         </div>
 
@@ -734,7 +723,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
           <>
             <div className="px-5 pt-4 space-y-3">
               <div className="relative">
-                <FontAwesomeIcon icon={faMagnifyingGlass} className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <SearchNormal className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   autoFocus
                   value={query}
@@ -763,7 +752,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
                     onClick={() => {
                       setSelected(f);
                       setServingIdx(0);
-                      setQty(1);
+                      setQty("1");
                     }}
                     className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-muted flex flex-col gap-0.5 cursor-pointer"
                   >
@@ -783,7 +772,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
         ) : (
           <div className="p-5 space-y-5 overflow-y-auto">
             <button onClick={() => setSelected(null)} className="text-xs font-bold text-primary flex items-center gap-1.5 cursor-pointer">
-              <FontAwesomeIcon icon={faChevronLeft} className="h-3 w-3" /> {L("Chọn món khác", "Pick another food")}
+              <ArrowLeft2 className="h-3 w-3" /> {L("Chọn món khác", "Pick another food")}
             </button>
             <div>
               <p className="text-base font-bold font-heading">{L(selected.vi, selected.en)}</p>
@@ -815,7 +804,8 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
                   min={0.25}
                   step={0.25}
                   value={qty}
-                  onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
+                  onChange={(e) => setQty(e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
                 />
               </label>
@@ -838,7 +828,7 @@ function AddFoodModal({ lang, meal, foods, onAdd, onClose }: { lang: Lang; meal:
               onClick={() => onAdd(selected, grams)}
               className="w-full bg-primary hover:bg-primary/95 disabled:opacity-40 text-primary-foreground text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+              <Add className="h-3.5 w-3.5" />
               {L(`Thêm ${Math.round(grams)} g`, `Add ${Math.round(grams)} g`)}
             </button>
           </div>
