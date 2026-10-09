@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Home, ForkKnife, Calculator, User } from "reicon-react";
+import { Home, ForkKnife, Calculator, ChartPie, User } from "reicon-react";
 import { DICTIONARY } from "@/constants/dictionary";
 
 type Dictionary = typeof DICTIONARY.vi;
@@ -21,6 +21,7 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuth
     { id: "home", icon: Home, label: t("nav_home", lang) },
     { id: "menu", icon: ForkKnife, label: t("nav_menu", lang) },
     { id: "calculator", icon: Calculator, label: t("nav_calculator", lang) },
+    { id: "nutrition", icon: ChartPie, label: t("nav_nutrition", lang) },
   ];
 
   if (user) {
@@ -31,7 +32,7 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuth
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur-lg safe-area-bottom">
-      <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
+      <div className="grid grid-cols-5 gap-1 px-2 py-1.5">
         {tabs.map((tab) => {
           const IconComponent = tab.icon;
           return (
@@ -47,7 +48,7 @@ export default function MobileNav({ lang, activeTab, setActiveTab, user, setAuth
               className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${activeTab === tab.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               <IconComponent className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[10px] font-medium leading-tight text-center">{tab.label}</span>
             </button>
           );
         })}
